@@ -1,0 +1,156 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #f5f5f4;
+  color: #44403c;
+}
+
+.container {
+  max-width: 900px;
+}
+
+.step-container {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.step-container.active {
+  display: flex;
+}
+
+.info-btn {
+  background: none;
+  border: 1px solid #93c5fd;
+  border-radius: 50%;
+  padding: 0;
+  margin-left: 8px;
+  cursor: pointer;
+  color: #3b82f6;
+  font-size: 0.8em;
+  font-weight: bold;
+  vertical-align: middle;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.info-btn:hover {
+  color: #1d4ed8;
+  background-color: #eff6ff;
+}
+
+.product-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+  padding: 1rem;
+  background-color: #fafaf9;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transition: background-color 0.2s;
+}
+
+.product-item:hover {
+  background-color: #e7e5e4;
+}
+
+.product-btn-text {
+  flex-grow: 1;
+  text-align: center;
+  cursor: pointer;
+  color: #44403c;
+  font-weight: 500;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, auto);
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.consumables-button {
+  grid-column: 1 / -1;
+}
+
+.obera-blue {
+  background-color: #1a3668;
+}
+
+.obera-blue-hover:hover {
+  background-color: #2a4a80;
+}
+
+.obera-blue-text {
+  color: #1a3668;
+}
+
+.obera-blue-text-hover:hover {
+  background-color: #e0e8f3;
+}
+
+.obera-green {
+  background-color: #8bc53f;
+}
+
+.obera-green-hover:hover {
+  background-color: #7ab43f;
+}
+
+.obera-red {
+  background-color: #dc2626;
+}
+
+.obera-red-hover:hover {
+  background-color: #b91c1c;
+}
+
+#progress-container {
+  width: 100%;
+  background-color: #e5e7eb;
+  border-radius: 99px;
+  margin-bottom: 1.5rem;
+}
+
+#progress-bar {
+  width: 0%;
+  height: 10px;
+  background-color: #1a3668;
+  border-radius: 99px;
+  transition: width 0.3s ease-in-out;
+}
+
+#progress-text {
+  font-size: 0.9em;
+  color: #57534e;
+  margin-bottom: 0.5rem;
+}
+
+.chart-bar {
+  background-color: #1a3668;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 0.25rem;
+  text-align: right;
+  white-space: nowrap;
+  transition: width 0.5s ease-out;
+}
+
+.kpi-card {
+  padding: 1rem;
+  background-color: #f5f5f4;
+  border-radius: 0.5rem;
+  border: 1px solid #e7e5e4;
+}
