@@ -14,6 +14,7 @@ import {
   type ProductCatalogItem
 } from "../lib/assistantData";
 import SavDashboard from "../dashboard/SavDashboard";
+import { savData } from "../data/savData";
 
 type StepId =
   | "login"
@@ -76,12 +77,30 @@ function withBase(path: string): string {
   return `${prefix}${path.replace(/^\/+/, "")}`;
 }
 
-function DeviceThumb({ src, name }: { src?: string | null; name: string }) {
+const CATEGORY_ICONS: Record<CategoryId, string> = {
+  rafraichisseurs: "🧊",
+  purificateurs: "🍃",
+  depoussiereurs: "🌪️",
+  "tables-aspirantes": "🛠️"
+};
+
+function DeviceThumb({
+  src,
+  name,
+  category
+}: {
+  src?: string | null;
+  name: string;
+  category?: CategoryId;
+}) {
   const [hasError, setHasError] = useState(false);
   if (!src || hasError) {
+    const icon = category ? CATEGORY_ICONS[category] : "📦";
+    const label = category ? category.replace("-", " ") : "appareil";
     return (
       <div className="product-thumb product-thumb-placeholder">
-        <span>Photo</span>
+        <span className="thumb-icon">{icon}</span>
+        <span className="thumb-label">{label}</span>
       </div>
     );
   }
@@ -125,6 +144,7 @@ export default function AssistantOberaPage() {
   const [consMessage, setConsMessage] = useState("");
 
   const [manualSavSaved, setManualSavSaved] = useState(false);
+  const [manualSavId, setManualSavId] = useState<string | null>(null);
   const [manualSavRef, setManualSavRef] = useState("");
   const [manualSavAppareil, setManualSavAppareil] = useState("");
   const [manualSavClient, setManualSavClient] = useState("");
@@ -311,7 +331,42 @@ export default function AssistantOberaPage() {
 
   const submitManualSav = (e: React.FormEvent) => {
     e.preventDefault();
+    const now = new Date();
+    const year = now.getFullYear();
+    const suffix = String(Date.now()).slice(-5);
+    const ticketId = `SAV-${year}-${suffix}`;
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const modelRaw = manualSavAppareil.trim();
+    const n = normalize(modelRaw);
+    let category: CategoryId = "rafraichisseurs";
+    if (/(table|dosseret)/i.test(modelRaw)) category = "tables-aspirantes";
+    else if (/(dustomat|dust|jumbo)/i.test(modelRaw)) category = "depoussiereurs";
+    else if (/(epur|clearbox|filtower)/i.test(modelRaw)) category = "purificateurs";
+    else if (/(eco|ic|vl|fresh)/i.test(modelRaw) || n.startsWith("ic") || n.startsWith("vl")) {
+      category = "rafraichisseurs";
+    }
+
+    savData.tickets.unshift({
+      id: ticketId,
+      createdAt: now.toISOString(),
+      firstResponseAt: null,
+      closedAt: null,
+      status: "open",
+      category,
+      model: modelRaw || "Appareil inconnu",
+      serial: manualSavRef || serialNumber || "-",
+      clientId: "MANUAL",
+      clientName: manualSavClient || "Client non renseigne",
+      site: "-",
+      severity: "medium",
+      cause: manualSavCause || "Non renseigne",
+      resolutionChannel: "sav",
+      reopened: false,
+      feedback: null
+    });
+
     setManualSavSaved(true);
+    setManualSavId(ticketId);
   };
 
   const goToDashboard = () => {
@@ -345,7 +400,7 @@ export default function AssistantOberaPage() {
         {showHeader && (
           <header className="text-center mb-10" id="main-header">
             <div className="flex justify-center">
-              {renderLogo(true)}
+              {renderLogo(isAdmin)}
             </div>
             <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
             <p className="mt-4 text-lg text-stone-600" id="header-subtitle">
@@ -509,7 +564,7 @@ export default function AssistantOberaPage() {
               const imageUrl = getImageUrl(product.imageFile);
               return (
                 <div key={product.id} className="product-item">
-                  <DeviceThumb src={imageUrl} name={product.name} />
+                  <DeviceThumb src={imageUrl} name={product.name} category={product.category} />
                   <div className="product-details">
                     <button
                       className="product-btn-text"
@@ -1168,7 +1223,7 @@ export default function AssistantOberaPage() {
             </button>
             {manualSavSaved && (
               <p className="mt-3 text-sm text-green-700">
-                Intervention enregistrée (simulation).
+                Intervention enregistrée (simulation){manualSavId ? ` - ${manualSavId}` : ""}.
               </p>
             )}
           </form>

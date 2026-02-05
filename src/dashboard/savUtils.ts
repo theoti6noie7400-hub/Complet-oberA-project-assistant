@@ -272,7 +272,15 @@ export function computeContractStatus(contract: Contract, now = new Date()) {
   const overdue = nextVisit ? nextVisit < now : false;
   const toPlan = !contract.nextPlannedVisitDate;
 
-  const planStatus = overdue ? "En retard" : toPlan ? "A planifier" : "OK";
+  const planStatus = isExpired
+    ? "Expire"
+    : expiresSoon
+      ? "Expire bientot"
+      : overdue
+        ? "En retard"
+        : toPlan
+          ? "A planifier"
+          : "OK";
 
   let badge = "Actif";
   if (isExpired) badge = "Expire";

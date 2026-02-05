@@ -147,6 +147,26 @@ body {
   letter-spacing: 0.02em;
 }
 
+.product-thumb-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: #f1f4ee;
+  border-color: #dfe5d6;
+  color: #6b7280;
+}
+
+.product-thumb-placeholder .thumb-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.product-thumb-placeholder .thumb-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .category-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
