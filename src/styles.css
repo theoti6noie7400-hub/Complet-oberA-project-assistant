@@ -20,8 +20,8 @@
 
 body {
   font-family: "Inter", sans-serif;
-  background-color: #f7f3ec;
-  background-image: linear-gradient(180deg, #f8f3ea 0%, #f5f5f4 55%, #f3f4f0 100%);
+  background-color: #f7f1e6;
+  background-image: linear-gradient(180deg, #f7efe3 0%, #f4f2ea 55%, #f2f1ea 100%);
   color: #44403c;
 }
 
@@ -168,7 +168,7 @@ body {
 }
 
 .category-btn[data-category="rafraichisseurs"] {
-  background: linear-gradient(150deg, #e4f1f4 0%, #f2f8fa 100%);
+  background: linear-gradient(150deg, #e0eef2 0%, #f0f7f9 100%);
   border-color: #cfe1e7;
 }
 
@@ -177,7 +177,7 @@ body {
 }
 
 .category-btn[data-category="purificateurs"] {
-  background: linear-gradient(150deg, #e6f1e7 0%, #f3f8f2 100%);
+  background: linear-gradient(150deg, #e2efe3 0%, #f1f7f0 100%);
   border-color: #d0e2cf;
 }
 
@@ -186,7 +186,7 @@ body {
 }
 
 .category-btn[data-category="depoussiereurs"] {
-  background: linear-gradient(150deg, #f1ede2 0%, #f8f6ef 100%);
+  background: linear-gradient(150deg, #efe7d8 0%, #f7f3e9 100%);
   border-color: #e1d7c5;
 }
 
@@ -195,7 +195,7 @@ body {
 }
 
 .category-btn[data-category="tables-aspirantes"] {
-  background: linear-gradient(150deg, #e7ecf7 0%, #f2f6fd 100%);
+  background: linear-gradient(150deg, #e2e9f6 0%, #f0f4fb 100%);
   border-color: #cfd9ef;
 }
 
@@ -244,11 +244,11 @@ body {
 }
 
 .obera-green {
-  background-color: #8bc53f;
+  background-color: #6f915c;
 }
 
 .obera-green-hover:hover {
-  background-color: #7ab43f;
+  background-color: #5f7f54;
 }
 
 .obera-red {
@@ -337,9 +337,9 @@ body {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 12% 18%, rgba(112, 144, 96, 0.12), transparent 45%),
-    radial-gradient(circle at 88% 22%, rgba(32, 48, 80, 0.08), transparent 40%),
-    radial-gradient(circle at 20% 85%, rgba(228, 189, 140, 0.12), transparent 42%),
+    radial-gradient(circle at 12% 18%, rgba(112, 144, 96, 0.18), transparent 48%),
+    radial-gradient(circle at 88% 22%, rgba(32, 48, 80, 0.12), transparent 42%),
+    radial-gradient(circle at 20% 85%, rgba(216, 176, 126, 0.2), transparent 46%),
     #ffffff;
 }
 
