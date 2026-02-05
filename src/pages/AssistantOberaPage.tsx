@@ -13,6 +13,7 @@ import {
   type DiagnosticTarget,
   type ProductCatalogItem
 } from "../lib/assistantData";
+import SavDashboard from "../dashboard/SavDashboard";
 
 type StepId =
   | "login"
@@ -465,6 +466,17 @@ export default function AssistantOberaPage() {
               Calculateur saturation charbon actif
             </Link>
           </div>
+          {isAdmin && (
+            <div className="w-full mt-4 flex justify-center">
+              <button
+                type="button"
+                className="px-6 py-3 rounded-lg shadow-md transition text-white obera-red obera-red-hover"
+                onClick={() => setActiveStep("dashboard")}
+              >
+                Dashboard SAV
+              </button>
+            </div>
+          )}
         </div>
 
         <div
@@ -1164,207 +1176,7 @@ export default function AssistantOberaPage() {
           id="step-dashboard"
           className={`step-container ${activeStep === "dashboard" ? "active" : ""}`}
         >
-          <h2 className="text-2xl font-semibold text-stone-600 mb-6">
-            Tableau de Bord SAV (Simulation)
-          </h2>
-          <p className="text-stone-500 mb-6">
-            Données clés basées sur l'historique des interventions (Simulation).
-          </p>
-
-          <button
-            id="open-manual-sav"
-            className="px-6 py-2 text-white rounded-lg shadow-md transition obera-red obera-red-hover mb-6"
-            type="button"
-            onClick={() => setActiveStep("manual-sav")}
-          >
-            + Saisie Manuelle d'Intervention
-          </button>
-
-          <div className="w-full p-6 bg-white rounded-xl shadow-lg text-left space-y-8">
-            <div>
-              <h3 className="font-bold text-xl obera-blue-text mb-4 border-b pb-2 border-stone-200">
-                1. Synthèse Globale des Opérations (Derniers 90 jours)
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div className="kpi-card">
-                  <div className="text-2xl font-bold text-blue-600">4.5h</div>
-                  <div className="text-xs text-stone-500 mt-1">
-                    Tps Réponse (1er contact)
-                  </div>
-                </div>
-                <div className="kpi-card">
-                  <div className="text-2xl font-bold text-green-600">3.2 jours</div>
-                  <div className="text-xs text-stone-500 mt-1">
-                    Tps Moyen de Résolution
-                  </div>
-                </div>
-                <div className="kpi-card">
-                  <div className="text-2xl font-bold text-red-600">650 €</div>
-                  <div className="text-xs text-stone-500 mt-1">
-                    Coût M. SAV Technique
-                  </div>
-                </div>
-                <div className="kpi-card">
-                  <div className="text-2xl font-bold obera-green">88%</div>
-                  <div className="text-xs text-stone-500 mt-1">Taux de Résolution Global</div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-xl obera-blue-text mb-4 border-b pb-2 border-stone-200">
-                2. Analyse des Pannes et des Pièces Défaillantes
-              </h3>
-
-              <h4 className="font-semibold text-base text-stone-700 mt-4 mb-2">
-                Type de Panne le Plus Fréquent (Base CSV Sovelor)
-              </h4>
-              <div className="space-y-3 p-3 bg-stone-50 rounded-lg">
-                <div className="flex items-center">
-                  <span className="w-40 text-sm font-medium text-stone-600">
-                    Pompe HS (Rafraîchisseurs)
-                  </span>
-                  <div className="w-full bg-stone-200 rounded-full h-4 ml-2">
-                    <div
-                      className="chart-bar h-4 rounded-full bg-red-500"
-                      style={{ width: "55%" }}
-                    >
-                      55% (52 cas/75 Sovelor 2023)
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <span className="w-40 text-sm font-medium text-stone-600">
-                    Filtre Colmaté (Dépoussiéreurs)
-                  </span>
-                  <div className="w-full bg-stone-200 rounded-full h-4 ml-2">
-                    <div className="chart-bar h-4 rounded-full" style={{ width: "35%" }}>
-                      35% (Pression Diff. Haute)
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <span className="w-40 text-sm font-medium text-stone-600">
-                    Problème Alimentation (Purificateurs)
-                  </span>
-                  <div className="w-full bg-stone-200 rounded-full h-4 ml-2">
-                    <div className="chart-bar h-4 rounded-full" style={{ width: "10%" }}>
-                      10% (Erreur fusible/carte)
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <h4 className="font-semibold text-base text-stone-700 mt-4 mb-2">
-                Pièces Détachées les Plus Défaillantes (Global)
-              </h4>
-              <div className="space-y-1 text-sm p-3 bg-stone-50 rounded-lg">
-                <p className="text-stone-600">
-                  <strong>1. Pompe</strong> (Rafraîchisseurs) : 59% des remplacements de pièces
-                  hors filtres.
-                </p>
-                <p className="text-stone-600">
-                  <strong>2. Carte électronique/Mère</strong> : 18% (Souvent lié à une absence
-                  d'allumage).
-                </p>
-                <p className="text-stone-600">
-                  <strong>3. Vérin/Actionneur</strong> : 11% (Dépoussiéreurs, Epur Box - Voir
-                  SAV1012).
-                </p>
-              </div>
-
-              <h4 className="font-semibold text-base text-stone-700 mt-4 mb-2">
-                Filtres les Plus Utilisés / Demandés
-              </h4>
-              <div className="space-y-1 text-sm p-3 bg-stone-50 rounded-lg">
-                <p className="text-stone-600">
-                  <strong>1. Filtre H13</strong> : 45% (Tous Purificateurs et Dépoussiéreurs Haute
-                  Efficacité).
-                </p>
-                <p className="text-stone-600">
-                  <strong>2. Sac Collecteur</strong> : 30% (DUSTOMAT 4, 10, 16M).
-                </p>
-                <p className="text-stone-600">
-                  <strong>3. Panneau Alvéolaire</strong> : 15% (Rafraîchisseurs - Usure et casse).
-                </p>
-              </div>
-
-              <h4 className="font-semibold text-base text-stone-700 mt-4 mb-2">
-                Type d'Appareil le Plus Sollicité (Total Cas)
-              </h4>
-              <div className="space-y-1 text-sm p-3 bg-stone-50 rounded-lg">
-                <p className="text-stone-600">
-                  <strong>1. Ecoclim 22 / IC 22</strong> : 24% des dossiers (65 cas dans
-                  l'historique).
-                </p>
-                <p className="text-stone-600">
-                  <strong>2. DUSTOMAT 4-24</strong> : 15% des dossiers (24 cas dans l'historique).
-                </p>
-                <p className="text-stone-600">
-                  <strong>3. ePURBOX / ePUR</strong> : 12% des dossiers.
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-xl obera-blue-text mb-4 border-b pb-2 border-stone-200">
-                3. Efficacité de l'Application (Simulée)
-              </h3>
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="p-4 bg-green-100 rounded-lg">
-                  <div className="text-3xl font-bold text-green-700">65%</div>
-                  <div className="text-sm text-green-600">
-                    Taux de Résolution via App ("Oui")
-                  </div>
-                </div>
-                <div className="p-4 bg-red-100 rounded-lg">
-                  <div className="text-3xl font-bold text-red-700">35%</div>
-                  <div className="text-sm text-red-600">Taux Contact SAV ("Non")</div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-xl obera-blue-text mb-4 border-b pb-2 border-stone-200">
-                4. Dernières Connexions Clients
-              </h3>
-              <div className="space-y-3 text-sm p-3 bg-stone-50 rounded-lg">
-                <div className="border-b pb-2">
-                  <p className="font-semibold text-stone-700">
-                    CL15397 - REFRESCO France (05/03 - 10h15)
-                  </p>
-                  <p className="text-stone-600 italic">
-                    Appareil : <strong>Ecoclim 22</strong>. Étapes : Catégorie{" -> "}Sélection
-                    produit{" -> "}Saisie S/N{" -> "}Diagnostic (pump-issue).{" "}
-                    <strong>Fin : Contact SAV.</strong>
-                  </p>
-                </div>
-                <div className="border-b pb-2">
-                  <p className="font-semibold text-stone-700">CL14447 - TEOS (05/03 - 09h50)</p>
-                  <p className="text-stone-600 italic">
-                    Appareil : <strong>EpurEx 1000</strong>. Étapes : Catégorie{" -> "}Diagnostic
-                    (filter-issue-ex). <strong>Fin : Commande Consommable (Tube Plongeur).</strong>
-                  </p>
-                </div>
-                <div className="border-b pb-2">
-                  <p className="font-semibold text-stone-700">
-                    CL11614 - 3 MA Group (04/03 - 16h20)
-                  </p>
-                  <p className="text-stone-600 italic">
-                    Appareil : <strong>DUSTOMAT 4-10</strong>. Étapes : Catégorie{" -> "}Diagnostic
-                    (dry-sensor-tuyaux-advice). <strong>Fin : Résolu (Feedback "Oui").</strong>
-                  </p>
-                </div>
-                <div className="border-b pb-2">
-                  <p className="font-semibold text-stone-700">OBERACLIENT (04/03 - 14h00)</p>
-                  <p className="text-stone-600 italic">
-                    Appareil : <strong>IC 12</strong>. Étapes : Catégorie{" -> "}Sélection produit.{" "}
-                    <strong>Fin : Abandon (Sans Diagnostic).</strong>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <SavDashboard onOpenManualSav={() => setActiveStep("manual-sav")} />
 
           <button
             id="back-to-category-dashboard"
