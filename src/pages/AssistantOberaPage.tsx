@@ -351,6 +351,17 @@ export default function AssistantOberaPage() {
             <p className="mt-4 text-lg text-stone-600" id="header-subtitle">
               Diagnostiquez votre appareil ou commandez des consommables.
             </p>
+            {isAdmin && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg text-sm text-white obera-red obera-red-hover shadow-md"
+                  onClick={goToDashboard}
+                >
+                  Dashboard SAV
+                </button>
+              </div>
+            )}
           </header>
         )}
 
