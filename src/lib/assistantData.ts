@@ -32,7 +32,7 @@ export const PRODUCTS: ProductCatalogItem[] = [
   { id: "ecoclim12", name: "ECOCLIM 12", category: "rafraichisseurs", noticeFile: "NOTICE ECOCLIM12 - FR.pdf" },
   { id: "ecoclim20", name: "ECOCLIM 20", category: "rafraichisseurs", noticeFile: "NOTICE ECOCLIM 22 - FR.pdf" },
   { id: "ecoclim30", name: "ECOCLIM 30", category: "rafraichisseurs", noticeFile: "NOTICE EcoCLIM30 -FR.pdf" },
-  { id: "fresh", name: "Fresh", category: "rafraichisseurs", noticeFile: "FR NOTICE TECHNIQUE ePUR 150 Fresh.pdf" },
+  { id: "fresh", name: "ePURFresh 150", category: "rafraichisseurs", noticeFile: "FR NOTICE TECHNIQUE ePUR 150 Fresh.pdf" },
   { id: "vl50", name: "VL 50", category: "rafraichisseurs", noticeFile: "FR OberA NOTICE TECHNIQUE VL-50.pdf" },
 
   { id: "epur10", name: "ePUR 10", category: "purificateurs", noticeFile: "Notice EPUR010 - FR.pdf" },
