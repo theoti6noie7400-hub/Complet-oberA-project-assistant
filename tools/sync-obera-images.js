@@ -17,14 +17,27 @@ const REQUEST_DELAY_MS = 450;
 const USER_AGENT = "OberA-Assistant-ImageSync/1.0";
 
 const OVERRIDES = {
-  ic22ec: ["ic22"],
-  epur150fresh: ["epur150", "fresh"],
-  epur: ["epur10", "epur50", "epur100", "epur140"],
-  epurboxatex: ["epurbox-atex"],
-  clearbox: ["clearbox"],
+  epur150fresh: ["fresh"],
+  purificateurrafraichisseurepur150fresh: ["fresh"],
+  aspirationfumeessoudagelaserepurbex: [
+    "epur-ex",
+    "epur-ex-1000",
+    "epur-ex-2000",
+    "epur-ex-1001",
+    "epur-ex-3000",
+    "epur-ex-3001",
+    "epur-ex-5000",
+    "epur-ex-5001"
+  ],
   jumbo: ["jumbo"],
-  tableaspiranteautonome: ["table-aspirante"],
-  dosseretsaspirants: ["dosseret-aspirant"]
+  extracteurdepoussieredustomatdry: ["dustomat-dry", "dustomat-dry-atex"],
+  aspirationpoussieredustomat10: ["dustomat-10"],
+  extracteurpoussierepulverulentedustomat16m: ["dustomat-16m"],
+  depoussiereuravoiehumidedustomathydro: ["dustomat-hydro", "dustomat-hydro-atex"],
+  aspirationcentraliseeindustrielledustmac: ["dustmac", "dustmac-atex"],
+  tableautonome: ["table-aspirante"],
+  tableaspiranteaat: ["table-aspirante"],
+  tableaspirantesautonomes: ["table-aspirante"]
 };
 
 function sleep(ms) {
@@ -39,6 +52,27 @@ function normalize(raw) {
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "")
     .trim();
+}
+
+function decodeHtml(str) {
+  return String(str || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&ldquo;/g, "\"")
+    .replace(/&rdquo;/g, "\"")
+    .replace(/&ndash;/g, "-")
+    .replace(/&mdash;/g, "-")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    )
+    .replace(/&#([0-9]+);/g, (_, num) => String.fromCharCode(parseInt(num, 10)));
 }
 
 function fetchText(url, depth = 0) {
@@ -114,18 +148,25 @@ function extractProductLinks(html) {
   const re = /href="(https?:\/\/obera\.fr\/produits\/[^"]+?)"/gi;
   let match;
   while ((match = re.exec(html))) {
-    const url = match[1];
+    const url = match[1].split("#")[0];
     if (url.endsWith("/produits/") || url.endsWith("/produits")) continue;
-    links.add(url);
+    try {
+      const segments = new URL(url).pathname.split("/").filter(Boolean);
+      const afterProducts = segments[0] === "produits" ? segments.slice(1) : [];
+      if (afterProducts.length < 2) continue;
+      links.add(url);
+    } catch {
+      // ignore invalid urls
+    }
   }
   return Array.from(links);
 }
 
 function extractTitle(html) {
   const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-  if (h1 && h1[1]) return h1[1].trim();
+  if (h1 && h1[1]) return decodeHtml(h1[1].trim());
   const h2 = html.match(/<h2[^>]*>([^<]+)<\/h2>/i);
-  if (h2 && h2[1]) return h2[1].trim();
+  if (h2 && h2[1]) return decodeHtml(h2[1].trim());
   return "";
 }
 
@@ -134,6 +175,12 @@ function extractOgImage(html) {
   if (og && og[1]) return og[1].trim();
   const tw = html.match(/name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
   if (tw && tw[1]) return tw[1].trim();
+  return "";
+}
+
+function extractOgTitle(html) {
+  const og = html.match(/property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+  if (og && og[1]) return decodeHtml(og[1].trim());
   return "";
 }
 
@@ -181,14 +228,36 @@ async function main() {
     try {
       const html = await fetchText(link);
       const title = extractTitle(html);
+      const ogTitle = extractOgTitle(html);
       const image = extractOgImage(html);
       if (!title || !image) {
         errors.push({ link, reason: "missing title or image" });
         continue;
       }
-      const key = normalize(title);
-      const override = OVERRIDES[key];
-      const mapped = override ?? index.get(key);
+      const url = new URL(link);
+      const segments = url.pathname.split("/").filter(Boolean);
+      const slugParts = segments[0] === "produits" ? segments.slice(1) : segments;
+      const slugKey = normalize(slugParts.join(" "));
+      const slugLastKey = normalize(slugParts[slugParts.length - 1] || "");
+      const titleKey = normalize(title);
+      const ogTitleKey = normalize(ogTitle);
+      const keys = [slugKey, slugLastKey, titleKey, ogTitleKey].filter(Boolean);
+
+      let mapped = null;
+      for (const k of keys) {
+        if (OVERRIDES[k]) {
+          mapped = OVERRIDES[k];
+          break;
+        }
+      }
+      if (!mapped) {
+        for (const k of keys) {
+          if (index.has(k)) {
+            mapped = index.get(k);
+            break;
+          }
+        }
+      }
       if (!mapped) {
         unmatchedProducts.push({ title, link });
         continue;
