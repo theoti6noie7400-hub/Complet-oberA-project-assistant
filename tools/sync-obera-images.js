@@ -37,7 +37,9 @@ const OVERRIDES = {
   aspirationcentraliseeindustrielledustmac: ["dustmac", "dustmac-atex"],
   tableautonome: ["table-aspirante"],
   tableaspiranteaat: ["table-aspirante"],
-  tableaspirantesautonomes: ["table-aspirante"]
+  tableaspirantesautonomes: ["table-aspirante"],
+  tableaspirante360: ["table-aspirante"],
+  dosseretsaspirants: ["dosseret-aspirant"]
 };
 
 function sleep(ms) {
@@ -184,6 +186,69 @@ function extractOgTitle(html) {
   return "";
 }
 
+function isLogo(url) {
+  const u = url.toLowerCase();
+  return (
+    u.includes("logo") ||
+    u.includes("logotype") ||
+    u.includes("favicon") ||
+    u.includes("icon") ||
+    u.includes("sprite")
+  );
+}
+
+function pickFromSrcset(srcset) {
+  if (!srcset) return "";
+  const parts = srcset.split(",").map((p) => p.trim());
+  const candidates = parts
+    .map((p) => {
+      const [url, size] = p.split(/\s+/);
+      const width = size && size.endsWith("w") ? parseInt(size, 10) : 0;
+      return { url, width };
+    })
+    .filter((c) => c.url);
+  if (!candidates.length) return "";
+  candidates.sort((a, b) => b.width - a.width);
+  return candidates[0].url;
+}
+
+function extractImageCandidates(html, title) {
+  const candidates = [];
+  const imgRe = /<img[^>]+>/gi;
+  let match;
+  while ((match = imgRe.exec(html))) {
+    const tag = match[0];
+    const src = (tag.match(/src=["']([^"']+)["']/i) || [])[1];
+    const dataSrc = (tag.match(/data-src=["']([^"']+)["']/i) || [])[1];
+    const lazySrc = (tag.match(/data-lazy-src=["']([^"']+)["']/i) || [])[1];
+    const srcset = (tag.match(/srcset=["']([^"']+)["']/i) || [])[1];
+    const cls = (tag.match(/class=["']([^"']+)["']/i) || [])[1] || "";
+    const alt = (tag.match(/alt=["']([^"']+)["']/i) || [])[1] || "";
+
+    let url = dataSrc || lazySrc || src || "";
+    if (srcset) {
+      const best = pickFromSrcset(srcset);
+      if (best) url = best;
+    }
+    if (!url) continue;
+    if (!url.startsWith("http")) continue;
+
+    let score = 0;
+    const clsLower = cls.toLowerCase();
+    if (clsLower.includes("wp-post-image")) score += 6;
+    if (clsLower.includes("attachment")) score += 3;
+    if (clsLower.includes("size-full") || clsLower.includes("size-large")) score += 2;
+    if (clsLower.includes("product")) score += 2;
+    if (url.includes("/uploads/")) score += 2;
+    if (alt.toLowerCase().includes(title.toLowerCase().slice(0, 8))) score += 1;
+    if (isLogo(url)) score -= 6;
+
+    candidates.push({ url, score });
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates;
+}
+
 function parseDeviceList() {
   const raw = fs.readFileSync(SOURCE_FILE, "utf8");
   const start = raw.indexOf("export const PRODUCTS");
@@ -229,7 +294,13 @@ async function main() {
       const html = await fetchText(link);
       const title = extractTitle(html);
       const ogTitle = extractOgTitle(html);
-      const image = extractOgImage(html);
+      const ogImage = extractOgImage(html);
+      const candidates = extractImageCandidates(html, title || ogTitle || "");
+      const image =
+        candidates.find((c) => c.score >= 2 && !isLogo(c.url))?.url ||
+        (ogImage && !isLogo(ogImage) ? ogImage : "") ||
+        candidates.find((c) => !isLogo(c.url))?.url ||
+        "";
       if (!title || !image) {
         errors.push({ link, reason: "missing title or image" });
         continue;
@@ -285,6 +356,14 @@ async function main() {
       const ext = path.extname(url.pathname) || ".jpg";
       const filename = `${id}${ext}`;
       const dest = path.join(OUTPUT_DIR, filename);
+      const existing = fs.readdirSync(OUTPUT_DIR).filter((f) => f.startsWith(`${id}.`));
+      existing.forEach((f) => {
+        try {
+          fs.unlinkSync(path.join(OUTPUT_DIR, f));
+        } catch {
+          // ignore
+        }
+      });
       await downloadFile(info.image, dest);
       mapping[id] = `assets/obera-products/${filename}`;
       downloaded.push({ id, url: info.image });
