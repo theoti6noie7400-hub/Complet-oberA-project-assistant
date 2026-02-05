@@ -1,13 +1,18 @@
 /* eslint-disable no-console */
-const fs = require("fs");
+import fs from "fs";
+import path from "path";
+import https from "https";
+import { fileURLToPath } from "url";
+
 const fsp = fs.promises;
-const path = require("path");
-const https = require("https");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const BASE_URL = "https://obera.fr/produits/";
-const OUTPUT_DIR = path.join(process.cwd(), "public", "assets", "obera-products");
-const MAPPING_FILE = path.join(process.cwd(), "src", "assets", "oberaProductImages.ts");
-const SOURCE_FILE = path.join(process.cwd(), "src", "lib", "assistantData.ts");
+const ROOT_DIR = process.cwd();
+const OUTPUT_DIR = path.join(ROOT_DIR, "public", "assets", "obera-products");
+const MAPPING_FILE = path.join(ROOT_DIR, "src", "assets", "oberaProductImages.ts");
+const SOURCE_FILE = path.join(ROOT_DIR, "src", "lib", "assistantData.ts");
 const REQUEST_DELAY_MS = 450;
 const USER_AGENT = "OberA-Assistant-ImageSync/1.0";
 
