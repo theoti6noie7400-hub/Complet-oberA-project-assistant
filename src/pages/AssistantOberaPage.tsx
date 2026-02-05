@@ -263,7 +263,10 @@ export default function AssistantOberaPage() {
   };
 
   const sendMail = (subject: string, body: string) => {
-    const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const recipient = "sav@obera.fr";
+    const url = `mailto:${encodeURIComponent(
+      recipient
+    )}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = url;
   };
 
