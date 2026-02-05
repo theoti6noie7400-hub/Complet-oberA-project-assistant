@@ -117,11 +117,13 @@ export default function AssistantOberaPage() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [serialNumber, setSerialNumber] = useState("");
+  const [serialError, setSerialError] = useState("");
 
   const [diagStack, setDiagStack] = useState<string[]>([]);
   const [diagOutcome, setDiagOutcome] = useState<DiagnosticOutcome | null>(null);
   const [feedbackState, setFeedbackState] = useState<"idle" | "yes" | "no">("idle");
   const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
+  const [diagnosticError, setDiagnosticError] = useState("");
 
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -169,6 +171,7 @@ export default function AssistantOberaPage() {
 
   useEffect(() => {
     setSelectedOptionIdx(null);
+    setDiagnosticError("");
   }, [currentDiagStep?.id]);
 
   const resetAll = () => {
@@ -180,10 +183,12 @@ export default function AssistantOberaPage() {
     setSelectedCategory(null);
     setSelectedProduct(null);
     setSerialNumber("");
+    setSerialError("");
     setDiagStack([]);
     setDiagOutcome(null);
     setFeedbackState("idle");
     setSelectedOptionIdx(null);
+    setDiagnosticError("");
     setContactName("");
     setContactEmail("");
     setContactComment("");
@@ -220,10 +225,23 @@ export default function AssistantOberaPage() {
   };
 
   const startDiagnostic = () => {
+    const serial = serialNumber.trim();
+    if (!selectedProduct) {
+      setSerialError("Sélectionnez un appareil avant de démarrer le diagnostic.");
+      return;
+    }
+    if (!serial) {
+      setSerialError("Le numéro de série est requis pour lancer le diagnostic.");
+      return;
+    }
+
+    setSerialNumber(serial);
+    setSerialError("");
     setDiagStack(["power"]);
     setDiagOutcome(null);
     setFeedbackState("idle");
     setContactFormVisible(false);
+    setDiagnosticError("");
     setActiveStep("diagnostic");
   };
 
@@ -235,6 +253,7 @@ export default function AssistantOberaPage() {
   };
 
   const handleDiagnosticOption = (opt: DiagnosticOption) => {
+    setDiagnosticError("");
     if (opt.result) {
       goToSummary(DIAGNOSTIC_OUTCOMES[opt.result]);
       return;
@@ -542,8 +561,14 @@ export default function AssistantOberaPage() {
               className="w-full p-3 mb-6 rounded-md border border-stone-300 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Entrez le numéro de série"
               value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value)}
+              onChange={(e) => {
+                setSerialNumber(e.target.value);
+                setSerialError("");
+              }}
             />
+            {serialError && (
+              <p className="text-sm text-red-600 text-left -mt-4 mb-4">{serialError}</p>
+            )}
             <select
               id="serial-number-select"
               className="w-full p-3 mb-6 rounded-md border border-stone-300 focus:ring-blue-500 focus:border-blue-500 hidden"
@@ -600,7 +625,10 @@ export default function AssistantOberaPage() {
                         type="radio"
                         name="diagnostic-option"
                         checked={selectedOptionIdx === idx}
-                        onChange={() => setSelectedOptionIdx(idx)}
+                        onChange={() => {
+                          setSelectedOptionIdx(idx);
+                          setDiagnosticError("");
+                        }}
                       />
                       <span className="text-stone-700">{opt.label}</span>
                     </label>
@@ -609,6 +637,9 @@ export default function AssistantOberaPage() {
               </div>
             ) : (
               <p className="text-sm text-stone-500">Diagnostic en attente.</p>
+            )}
+            {diagnosticError && (
+              <p className="text-sm text-red-600 mt-3">{diagnosticError}</p>
             )}
           </div>
           <div className="w-full flex justify-between items-center mt-8">
@@ -633,7 +664,10 @@ export default function AssistantOberaPage() {
               className="px-6 py-2 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
               type="button"
               onClick={() => {
-                if (!currentDiagStep || selectedOptionIdx === null) return;
+                if (!currentDiagStep || selectedOptionIdx === null) {
+                  setDiagnosticError("Sélectionnez une réponse pour continuer.");
+                  return;
+                }
                 handleDiagnosticOption(currentDiagStep.options[selectedOptionIdx]);
               }}
             >
@@ -808,8 +842,9 @@ export default function AssistantOberaPage() {
               </div>
               <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-400 text-yellow-700 rounded-r-lg text-left">
                 <p className="text-sm">
-                  **Pièces jointes :** Pour joindre des photos, veuillez les **ajouter
-                  manuellement** à l'e-mail qui s'ouvrira après avoir cliqué sur 'Envoyer'.
+                  <strong>Pièces jointes :</strong> Pour joindre des photos, veuillez les{" "}
+                  <strong>ajouter manuellement</strong> à l'e-mail qui s'ouvrira après avoir
+                  cliqué sur "Envoyer".
                 </p>
               </div>
               <button
@@ -932,8 +967,8 @@ export default function AssistantOberaPage() {
             </div>
             <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-400 text-yellow-700 rounded-r-lg text-left">
               <p className="text-sm">
-                Pour joindre des photos (ex: étiquette filtre), veuillez les **ajouter
-                manuellement** à l'e-mail qui s'ouvrira.
+                Pour joindre des photos (ex: étiquette filtre), veuillez les{" "}
+                <strong>ajouter manuellement</strong> à l'e-mail qui s'ouvrira.
               </p>
             </div>
             <button
@@ -1191,13 +1226,16 @@ export default function AssistantOberaPage() {
               </h4>
               <div className="space-y-1 text-sm p-3 bg-stone-50 rounded-lg">
                 <p className="text-stone-600">
-                  **1. Pompe** (Rafraîchisseurs) : 59% des remplacements de pièces hors filtres.
+                  <strong>1. Pompe</strong> (Rafraîchisseurs) : 59% des remplacements de pièces
+                  hors filtres.
                 </p>
                 <p className="text-stone-600">
-                  **2. Carte électronique/Mère** : 18% (Souvent lié à une absence d'allumage).
+                  <strong>2. Carte électronique/Mère</strong> : 18% (Souvent lié à une absence
+                  d'allumage).
                 </p>
                 <p className="text-stone-600">
-                  **3. Vérin/Actionneur** : 11% (Dépoussiéreurs, Epur Box - Voir SAV1012).
+                  <strong>3. Vérin/Actionneur</strong> : 11% (Dépoussiéreurs, Epur Box - Voir
+                  SAV1012).
                 </p>
               </div>
 
@@ -1206,13 +1244,14 @@ export default function AssistantOberaPage() {
               </h4>
               <div className="space-y-1 text-sm p-3 bg-stone-50 rounded-lg">
                 <p className="text-stone-600">
-                  **1. Filtre H13** : 45% (Tous Purificateurs et Dépoussiéreurs Haute Efficacité).
+                  <strong>1. Filtre H13</strong> : 45% (Tous Purificateurs et Dépoussiéreurs Haute
+                  Efficacité).
                 </p>
                 <p className="text-stone-600">
-                  **2. Sac Collecteur** : 30% (DUSTOMAT 4, 10, 16M).
+                  <strong>2. Sac Collecteur</strong> : 30% (DUSTOMAT 4, 10, 16M).
                 </p>
                 <p className="text-stone-600">
-                  **3. Panneau Alvéolaire** : 15% (Rafraîchisseurs - Usure et casse).
+                  <strong>3. Panneau Alvéolaire</strong> : 15% (Rafraîchisseurs - Usure et casse).
                 </p>
               </div>
 
@@ -1221,13 +1260,14 @@ export default function AssistantOberaPage() {
               </h4>
               <div className="space-y-1 text-sm p-3 bg-stone-50 rounded-lg">
                 <p className="text-stone-600">
-                  **1. Ecoclim 22 / IC 22** : 24% des dossiers (65 cas dans l'historique).
+                  <strong>1. Ecoclim 22 / IC 22</strong> : 24% des dossiers (65 cas dans
+                  l'historique).
                 </p>
                 <p className="text-stone-600">
-                  **2. DUSTOMAT 4-24** : 15% des dossiers (24 cas dans l'historique).
+                  <strong>2. DUSTOMAT 4-24</strong> : 15% des dossiers (24 cas dans l'historique).
                 </p>
                 <p className="text-stone-600">
-                  **3. ePURBOX / ePUR** : 12% des dossiers.
+                  <strong>3. ePURBOX / ePUR</strong> : 12% des dossiers.
                 </p>
               </div>
             </div>
@@ -1260,15 +1300,16 @@ export default function AssistantOberaPage() {
                     CL15397 - REFRESCO France (05/03 - 10h15)
                   </p>
                   <p className="text-stone-600 italic">
-                    Appareil : **Ecoclim 22**. Étapes : Catégorie{" -> "}Sélection produit
-                    {" -> "}Saisie S/N{" -> "}Diagnostic (pump-issue). **Fin : Contact SAV.**
+                    Appareil : <strong>Ecoclim 22</strong>. Étapes : Catégorie{" -> "}Sélection
+                    produit{" -> "}Saisie S/N{" -> "}Diagnostic (pump-issue).{" "}
+                    <strong>Fin : Contact SAV.</strong>
                   </p>
                 </div>
                 <div className="border-b pb-2">
                   <p className="font-semibold text-stone-700">CL14447 - TEOS (05/03 - 09h50)</p>
                   <p className="text-stone-600 italic">
-                    Appareil : **EpurEx 1000**. Étapes : Catégorie{" -> "}Diagnostic
-                    (filter-issue-ex). **Fin : Commande Consommable (Tube Plongeur).**
+                    Appareil : <strong>EpurEx 1000</strong>. Étapes : Catégorie{" -> "}Diagnostic
+                    (filter-issue-ex). <strong>Fin : Commande Consommable (Tube Plongeur).</strong>
                   </p>
                 </div>
                 <div className="border-b pb-2">
@@ -1276,15 +1317,15 @@ export default function AssistantOberaPage() {
                     CL11614 - 3 MA Group (04/03 - 16h20)
                   </p>
                   <p className="text-stone-600 italic">
-                    Appareil : **DUSTOMAT 4-10**. Étapes : Catégorie{" -> "}Diagnostic
-                    (dry-sensor-tuyaux-advice). **Fin : Résolu (Feedback "Oui").**
+                    Appareil : <strong>DUSTOMAT 4-10</strong>. Étapes : Catégorie{" -> "}Diagnostic
+                    (dry-sensor-tuyaux-advice). <strong>Fin : Résolu (Feedback "Oui").</strong>
                   </p>
                 </div>
                 <div className="border-b pb-2">
                   <p className="font-semibold text-stone-700">OBERACLIENT (04/03 - 14h00)</p>
                   <p className="text-stone-600 italic">
-                    Appareil : **IC 12**. Étapes : Catégorie{" -> "}Sélection produit. **Fin :
-                    Abandon (Sans Diagnostic).**
+                    Appareil : <strong>IC 12</strong>. Étapes : Catégorie{" -> "}Sélection produit.{" "}
+                    <strong>Fin : Abandon (Sans Diagnostic).</strong>
                   </p>
                 </div>
               </div>

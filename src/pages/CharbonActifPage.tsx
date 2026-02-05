@@ -160,9 +160,12 @@ export default function CharbonActifPage() {
         const p = POLLUANTS.find((x) => x.id === it.polluantId);
         const avg = p ? GROUPS[p.group].avg : NaN;
         const sharePct = parseNumberLoose(it.sharePct);
+        const share01 = Number.isFinite(sharePct)
+          ? clamp(sharePct, 0, 100) / 100
+          : undefined;
         return {
           avg,
-          share01: Number.isFinite(sharePct) ? sharePct / 100 : undefined
+          share01
         };
       })
       .filter((x) => Number.isFinite(x.avg));
@@ -184,6 +187,19 @@ export default function CharbonActifPage() {
 
   const warnings = useMemo(() => {
     const w: string[] = [];
+    if (poidsMesureStr.trim().length > 0 && !Number.isFinite(poidsMesure)) {
+      w.push("Poids brut mesuré invalide : utilisez un nombre (virgule ou point).");
+    }
+    if (humiditeStr.trim().length > 0) {
+      if (!Number.isFinite(humidite)) {
+        w.push("Humidité invalide : utilisez un nombre.");
+      } else if (humidite < 0 || humidite > 100) {
+        w.push("Humidité hors plage 0-100% : vérifiez la saisie.");
+      }
+    }
+    if (temperatureStr.trim().length > 0 && !Number.isFinite(temperature)) {
+      w.push("Température invalide : utilisez un nombre.");
+    }
     if (Number.isFinite(humidite) && humidite > 70) {
       w.push("Humidite > 70% : adsorption potentiellement degradee.");
     }
@@ -220,11 +236,25 @@ export default function CharbonActifPage() {
       const selectedPolluants = mixItems
         .map((it) => POLLUANTS.find((p) => p.id === it.polluantId))
         .filter(Boolean) as Polluant[];
+      const hasInvalidShare = mixItems.some((it) => {
+        if (!it.sharePct.trim()) return false;
+        return !Number.isFinite(parseNumberLoose(it.sharePct));
+      });
+      const hasOutOfRangeShare = mixItems.some((it) => {
+        const parsed = parseNumberLoose(it.sharePct);
+        return Number.isFinite(parsed) && (parsed < 0 || parsed > 100);
+      });
 
       if (selectedPolluants.some((p) => p.group === "4")) {
         w.push(
           "Melange contient un polluant groupe 4 : la decision est basee sur un calcul conservateur. Si ce polluant domine, le charbon standard peut etre inefficace."
         );
+      }
+      if (hasInvalidShare) {
+        w.push("Une ou plusieurs proportions melange (%) sont invalides.");
+      }
+      if (hasOutOfRangeShare) {
+        w.push("Les proportions melange hors plage 0-100% sont limitees automatiquement.");
       }
       const anyShare = mixItems.some((it) => it.sharePct.trim().length > 0);
       if (!anyShare) {
@@ -235,7 +265,7 @@ export default function CharbonActifPage() {
     }
 
     return w;
-  }, [humidite, temperature, gain, mode, polluant.group, polluant.name, mixItems, activeCapaciteMax]);
+  }, [poidsMesureStr, poidsMesure, humiditeStr, humidite, temperatureStr, temperature, gain, mode, polluant.group, polluant.name, mixItems, activeCapaciteMax]);
 
   const polluantsForSelect = useMemo(() => {
     return groupFilter === "ALL" ? POLLUANTS : POLLUANTS.filter((p) => p.group === groupFilter);
