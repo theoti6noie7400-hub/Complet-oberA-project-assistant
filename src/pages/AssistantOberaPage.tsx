@@ -444,7 +444,7 @@ export default function AssistantOberaPage() {
             {CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
-                className="category-btn p-6 bg-stone-50 rounded-lg shadow-md hover:bg-stone-200 transition"
+                className="category-btn p-6 rounded-lg shadow-md transition"
                 data-category={cat.id}
                 onClick={() => {
                   setSelectedCategory(cat.id);
