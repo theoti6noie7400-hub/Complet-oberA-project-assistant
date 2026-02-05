@@ -37,6 +37,18 @@ const DEFAULT_CONTRACT_FILTERS: ContractFilters = {
   query: ""
 };
 
+function ticketStatusPill(status: Ticket["status"]) {
+  if (status === "closed") return "obera-pill is-success";
+  if (status === "waiting_parts") return "obera-pill is-warning";
+  return "obera-pill";
+}
+
+function planStatusPill(status: string) {
+  if (status.toLowerCase().includes("retard")) return "obera-pill is-warning";
+  if (status.toLowerCase().includes("ok")) return "obera-pill is-success";
+  return "obera-pill";
+}
+
 function KpiCard({
   label,
   value,
@@ -47,10 +59,10 @@ function KpiCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-      <div className="text-xs text-stone-500">{label}</div>
-      <div className="text-2xl font-semibold text-stone-800">{value}</div>
-      {sub && <div className="text-xs text-stone-500 mt-1">{sub}</div>}
+    <div className="obera-kpi">
+      <div className="obera-kpi-label">{label}</div>
+      <div className="obera-kpi-value">{value}</div>
+      {sub && <div className="obera-kpi-sub">{sub}</div>}
     </div>
   );
 }
@@ -63,9 +75,9 @@ function BarList({ items }: { items: { label: string; value: number }[] }) {
         <div key={item.label} className="flex items-center gap-3">
           <div className="w-40 text-xs text-stone-600 truncate">{item.label}</div>
           <div className="flex-1">
-            <div className="h-2 rounded-full bg-stone-200">
+            <div className="obera-bar">
               <div
-                className="h-2 rounded-full bg-[#1a3668]"
+                className="obera-bar-fill"
                 style={{ width: `${(item.value / max) * 100}%` }}
               />
             </div>
@@ -86,9 +98,9 @@ function StatusList({ counts }: { counts: Record<string, number> }) {
         <div key={label} className="flex items-center gap-3">
           <div className="w-40 text-xs text-stone-600">{label}</div>
           <div className="flex-1">
-            <div className="h-2 rounded-full bg-stone-200">
+            <div className="obera-bar">
               <div
-                className="h-2 rounded-full bg-[#8bc53f]"
+                className="obera-bar-fill is-green"
                 style={{ width: `${(value / max) * 100}%` }}
               />
             </div>
@@ -116,7 +128,7 @@ function TicketDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
-      <div className="h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+      <div className="h-full w-full max-w-md obera-drawer p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="text-lg font-semibold text-stone-800">{ticket.id}</div>
           <button
@@ -142,7 +154,7 @@ function TicketDrawer({
           </div>
           <div>
             <div className="text-xs text-stone-500">Statut</div>
-            <div>{formatTicketStatus(ticket.status)}</div>
+            <div className={ticketStatusPill(ticket.status)}>{formatTicketStatus(ticket.status)}</div>
           </div>
           <div>
             <div className="text-xs text-stone-500">Gravite</div>
@@ -192,7 +204,7 @@ function ContractDrawer({
   const nextVisit = status.nextVisit ? status.nextVisit.toLocaleDateString("fr-FR") : "A planifier";
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
-      <div className="h-full w-full max-w-md bg-white shadow-xl p-6 overflow-y-auto">
+      <div className="h-full w-full max-w-md obera-drawer p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="text-lg font-semibold text-stone-800">{contract.id}</div>
           <button
@@ -232,7 +244,7 @@ function ContractDrawer({
           </div>
           <div>
             <div className="text-xs text-stone-500">Statut planif</div>
-            <div>{status.planStatus}</div>
+            <div className={planStatusPill(status.planStatus)}>{status.planStatus}</div>
           </div>
           {contract.notes && (
             <div>
@@ -319,18 +331,18 @@ export default function SavDashboard({
   const emptyContracts = filteredContracts.length === 0;
 
   return (
-    <div className="w-full">
+    <div className="w-full obera-dashboard space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-stone-700">Dashboard SAV</h2>
-          <p className="text-sm text-stone-500">
+          <h2 className="text-2xl obera-title">Dashboard SAV</h2>
+          <p className="text-sm obera-subtitle">
             Centre de pilotage simple et lisible.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-100"
+            className="obera-btn-primary"
             onClick={onOpenManualSav}
           >
             + Saisie manuelle SAV
@@ -338,17 +350,17 @@ export default function SavDashboard({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className={`px-4 py-2 rounded-lg text-sm ${tab === "stats" ? "bg-[#1a3668] text-white" : "border border-stone-300 text-stone-600"}`}
+          className={`obera-tab ${tab === "stats" ? "is-active" : ""}`}
           onClick={() => setTab("stats")}
         >
           Statistiques
         </button>
         <button
           type="button"
-          className={`px-4 py-2 rounded-lg text-sm ${tab === "contracts" ? "bg-[#1a3668] text-white" : "border border-stone-300 text-stone-600"}`}
+          className={`obera-tab ${tab === "contracts" ? "is-active" : ""}`}
           onClick={() => setTab("contracts")}
         >
           Contrats de maintenance
@@ -356,64 +368,67 @@ export default function SavDashboard({
       </div>
 
       {tab === "stats" && (
-        <div className="mt-6 space-y-6">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex gap-2">
+        <div className="space-y-6">
+          <div className="obera-panel obera-panel-tight p-4 flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="text-[0.7rem] uppercase tracking-[0.2em] text-stone-500 mr-2">
+                Periode
+              </div>
               {(Object.keys(rangeToDays) as TimeRange[]).map((range) => (
                 <button
                   key={range}
                   type="button"
-                  className={`px-3 py-2 rounded-lg text-xs ${
-                    ticketFilters.range === range
-                      ? "bg-stone-800 text-white"
-                      : "border border-stone-300 text-stone-600"
-                  }`}
+                  className={`obera-tab ${ticketFilters.range === range ? "is-active" : ""}`}
                   onClick={() => setTicketFilters((prev) => ({ ...prev, range }))}
                 >
                   {range === "7d" ? "7j" : range === "30d" ? "30j" : range === "90d" ? "90j" : "12 mois"}
                 </button>
               ))}
             </div>
-            <select
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
-              value={ticketFilters.category}
-              onChange={(e) => setTicketFilters((prev) => ({ ...prev, category: e.target.value }))}
-            >
-              <option value="">Toutes categories</option>
-              {ticketOptions.categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <select
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
-              value={ticketFilters.model}
-              onChange={(e) => setTicketFilters((prev) => ({ ...prev, model: e.target.value }))}
-            >
-              <option value="">Tous modeles</option>
-              {ticketOptions.models.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-            <select
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
-              value={ticketFilters.client}
-              onChange={(e) => setTicketFilters((prev) => ({ ...prev, client: e.target.value }))}
-            >
-              <option value="">Tous clients</option>
-              {ticketOptions.clients.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              SLA
-              <input
-                className="w-16 rounded-lg border border-stone-300 px-2 py-1 text-xs"
-                value={slaHours}
-                onChange={(e) => setSlaHours(Number(e.target.value))}
-                type="number"
-                min={1}
-              />
-              h
+            <div className="flex flex-wrap gap-3 items-center">
+              <select
+                className="obera-field"
+                value={ticketFilters.category}
+                onChange={(e) =>
+                  setTicketFilters((prev) => ({ ...prev, category: e.target.value }))
+                }
+              >
+                <option value="">Toutes categories</option>
+                {ticketOptions.categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                className="obera-field"
+                value={ticketFilters.model}
+                onChange={(e) => setTicketFilters((prev) => ({ ...prev, model: e.target.value }))}
+              >
+                <option value="">Tous modeles</option>
+                {ticketOptions.models.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select
+                className="obera-field"
+                value={ticketFilters.client}
+                onChange={(e) => setTicketFilters((prev) => ({ ...prev, client: e.target.value }))}
+              >
+                <option value="">Tous clients</option>
+                {ticketOptions.clients.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2 text-xs text-stone-500">
+                <span>SLA</span>
+                <input
+                  className="obera-field w-16 text-center"
+                  value={slaHours}
+                  onChange={(e) => setSlaHours(Number(e.target.value))}
+                  type="number"
+                  min={1}
+                />
+                <span>h</span>
+              </div>
             </div>
           </div>
 
@@ -466,7 +481,7 @@ export default function SavDashboard({
 
           {!emptyTickets && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+              <div className="obera-panel p-4">
                 <div className="text-sm font-medium text-stone-700 mb-3">Repartition par statut</div>
                 <StatusList
                   counts={{
@@ -478,25 +493,25 @@ export default function SavDashboard({
                   }}
                 />
               </div>
-              <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+              <div className="obera-panel p-4">
                 <div className="text-sm font-medium text-stone-700 mb-3">Top 5 modeles</div>
                 <BarList items={topModels} />
               </div>
-              <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm md:col-span-2">
+              <div className="obera-panel p-4 md:col-span-2">
                 <div className="text-sm font-medium text-stone-700 mb-3">Top 5 causes</div>
                 <BarList items={topCauses} />
               </div>
             </div>
           )}
 
-          <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <div className="obera-panel p-4">
             <div className="text-sm font-medium text-stone-700 mb-3">Dernieres demandes</div>
             {emptyTickets ? (
               <div className="text-sm text-stone-500">Aucune demande sur la periode.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-xs text-stone-500">
+                <table className="obera-table">
+                  <thead>
                     <tr className="border-b">
                       <th className="py-2 text-left">Date</th>
                       <th className="py-2 text-left">Client</th>
@@ -507,17 +522,21 @@ export default function SavDashboard({
                       <th className="py-2 text-left">Resolution</th>
                     </tr>
                   </thead>
-                  <tbody className="text-stone-700">
+                  <tbody>
                     {lastTickets.map((t) => (
                       <tr
                         key={t.id}
-                        className="border-b hover:bg-stone-50 cursor-pointer"
+                        className="cursor-pointer"
                         onClick={() => setSelectedTicket(t)}
                       >
                         <td className="py-2">{formatDate(t.createdAt)}</td>
                         <td className="py-2">{t.clientName}</td>
                         <td className="py-2">{t.model}</td>
-                        <td className="py-2">{formatTicketStatus(t.status)}</td>
+                        <td className="py-2">
+                          <span className={ticketStatusPill(t.status)}>
+                            {formatTicketStatus(t.status)}
+                          </span>
+                        </td>
                         <td className="py-2">{t.severity}</td>
                         <td className="py-2">
                           {formatHours(
@@ -548,10 +567,10 @@ export default function SavDashboard({
       )}
 
       {tab === "contracts" && (
-        <div className="mt-6 space-y-6">
-          <div className="flex flex-wrap gap-3 items-center">
+        <div className="space-y-6">
+          <div className="obera-panel obera-panel-tight p-4 flex flex-wrap gap-3 items-center">
             <select
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
+              className="obera-field"
               value={contractFilters.category}
               onChange={(e) =>
                 setContractFilters((prev) => ({ ...prev, category: e.target.value }))
@@ -563,7 +582,7 @@ export default function SavDashboard({
               ))}
             </select>
             <select
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
+              className="obera-field"
               value={contractFilters.model}
               onChange={(e) =>
                 setContractFilters((prev) => ({ ...prev, model: e.target.value }))
@@ -575,7 +594,7 @@ export default function SavDashboard({
               ))}
             </select>
             <select
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
+              className="obera-field"
               value={contractFilters.client}
               onChange={(e) =>
                 setContractFilters((prev) => ({ ...prev, client: e.target.value }))
@@ -587,7 +606,7 @@ export default function SavDashboard({
               ))}
             </select>
             <input
-              className="rounded-lg border border-stone-300 px-3 py-2 text-xs"
+              className="obera-field"
               placeholder="Recherche (site, ville)"
               value={contractFilters.query}
               onChange={(e) =>
@@ -596,13 +615,13 @@ export default function SavDashboard({
             />
             <button
               type="button"
-              className="px-3 py-2 rounded-lg border border-stone-300 text-xs text-stone-600"
+              className="obera-btn-outline"
             >
               Exporter CSV
             </button>
           </div>
 
-          <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <div className="obera-panel p-4">
             <div className="text-sm font-medium text-stone-700 mb-3">
               Contrats de maintenance
             </div>
@@ -610,9 +629,9 @@ export default function SavDashboard({
               <div className="text-sm text-stone-500">Aucun contrat ne correspond aux filtres.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-xs text-stone-500">
-                    <tr className="border-b">
+                <table className="obera-table">
+                  <thead>
+                    <tr>
                       <th className="py-2 text-left">Client</th>
                       <th className="py-2 text-left">Site</th>
                       <th className="py-2 text-left">Appareils</th>
@@ -623,7 +642,7 @@ export default function SavDashboard({
                       <th className="py-2 text-left">Planification</th>
                     </tr>
                   </thead>
-                  <tbody className="text-stone-700">
+                  <tbody>
                     {filteredContracts.map((c) => {
                       const status = computeContractStatus(c);
                       const nextVisit = status.nextVisit
@@ -632,7 +651,7 @@ export default function SavDashboard({
                       return (
                         <tr
                           key={c.id}
-                          className="border-b hover:bg-stone-50 cursor-pointer"
+                          className="cursor-pointer"
                           onClick={() => setSelectedContract(c)}
                         >
                           <td className="py-2">{c.clientName}</td>
@@ -648,7 +667,11 @@ export default function SavDashboard({
                             {formatDate(c.lastVisitDate)}
                           </td>
                           <td className="py-2">{nextVisit}</td>
-                          <td className="py-2">{status.planStatus}</td>
+                          <td className="py-2">
+                            <span className={planStatusPill(status.planStatus)}>
+                              {status.planStatus}
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}

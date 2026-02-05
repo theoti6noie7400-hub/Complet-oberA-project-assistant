@@ -1,5 +1,23 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
+:root {
+  --obera-navy: #203050;
+  --obera-navy-600: #2b3f66;
+  --obera-green: #709060;
+  --obera-green-600: #5f7f54;
+  --obera-red: #a03030;
+  --obera-ink: #1b2230;
+  --obera-muted: #5f6772;
+  --obera-cream: #f7f8f3;
+  --obera-surface: #ffffff;
+  --obera-border: #e2e5dd;
+  --obera-shadow-sm: 0 8px 20px rgba(32, 48, 80, 0.08);
+  --obera-shadow-md: 0 14px 30px rgba(32, 48, 80, 0.12);
+  --obera-radius-lg: 18px;
+  --obera-radius-md: 12px;
+  --obera-radius-sm: 10px;
+}
+
 body {
   font-family: "Inter", sans-serif;
   background-color: #f5f5f4;
@@ -244,4 +262,197 @@ body {
   .logo-img {
     height: 80px;
   }
+}
+
+.obera-dashboard {
+  color: var(--obera-ink);
+}
+
+.obera-panel {
+  background: var(--obera-surface);
+  border: 1px solid var(--obera-border);
+  border-radius: var(--obera-radius-lg);
+  box-shadow: var(--obera-shadow-sm);
+}
+
+.obera-panel-tight {
+  border-radius: var(--obera-radius-md);
+}
+
+.obera-title {
+  color: var(--obera-navy);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.obera-subtitle {
+  color: var(--obera-muted);
+}
+
+.obera-tab {
+  border: 1px solid var(--obera-border);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  color: var(--obera-muted);
+  background: var(--obera-surface);
+  transition: all 0.2s ease;
+}
+
+.obera-tab:hover {
+  border-color: var(--obera-navy-600);
+  color: var(--obera-navy);
+}
+
+.obera-tab.is-active {
+  background: var(--obera-navy);
+  color: #ffffff;
+  border-color: var(--obera-navy);
+  box-shadow: var(--obera-shadow-sm);
+}
+
+.obera-btn-primary {
+  background: var(--obera-navy);
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--obera-navy);
+  transition: all 0.2s ease;
+}
+
+.obera-btn-primary:hover {
+  background: var(--obera-navy-600);
+}
+
+.obera-btn-outline {
+  background: transparent;
+  color: var(--obera-navy);
+  border: 1px solid var(--obera-border);
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.obera-btn-outline:hover {
+  border-color: var(--obera-navy-600);
+  color: var(--obera-navy);
+  background: var(--obera-cream);
+}
+
+.obera-field {
+  border: 1px solid var(--obera-border);
+  border-radius: var(--obera-radius-sm);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--obera-ink);
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.obera-field:focus {
+  outline: none;
+  border-color: var(--obera-navy);
+  box-shadow: 0 0 0 3px rgba(32, 48, 80, 0.12);
+}
+
+.obera-kpi {
+  border-radius: var(--obera-radius-md);
+  border: 1px solid var(--obera-border);
+  background: #ffffff;
+  box-shadow: var(--obera-shadow-sm);
+  padding: 1rem 1.1rem;
+}
+
+.obera-kpi-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--obera-muted);
+}
+
+.obera-kpi-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--obera-navy);
+  margin-top: 0.35rem;
+}
+
+.obera-kpi-sub {
+  font-size: 0.75rem;
+  color: var(--obera-muted);
+  margin-top: 0.25rem;
+}
+
+.obera-bar {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--obera-cream);
+  overflow: hidden;
+}
+
+.obera-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--obera-navy);
+}
+
+.obera-bar-fill.is-green {
+  background: var(--obera-green);
+}
+
+.obera-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.obera-table thead th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--obera-muted);
+  background: var(--obera-cream);
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--obera-border);
+}
+
+.obera-table tbody td {
+  padding: 0.7rem 0.5rem;
+  border-bottom: 1px solid var(--obera-border);
+  color: var(--obera-ink);
+}
+
+.obera-table tbody tr:hover {
+  background: #f1f4ee;
+}
+
+.obera-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: #eef1ea;
+  color: var(--obera-muted);
+}
+
+.obera-pill.is-success {
+  background: rgba(112, 144, 96, 0.16);
+  color: var(--obera-green-600);
+}
+
+.obera-pill.is-warning {
+  background: rgba(160, 48, 48, 0.12);
+  color: var(--obera-red);
+}
+
+.obera-drawer {
+  background: var(--obera-surface);
+  border-left: 1px solid var(--obera-border);
+  box-shadow: var(--obera-shadow-md);
 }
