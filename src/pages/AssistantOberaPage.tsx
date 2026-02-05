@@ -1,5 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  CATEGORIES,
+  DIAGNOSTIC_NODES,
+  PRODUCTS,
+  getDiagnosticStartNode,
+  getImageUrl,
+  getNoticeUrl,
+  resolveDynamicNext,
+  type CategoryId,
+  type DiagnosticNode,
+  type DiagnosticTarget,
+  type ProductCatalogItem
+} from "../lib/assistantData";
 
 type StepId =
   | "login"
@@ -12,100 +25,65 @@ type StepId =
   | "manual-sav"
   | "dashboard";
 
-type CategoryId =
-  | "purificateurs"
-  | "depoussiereurs"
-  | "rafraichisseurs"
-  | "tables-aspirantes";
-
-type Product = {
-  id: string;
-  label: string;
-  category: CategoryId;
-  manualUrl?: string;
-};
-
-const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
-  { id: "purificateurs", label: "Purificateurs d'air", icon: "🍃" },
-  { id: "depoussiereurs", label: "Dépoussiéreurs", icon: "🌪️" },
-  { id: "rafraichisseurs", label: "Rafraîchisseurs d'air", icon: "🧊" },
-  { id: "tables-aspirantes", label: "Tables Aspirantes", icon: "🛠️" }
-];
-
-const PRODUCTS: Product[] = [
-  { id: "epurex-1000", label: "EpurEx 1000", category: "purificateurs" },
-  { id: "epurbox", label: "ePURBOX / ePUR", category: "purificateurs" },
-  { id: "dustomat-4-24", label: "DUSTOMAT 4-24", category: "depoussiereurs" },
-  { id: "ecoclim-22", label: "Ecoclim 22 / IC 22", category: "rafraichisseurs" },
-  { id: "tables-aspirantes", label: "Tables Aspirantes", category: "tables-aspirantes" }
-];
-
-type DiagnosticOption = {
-  label: string;
-  next?: string;
-  result?: "filter" | "sav" | "resolved";
-};
-
-type DiagnosticStep = {
-  id: string;
-  question: string;
-  options: DiagnosticOption[];
-};
-
-const DIAGNOSTIC_STEPS: Record<string, DiagnosticStep> = {
-  power: {
-    id: "power",
-    question: "L'appareil s'allume-t-il ?",
-    options: [
-      { label: "Oui", next: "airflow" },
-      { label: "Non", result: "sav" }
-    ]
-  },
-  airflow: {
-    id: "airflow",
-    question: "Le débit d'air vous semble-t-il faible ?",
-    options: [
-      { label: "Oui", result: "filter" },
-      { label: "Non", next: "noise" }
-    ]
-  },
-  noise: {
-    id: "noise",
-    question: "Entendez-vous un bruit anormal ?",
-    options: [
-      { label: "Oui", result: "sav" },
-      { label: "Non", result: "resolved" }
-    ]
-  }
-};
-
-const DIAGNOSTIC_ORDER = ["power", "airflow", "noise"];
-
 type DiagnosticOutcome = {
-  id: "filter" | "sav" | "resolved";
+  id: "filter" | "sav" | "sav-pump" | "resolved";
   title: string;
   message: string;
 };
 
-const DIAGNOSTIC_OUTCOMES: Record<DiagnosticOutcome["id"], DiagnosticOutcome> = {
+const TARGET_OUTCOMES: Record<DiagnosticTarget, DiagnosticOutcome> = {
   filter: {
     id: "filter",
-    title: "Suspicion de filtre saturé",
+    title: "Pièce consommable à commander",
     message:
-      "Le comportement indique un filtre possiblement colmaté. Un remplacement est recommandé."
+      "Le diagnostic indique un consommable en fin de vie. Ouvrez la demande de consommables."
   },
   sav: {
     id: "sav",
-    title: "Assistance SAV recommandée",
+    title: "Prise en charge SAV recommandée",
     message:
-      "Le diagnostic suggère un contrôle technique. Contactez notre service SAV pour une prise en charge."
+      "Le diagnostic nécessite un contrôle technique. Contactez le SAV pour la suite."
+  },
+  "sav-pump": {
+    id: "sav-pump",
+    title: "Protocole pompe et contact SAV",
+    message:
+      "Le diagnostic indique un défaut probable de pompe. Un dossier SAV doit être ouvert."
   },
   resolved: {
     id: "resolved",
-    title: "Contrôle terminé",
-    message: "Aucun défaut critique détecté."
+    title: "Diagnostic terminé",
+    message: "Le guide n'indique pas de défaut critique."
   }
 };
+
+function buildOutcomeFromTarget(target: DiagnosticTarget, node?: DiagnosticNode): DiagnosticOutcome {
+  const base = TARGET_OUTCOMES[target];
+  if (!node || node.type !== "text") {
+    return base;
+  }
+  return {
+    id: base.id,
+    title: node.title || base.title,
+    message: node.body || base.message
+  };
+}
+
+function DeviceThumb({ src, name }: { src?: string | null; name: string }) {
+  const [hasError, setHasError] = useState(false);
+  if (!src || hasError) {
+    return (
+      <div className="product-thumb product-thumb-placeholder">
+        <span>Photo</span>
+      </div>
+    );
+  }
+  return (
+    <div className="product-thumb">
+      <img src={src} alt={`Photo ${name}`} onError={() => setHasError(true)} />
+    </div>
+  );
+}
 
 export default function AssistantOberaPage() {
   const [activeStep, setActiveStep] = useState<StepId>("login");
@@ -115,7 +93,7 @@ export default function AssistantOberaPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductCatalogItem | null>(null);
   const [serialNumber, setSerialNumber] = useState("");
   const [serialError, setSerialError] = useState("");
 
@@ -124,6 +102,7 @@ export default function AssistantOberaPage() {
   const [feedbackState, setFeedbackState] = useState<"idle" | "yes" | "no">("idle");
   const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
   const [diagnosticError, setDiagnosticError] = useState("");
+  const [fallbackWarning, setFallbackWarning] = useState(false);
 
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -150,29 +129,31 @@ export default function AssistantOberaPage() {
     return PRODUCTS.filter((p) => p.category === selectedCategory);
   }, [selectedCategory]);
 
-  const currentDiagStep = diagStack.length
-    ? DIAGNOSTIC_STEPS[diagStack[diagStack.length - 1]]
-    : null;
+  const currentDiagNode = useMemo(() => {
+    if (!diagStack.length) return null;
+    return DIAGNOSTIC_NODES[diagStack[diagStack.length - 1]] ?? null;
+  }, [diagStack]);
 
   const progressPct = useMemo(() => {
-    if (!currentDiagStep) return 0;
-    const idx = DIAGNOSTIC_ORDER.indexOf(currentDiagStep.id);
-    if (idx < 0) return 0;
-    return ((idx + 1) / DIAGNOSTIC_ORDER.length) * 100;
-  }, [currentDiagStep]);
+    if (!currentDiagNode) return 0;
+    const total = currentDiagNode.maxSteps || 1;
+    const step = Math.min(diagStack.length, total);
+    return Math.min(100, (step / total) * 100);
+  }, [currentDiagNode, diagStack.length]);
 
   const progressText = useMemo(() => {
-    if (!currentDiagStep) return "";
-    const idx = DIAGNOSTIC_ORDER.indexOf(currentDiagStep.id);
-    return `Etape ${idx + 1} / ${DIAGNOSTIC_ORDER.length}`;
-  }, [currentDiagStep]);
+    if (!currentDiagNode) return "";
+    const total = currentDiagNode.maxSteps || 1;
+    const step = Math.min(diagStack.length, total);
+    return `Etape ${step} / ${total}`;
+  }, [currentDiagNode, diagStack.length]);
 
   const showHeader = activeStep !== "login";
 
   useEffect(() => {
     setSelectedOptionIdx(null);
     setDiagnosticError("");
-  }, [currentDiagStep?.id]);
+  }, [currentDiagNode?.id]);
 
   const resetAll = () => {
     setActiveStep("login");
@@ -189,6 +170,7 @@ export default function AssistantOberaPage() {
     setFeedbackState("idle");
     setSelectedOptionIdx(null);
     setDiagnosticError("");
+    setFallbackWarning(false);
     setContactName("");
     setContactEmail("");
     setContactComment("");
@@ -237,7 +219,11 @@ export default function AssistantOberaPage() {
 
     setSerialNumber(serial);
     setSerialError("");
-    setDiagStack(["power"]);
+    const startNode = getDiagnosticStartNode(selectedProduct.id);
+    setDiagStack([startNode]);
+    setFallbackWarning(
+      startNode === "start" && selectedProduct.category !== "rafraichisseurs"
+    );
     setDiagOutcome(null);
     setFeedbackState("idle");
     setContactFormVisible(false);
@@ -248,19 +234,13 @@ export default function AssistantOberaPage() {
   const goToSummary = (outcome: DiagnosticOutcome) => {
     setDiagOutcome(outcome);
     setFeedbackState(outcome.id === "resolved" ? "idle" : "no");
-    setContactFormVisible(outcome.id === "sav");
+    setContactFormVisible(outcome.id === "sav" || outcome.id === "sav-pump");
     setActiveStep("summary");
   };
 
-  const handleDiagnosticOption = (opt: DiagnosticOption) => {
-    setDiagnosticError("");
-    if (opt.result) {
-      goToSummary(DIAGNOSTIC_OUTCOMES[opt.result]);
-      return;
-    }
-    if (opt.next) {
-      setDiagStack((prev) => [...prev, opt.next!]);
-    }
+  const handleDiagnosticNext = (nextId: string) => {
+    const resolved = resolveDynamicNext(nextId, selectedProduct?.id ?? "");
+    setDiagStack((prev) => [...prev, resolved]);
   };
 
   const handleDiagnosticBack = () => {
@@ -272,7 +252,7 @@ export default function AssistantOberaPage() {
   };
 
   const openConsumablesFromSummary = () => {
-    setConsProduct(selectedProduct?.label ?? "");
+    setConsProduct(selectedProduct?.name ?? "");
     setConsSerial(serialNumber);
     setActiveStep("consumables");
   };
@@ -283,7 +263,7 @@ export default function AssistantOberaPage() {
 
   const buildContactMessage = () => {
     const base = diagOutcome?.message ?? "";
-    return `${base}\n\nAppareil: ${selectedProduct?.label ?? "-"}\nNuméro de série: ${serialNumber || "-"}`;
+    return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}`;
   };
 
   const sendMail = (subject: string, body: string) => {
@@ -293,11 +273,14 @@ export default function AssistantOberaPage() {
 
   const submitContact = (e: React.FormEvent) => {
     e.preventDefault();
-    const subject = `Demande SAV - ${selectedProduct?.label ?? "Appareil"}`;
+    const subject =
+      diagOutcome?.id === "sav-pump"
+        ? `Demande SAV pompe - ${selectedProduct?.name ?? "Appareil"}`
+        : `Demande SAV - ${selectedProduct?.name ?? "Appareil"}`;
     const body = [
       `Nom: ${contactName}`,
       `Email: ${contactEmail}`,
-      `Appareil: ${selectedProduct?.label ?? "-"}`,
+      `Appareil: ${selectedProduct?.name ?? "-"}`,
       `Numéro de série: ${serialNumber || "-"}`,
       `Message: ${buildContactMessage()}`,
       `Commentaire: ${contactComment || "-"}`
@@ -480,40 +463,51 @@ export default function AssistantOberaPage() {
             Sélectionnez votre appareil
           </h2>
           <p className="text-sm text-stone-500 mb-4">
-            (Cliquez sur <span className="font-bold text-blue-600 info-btn">i</span> pour
-            télécharger la notice)
+            Notice disponible via le bouton "Notice PDF" lorsqu'elle est disponible.
           </p>
           <div
             id="product-list"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full"
           >
-            {filteredProducts.map((product) => (
-              <div key={product.id} className="product-item">
-                <button
-                  className="product-btn-text"
-                  type="button"
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setActiveStep("serial");
-                  }}
-                >
-                  {product.label}
-                </button>
-                <button
-                  className="info-btn"
-                  type="button"
-                  onClick={() => {
-                    if (product.manualUrl) {
-                      window.open(product.manualUrl, "_blank");
-                    }
-                  }}
-                  aria-label="Télécharger la notice"
-                >
-                  i
-                </button>
-              </div>
-            ))}
+            {filteredProducts.map((product) => {
+              const noticeUrl = getNoticeUrl(product.noticeFile);
+              const imageUrl = getImageUrl(product.imageFile);
+              return (
+                <div key={product.id} className="product-item">
+                  <DeviceThumb src={imageUrl} name={product.name} />
+                  <div className="product-details">
+                    <button
+                      className="product-btn-text"
+                      type="button"
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setActiveStep("serial");
+                      }}
+                    >
+                      {product.name}
+                    </button>
+                    <div className="product-meta">
+                      {noticeUrl ? (
+                        <button
+                          type="button"
+                          className="product-link"
+                          onClick={() => window.open(noticeUrl, "_blank")}
+                        >
+                          Notice PDF
+                        </button>
+                      ) : (
+                        <span className="product-link disabled">Notice manquante</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+          <p className="text-xs text-stone-400 mt-4">
+            Photos et notices peuvent etre ajoutees dans <strong>/public/products/devices</strong>{" "}
+            et <strong>/public/notices</strong>.
+          </p>
           <p className="text-sm text-stone-500 mt-6" id="appareil-non-trouve-container">
             Vous ne trouvez pas votre appareil ?{" "}
             <button
@@ -522,7 +516,7 @@ export default function AssistantOberaPage() {
               type="button"
               onClick={() => {
                 const outcome = {
-                  ...DIAGNOSTIC_OUTCOMES.sav,
+                  ...TARGET_OUTCOMES.sav,
                   message:
                     "Appareil non trouvé dans la liste. Merci de nous contacter pour une prise en charge."
                 };
@@ -612,29 +606,48 @@ export default function AssistantOberaPage() {
           </p>
 
           <div id="diagnostic-content" className="w-full text-left">
-            {currentDiagStep ? (
-              <div className="space-y-4">
-                <p className="text-base font-medium text-stone-700">{currentDiagStep.question}</p>
-                <div className="space-y-2">
-                  {currentDiagStep.options.map((opt, idx) => (
-                    <label
-                      key={`${currentDiagStep.id}-${idx}`}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-stone-200 cursor-pointer hover:bg-stone-50"
-                    >
-                      <input
-                        type="radio"
-                        name="diagnostic-option"
-                        checked={selectedOptionIdx === idx}
-                        onChange={() => {
-                          setSelectedOptionIdx(idx);
-                          setDiagnosticError("");
-                        }}
-                      />
-                      <span className="text-stone-700">{opt.label}</span>
-                    </label>
-                  ))}
-                </div>
+            {fallbackWarning && (
+              <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                Aucun arbre de diagnostic specifique n'est disponible pour ce modele. Un guide
+                standard sera applique.
               </div>
+            )}
+            {currentDiagNode ? (
+              currentDiagNode.type === "question" ? (
+                <div className="space-y-4">
+                  <p className="text-base font-medium text-stone-700">
+                    {currentDiagNode.title}
+                  </p>
+                  <div className="space-y-2">
+                    {currentDiagNode.options.map((opt, idx) => (
+                      <label
+                        key={`${currentDiagNode.id}-${idx}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-stone-200 cursor-pointer hover:bg-stone-50"
+                      >
+                        <input
+                          type="radio"
+                          name="diagnostic-option"
+                          checked={selectedOptionIdx === idx}
+                          onChange={() => {
+                            setSelectedOptionIdx(idx);
+                            setDiagnosticError("");
+                          }}
+                        />
+                        <span className="text-stone-700">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-base font-semibold text-stone-700">
+                    {currentDiagNode.title}
+                  </p>
+                  <p className="text-sm text-stone-600 whitespace-pre-line">
+                    {currentDiagNode.body}
+                  </p>
+                </div>
+              )
             ) : (
               <p className="text-sm text-stone-500">Diagnostic en attente.</p>
             )}
@@ -664,14 +677,33 @@ export default function AssistantOberaPage() {
               className="px-6 py-2 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
               type="button"
               onClick={() => {
-                if (!currentDiagStep || selectedOptionIdx === null) {
-                  setDiagnosticError("Sélectionnez une réponse pour continuer.");
+                if (!currentDiagNode) {
+                  setDiagnosticError("Diagnostic indisponible.");
                   return;
                 }
-                handleDiagnosticOption(currentDiagStep.options[selectedOptionIdx]);
+                if (currentDiagNode.type === "question") {
+                  if (selectedOptionIdx === null) {
+                    setDiagnosticError("Sélectionnez une réponse pour continuer.");
+                    return;
+                  }
+                  const opt = currentDiagNode.options[selectedOptionIdx];
+                  handleDiagnosticNext(opt.next);
+                  return;
+                }
+                if (currentDiagNode.target) {
+                  goToSummary(buildOutcomeFromTarget(currentDiagNode.target, currentDiagNode));
+                  return;
+                }
+                if (currentDiagNode.next) {
+                  handleDiagnosticNext(currentDiagNode.next);
+                  return;
+                }
+                goToSummary(buildOutcomeFromTarget("resolved", currentDiagNode));
               }}
             >
-              Suivant
+              {currentDiagNode?.type === "text" && currentDiagNode.target
+                ? "Terminer"
+                : "Suivant"}
             </button>
           </div>
         </div>
@@ -729,7 +761,7 @@ export default function AssistantOberaPage() {
             >
               <p className="text-stone-700 mb-2">{diagOutcome?.message}</p>
               <p className="text-sm text-stone-500">
-                Appareil : {selectedProduct?.label ?? "-"} · Numéro de série :{" "}
+                Appareil : {selectedProduct?.name ?? "-"} · Numéro de série :{" "}
                 {serialNumber || "-"}
               </p>
             </div>
@@ -800,7 +832,7 @@ export default function AssistantOberaPage() {
                   id="contact-product"
                   className="mt-1 p-2 w-full rounded-md border border-stone-300 bg-stone-200"
                   readOnly
-                  value={selectedProduct?.label ?? ""}
+                  value={selectedProduct?.name ?? ""}
                 />
               </div>
               <div className="mb-4">

@@ -38,6 +38,12 @@ const statusIconMap = {
   help: HelpCircle
 } as const;
 
+function withBase(path: string): string {
+  const base = (import.meta as any).env?.BASE_URL ?? "/";
+  const prefix = base.endsWith("/") ? base : `${base}/`;
+  return `${prefix}${path.replace(/^\/+/, "")}`;
+}
+
 function buttonClass(variant: "default" | "outline" | "destructive" = "default") {
   const base =
     "inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-2xl transition";
@@ -90,6 +96,7 @@ export default function CharbonActifPage() {
   const [humiditeStr, setHumiditeStr] = useState<string>("");
   const [temperatureStr, setTemperatureStr] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
+  const [clientSite, setClientSite] = useState<string>("");
   const [operatorName, setOperatorName] = useState<string>("");
   const [deviceSerial, setDeviceSerial] = useState<string>("");
   const [reportDate, setReportDate] = useState<string>("");
@@ -103,6 +110,10 @@ export default function CharbonActifPage() {
     const f = Object.values(FILTER_REFERENCES).find((x) => x.id === filterId);
     return f ?? FILTER_REFERENCES.EPUREX_1000;
   }, [filterId]);
+
+  const filterImage = useMemo(() => {
+    return filter.image ? withBase(filter.image) : undefined;
+  }, [filter.image]);
 
   const supportKg = useMemo(() => {
     const s = filter.poidsNeufBrutKg - filter.poidsCharbonNetKg;
@@ -286,6 +297,7 @@ export default function CharbonActifPage() {
     setHumiditeStr("");
     setTemperatureStr("");
     setClientName("");
+    setClientSite("");
     setOperatorName("");
     setDeviceSerial("");
     setReportDate("");
@@ -320,6 +332,7 @@ export default function CharbonActifPage() {
       dateIso,
       dateClient: reportDate,
       clientName,
+      clientSite,
       operatorName,
       deviceSerial,
       mode,
@@ -435,7 +448,7 @@ export default function CharbonActifPage() {
               </select>
 
               <div className="mt-2 flex items-start gap-3">
-                <ImageThumb src={filter.image} alt={filter.label} size={56} />
+                <ImageThumb src={filterImage} alt={filter.label} size={56} />
                 <div className="text-xs text-stone-500">
                   <div className="font-medium text-stone-700">{filter.label}</div>
                   Poids neuf brut:{" "}
@@ -711,7 +724,7 @@ export default function CharbonActifPage() {
 
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Infos rapport (optionnel)</label>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <input
                   className="w-full rounded-2xl border p-2"
                   placeholder="Nom du client"
@@ -720,10 +733,18 @@ export default function CharbonActifPage() {
                 />
                 <input
                   className="w-full rounded-2xl border p-2"
+                  placeholder="Site client"
+                  value={clientSite}
+                  onChange={(e) => setClientSite(e.target.value)}
+                />
+                <input
+                  className="w-full rounded-2xl border p-2"
                   placeholder="Operateur"
                   value={operatorName}
                   onChange={(e) => setOperatorName(e.target.value)}
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                 <input
                   className="w-full rounded-2xl border p-2"
                   placeholder="SN appareil"
@@ -843,14 +864,6 @@ export default function CharbonActifPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white shadow-sm p-4 md:p-6 space-y-2">
-          <div className="text-sm font-medium">Ameliorations possibles</div>
-          <ul className="list-disc pl-5 text-sm text-stone-500 space-y-1">
-            <li>Ajouter numero de serie / site client / operateur pour fiabiliser le rapport.</li>
-            <li>Ajouter un export fichier (TXT/PDF) si l'environnement le permet.</li>
-            <li>Ajouter un indicateur d'humidite de fonctionnement (si capteur dispo) pour mieux expliquer les ecarts.</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

@@ -698,6 +698,7 @@ export function buildReportText(args: {
   dateIso: string;
   dateClient?: string;
   clientName?: string;
+  clientSite?: string;
   operatorName?: string;
   deviceSerial?: string;
   mode: ModePolluant;
@@ -720,6 +721,8 @@ export function buildReportText(args: {
   const dateLine = args.dateClient && args.dateClient.trim() ? args.dateClient.trim() : args.dateIso;
   lines.push(`Date: ${dateLine}`);
   if (args.clientName && args.clientName.trim()) lines.push(`Client: ${args.clientName.trim()}`);
+  if (args.clientSite && args.clientSite.trim())
+    lines.push(`Site client: ${args.clientSite.trim()}`);
   if (args.operatorName && args.operatorName.trim())
     lines.push(`Operateur: ${args.operatorName.trim()}`);
   if (args.deviceSerial && args.deviceSerial.trim())
