@@ -341,7 +341,7 @@ export default function AssistantOberaPage() {
 
   return (
     <div className="bg-stone-100 min-h-screen flex items-center justify-center p-4">
-      <div className="container mx-auto p-8 bg-white rounded-xl shadow-lg">
+      <div className="container mx-auto p-8 bg-white rounded-xl shadow-lg obera-shell">
         {showHeader && (
           <header className="text-center mb-10" id="main-header">
             <div className="flex justify-center">
