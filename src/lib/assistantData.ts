@@ -1,3 +1,5 @@
+import { OBERA_PRODUCT_IMAGES } from "../assets/oberaProductImages";
+
 export type CategoryId =
   | "rafraichisseurs"
   | "purificateurs"
@@ -66,7 +68,7 @@ export const PRODUCTS: ProductCatalogItem[] = [
 
   { id: "table-aspirante", name: "Table Aspirante (BAS-V)", category: "tables-aspirantes", noticeFile: "NOTICE BAS-V - FR.pdf" },
   { id: "dosseret-aspirant", name: "Dosseret Aspirant", category: "tables-aspirantes" }
-].map((p) => ({ ...p, imageFile: `devices/${p.id}.jpg` }));
+].map((p) => ({ ...p, imageFile: OBERA_PRODUCT_IMAGES[p.id] }));
 
 export type DiagnosticTarget = "sav" | "sav-pump" | "filter" | "resolved";
 
@@ -151,7 +153,8 @@ export function getNoticeUrl(noticeFile?: string): string | null {
 
 export function getImageUrl(imageFile?: string): string | null {
   if (!imageFile) return null;
-  return withBase(`products/${imageFile}`);
+  if (/^https?:\/\//i.test(imageFile)) return imageFile;
+  return withBase(imageFile);
 }
 
 export function getDiagnosticStartNode(productId: string): string {
