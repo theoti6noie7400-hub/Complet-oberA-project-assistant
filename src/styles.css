@@ -333,6 +333,17 @@ body {
   }
 }
 
+@media (max-width: 640px) {
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .obera-tab {
+    font-size: 0.78rem;
+    padding: 0.45rem 0.8rem;
+  }
+}
+
 .obera-shell {
   position: relative;
   overflow: hidden;
