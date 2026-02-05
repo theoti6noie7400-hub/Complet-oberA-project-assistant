@@ -68,6 +68,13 @@ docker run --rm -p 8080:80 obera-app
 ```
 Ouvrir `http://localhost:8080`
 
+## Déploiement GitHub Pages (automatique)
+Le workflow `.github/workflows/deploy.yml` construit et déploie sur GitHub Pages à chaque `push` sur `main`.
+
+Dans GitHub :
+- Settings → Pages
+- Source: **GitHub Actions**
+
 ## Variables d'environnement
 Aucune.
 
