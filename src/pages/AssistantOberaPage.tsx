@@ -148,6 +148,7 @@ export default function AssistantOberaPage() {
   const [manualSavRef, setManualSavRef] = useState("");
   const [manualSavAppareil, setManualSavAppareil] = useState("");
   const [manualSavClient, setManualSavClient] = useState("");
+  const [manualSavSite, setManualSavSite] = useState("");
   const [manualSavProbleme, setManualSavProbleme] = useState("");
   const [manualSavCause, setManualSavCause] = useState("");
   const [manualSavAction, setManualSavAction] = useState("");
@@ -213,6 +214,7 @@ export default function AssistantOberaPage() {
     setManualSavRef("");
     setManualSavAppareil("");
     setManualSavClient("");
+    setManualSavSite("");
     setManualSavProbleme("");
     setManualSavCause("");
     setManualSavAction("");
@@ -357,7 +359,7 @@ export default function AssistantOberaPage() {
       serial: manualSavRef || serialNumber || "-",
       clientId: "MANUAL",
       clientName: manualSavClient || "Client non renseigne",
-      site: "-",
+      site: manualSavSite || "-",
       severity: "medium",
       cause: manualSavCause || "Non renseigne",
       resolutionChannel: "sav",
@@ -1154,6 +1156,19 @@ export default function AssistantOberaPage() {
                 placeholder="Ex: SLEEVER INTERNATIONAL / CL11549"
                 value={manualSavClient}
                 onChange={(e) => setManualSavClient(e.target.value)}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-stone-600 text-left">
+                Site / Localisation
+              </label>
+              <input
+                type="text"
+                id="manual-sav-site"
+                className="mt-1 p-2 w-full rounded-md border border-stone-300"
+                placeholder="Ex: Lyon, FR"
+                value={manualSavSite}
+                onChange={(e) => setManualSavSite(e.target.value)}
               />
             </div>
             <div className="mb-4">
