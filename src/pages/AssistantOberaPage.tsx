@@ -69,6 +69,12 @@ function buildOutcomeFromTarget(target: DiagnosticTarget, node?: DiagnosticNode)
   };
 }
 
+function withBase(path: string): string {
+  const base = (import.meta as any).env?.BASE_URL ?? "/";
+  const prefix = base.endsWith("/") ? base : `${base}/`;
+  return `${prefix}${path.replace(/^\/+/, "")}`;
+}
+
 function DeviceThumb({ src, name }: { src?: string | null; name: string }) {
   const [hasError, setHasError] = useState(false);
   if (!src || hasError) {
@@ -86,6 +92,8 @@ function DeviceThumb({ src, name }: { src?: string | null; name: string }) {
 }
 
 export default function AssistantOberaPage() {
+  const logoSrc = useMemo(() => withBase("obera-logo.png"), []);
+  const [logoFailed, setLogoFailed] = useState(false);
   const [activeStep, setActiveStep] = useState<StepId>("login");
   const [clientId, setClientId] = useState("");
   const [pin, setPin] = useState("");
@@ -309,29 +317,37 @@ export default function AssistantOberaPage() {
     if (isAdmin) setActiveStep("dashboard");
   };
 
+  const renderLogo = (clickable: boolean) => {
+    if (logoFailed) {
+      return (
+        <div className="text-4xl font-bold" style={{ color: "#1a3668" }}>
+          ober<span style={{ color: "#8bc53f" }}>A</span>
+        </div>
+      );
+    }
+    const logoImg = (
+      <img
+        src={logoSrc}
+        alt="oberA"
+        className="logo-img"
+        onError={() => setLogoFailed(true)}
+      />
+    );
+    if (!clickable) return logoImg;
+    return (
+      <button id="logo-btn" className="logo-button" onClick={goToDashboard} type="button">
+        {logoImg}
+      </button>
+    );
+  };
+
   return (
     <div className="bg-stone-100 min-h-screen flex items-center justify-center p-4">
       <div className="container mx-auto p-8 bg-white rounded-xl shadow-lg">
         {showHeader && (
           <header className="text-center mb-10" id="main-header">
-            <div className="text-4xl font-bold" style={{ color: "#1a3668" }}>
-              <button
-                id="logo-btn"
-                className="cursor-pointer"
-                onClick={goToDashboard}
-                type="button"
-              >
-                ober
-              </button>
-              <button
-                id="logo-btn-a"
-                className="cursor-pointer"
-                style={{ color: "#8bc53f" }}
-                onClick={goToDashboard}
-                type="button"
-              >
-                A
-              </button>
+            <div className="flex justify-center">
+              {renderLogo(true)}
             </div>
             <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
             <p className="mt-4 text-lg text-stone-600" id="header-subtitle">
@@ -345,8 +361,8 @@ export default function AssistantOberaPage() {
           className={`step-container ${activeStep === "login" ? "active" : ""}`}
         >
           <div className="text-center mb-10">
-            <div className="text-4xl font-bold" style={{ color: "#1a3668" }}>
-              ober<span style={{ color: "#8bc53f" }}>A</span>
+            <div className="flex justify-center">
+              {renderLogo(false)}
             </div>
             <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
           </div>
