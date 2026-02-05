@@ -19,7 +19,8 @@ export const OBERA_PRODUCT_IMAGES: Record<string, string> = {
   "dustomat-hydro": "assets/obera-products/dustomat-hydro.png",
   "dustomat-hydro-atex": "assets/obera-products/dustomat-hydro-atex.png",
   "dustmac": "assets/obera-products/dustmac.png",
-  "dustmac-atex": "assets/obera-products/dustmac-atex.png"
+  "dustmac-atex": "assets/obera-products/dustmac-atex.png",
+  "dosseret-aspirant": "assets/obera-products/dosseret-aspirant.png"
 } as const;
 
 export default OBERA_PRODUCT_IMAGES;
