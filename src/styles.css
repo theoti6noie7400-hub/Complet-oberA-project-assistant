@@ -268,6 +268,16 @@ body {
   color: var(--obera-ink);
 }
 
+.obera-dashboard-shell {
+  background: linear-gradient(180deg, #f0f3ea 0%, #ffffff 45%, #f6f7f2 100%);
+  border-radius: 24px;
+  padding: 1.5rem;
+}
+
+.obera-dashboard-accent {
+  background: radial-gradient(circle at top left, rgba(112, 144, 96, 0.22), transparent 55%);
+}
+
 .obera-panel {
   background: var(--obera-surface);
   border: 1px solid var(--obera-border);
@@ -338,7 +348,7 @@ body {
 .obera-btn-outline:hover {
   border-color: var(--obera-navy-600);
   color: var(--obera-navy);
-  background: var(--obera-cream);
+  background: #f1f4ee;
 }
 
 .obera-field {
@@ -359,8 +369,8 @@ body {
 
 .obera-kpi {
   border-radius: var(--obera-radius-md);
-  border: 1px solid var(--obera-border);
-  background: #ffffff;
+  border: 1px solid #dee3d5;
+  background: linear-gradient(140deg, #ffffff 0%, #f6f7f1 100%);
   box-shadow: var(--obera-shadow-sm);
   padding: 1rem 1.1rem;
 }
@@ -388,7 +398,7 @@ body {
 .obera-bar {
   height: 0.45rem;
   border-radius: 999px;
-  background: var(--obera-cream);
+  background: #e7ebdf;
   overflow: hidden;
 }
 
@@ -413,7 +423,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--obera-muted);
-  background: var(--obera-cream);
+  background: #f1f3ea;
   padding: 0.75rem 0.5rem;
   text-align: left;
   border-bottom: 1px solid var(--obera-border);
@@ -426,7 +436,7 @@ body {
 }
 
 .obera-table tbody tr:hover {
-  background: #f1f4ee;
+  background: #eef2e8;
 }
 
 .obera-pill {
@@ -437,7 +447,7 @@ body {
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 500;
-  background: #eef1ea;
+  background: #e9ede2;
   color: var(--obera-muted);
 }
 

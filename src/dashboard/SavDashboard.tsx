@@ -332,7 +332,8 @@ export default function SavDashboard({
 
   return (
     <div className="w-full obera-dashboard space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="obera-dashboard-shell obera-dashboard-accent space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl obera-title">Dashboard SAV</h2>
           <p className="text-sm obera-subtitle">
@@ -348,9 +349,9 @@ export default function SavDashboard({
             + Saisie manuelle SAV
           </button>
         </div>
-      </div>
+        </div>
 
-      <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
         <button
           type="button"
           className={`obera-tab ${tab === "stats" ? "is-active" : ""}`}
@@ -365,11 +366,11 @@ export default function SavDashboard({
         >
           Contrats de maintenance
         </button>
-      </div>
+        </div>
 
-      {tab === "stats" && (
-        <div className="space-y-6">
-          <div className="obera-panel obera-panel-tight p-4 flex flex-col gap-4">
+        {tab === "stats" && (
+          <div className="space-y-6">
+            <div className="obera-panel obera-panel-tight p-4 flex flex-col gap-4">
             <div className="flex flex-wrap gap-2 items-center">
               <div className="text-[0.7rem] uppercase tracking-[0.2em] text-stone-500 mr-2">
                 Periode
@@ -430,7 +431,7 @@ export default function SavDashboard({
                 <span>h</span>
               </div>
             </div>
-          </div>
+            </div>
 
           {ticketStats.error && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -479,9 +480,9 @@ export default function SavDashboard({
             </>
           )}
 
-          {!emptyTickets && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="obera-panel p-4">
+            {!emptyTickets && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="obera-panel p-4">
                 <div className="text-sm font-medium text-stone-700 mb-3">Repartition par statut</div>
                 <StatusList
                   counts={{
@@ -492,19 +493,19 @@ export default function SavDashboard({
                     Clos: statusCounts.closed
                   }}
                 />
-              </div>
-              <div className="obera-panel p-4">
+                </div>
+                <div className="obera-panel p-4">
                 <div className="text-sm font-medium text-stone-700 mb-3">Top 5 modeles</div>
                 <BarList items={topModels} />
-              </div>
-              <div className="obera-panel p-4 md:col-span-2">
+                </div>
+                <div className="obera-panel p-4 md:col-span-2">
                 <div className="text-sm font-medium text-stone-700 mb-3">Top 5 causes</div>
                 <BarList items={topCauses} />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="obera-panel p-4">
+            <div className="obera-panel p-4">
             <div className="text-sm font-medium text-stone-700 mb-3">Dernieres demandes</div>
             {emptyTickets ? (
               <div className="text-sm text-stone-500">Aucune demande sur la periode.</div>
@@ -562,13 +563,13 @@ export default function SavDashboard({
                 </table>
               </div>
             )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {tab === "contracts" && (
-        <div className="space-y-6">
-          <div className="obera-panel obera-panel-tight p-4 flex flex-wrap gap-3 items-center">
+        {tab === "contracts" && (
+          <div className="space-y-6">
+            <div className="obera-panel obera-panel-tight p-4 flex flex-wrap gap-3 items-center">
             <select
               className="obera-field"
               value={contractFilters.category}
@@ -619,9 +620,9 @@ export default function SavDashboard({
             >
               Exporter CSV
             </button>
-          </div>
+            </div>
 
-          <div className="obera-panel p-4">
+            <div className="obera-panel p-4">
             <div className="text-sm font-medium text-stone-700 mb-3">
               Contrats de maintenance
             </div>
@@ -679,9 +680,10 @@ export default function SavDashboard({
                 </table>
               </div>
             )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <TicketDrawer ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
       <ContractDrawer contract={selectedContract} onClose={() => setSelectedContract(null)} />
