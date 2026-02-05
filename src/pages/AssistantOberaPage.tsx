@@ -1260,14 +1260,14 @@ export default function AssistantOberaPage() {
                     CL15397 - REFRESCO France (05/03 - 10h15)
                   </p>
                   <p className="text-stone-600 italic">
-                    Appareil : **Ecoclim 22**. Étapes : Catégorie -> Sélection produit ->
-                    Saisie S/N -> Diagnostic (pump-issue). **Fin : Contact SAV.**
+                    Appareil : **Ecoclim 22**. Étapes : Catégorie{" -> "}Sélection produit
+                    {" -> "}Saisie S/N{" -> "}Diagnostic (pump-issue). **Fin : Contact SAV.**
                   </p>
                 </div>
                 <div className="border-b pb-2">
                   <p className="font-semibold text-stone-700">CL14447 - TEOS (05/03 - 09h50)</p>
                   <p className="text-stone-600 italic">
-                    Appareil : **EpurEx 1000**. Étapes : Catégorie -> Diagnostic
+                    Appareil : **EpurEx 1000**. Étapes : Catégorie{" -> "}Diagnostic
                     (filter-issue-ex). **Fin : Commande Consommable (Tube Plongeur).**
                   </p>
                 </div>
@@ -1276,14 +1276,14 @@ export default function AssistantOberaPage() {
                     CL11614 - 3 MA Group (04/03 - 16h20)
                   </p>
                   <p className="text-stone-600 italic">
-                    Appareil : **DUSTOMAT 4-10**. Étapes : Catégorie -> Diagnostic
+                    Appareil : **DUSTOMAT 4-10**. Étapes : Catégorie{" -> "}Diagnostic
                     (dry-sensor-tuyaux-advice). **Fin : Résolu (Feedback "Oui").**
                   </p>
                 </div>
                 <div className="border-b pb-2">
                   <p className="font-semibold text-stone-700">OBERACLIENT (04/03 - 14h00)</p>
                   <p className="text-stone-600 italic">
-                    Appareil : **IC 12**. Étapes : Catégorie -> Sélection produit. **Fin :
+                    Appareil : **IC 12**. Étapes : Catégorie{" -> "}Sélection produit. **Fin :
                     Abandon (Sans Diagnostic).**
                   </p>
                 </div>
