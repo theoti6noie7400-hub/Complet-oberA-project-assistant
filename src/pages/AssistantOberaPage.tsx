@@ -257,10 +257,6 @@ export default function AssistantOberaPage() {
     setActiveStep("consumables");
   };
 
-  const openContactForm = () => {
-    setContactFormVisible(true);
-  };
-
   const buildContactMessage = () => {
     const base = diagOutcome?.message ?? "";
     return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}`;
@@ -767,28 +763,18 @@ export default function AssistantOberaPage() {
             </div>
           )}
 
-          {(feedbackState === "no" || (diagOutcome && diagOutcome.id !== "resolved")) && (
+          {diagOutcome?.id === "filter" && (
             <div
               id="contact-buttons-container"
               className="w-full mt-8 grid grid-cols-1 md:grid-cols-2 gap-4"
             >
-              {diagOutcome?.id === "filter" ? (
-                <button
-                  className="px-6 py-2 text-white rounded-lg shadow-md transition obera-green obera-green-hover"
-                  type="button"
-                  onClick={openConsumablesFromSummary}
-                >
-                  Commander des consommables
-                </button>
-              ) : (
-                <button
-                  className="px-6 py-2 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
-                  type="button"
-                  onClick={openContactForm}
-                >
-                  Contacter le SAV
-                </button>
-              )}
+              <button
+                className="px-6 py-2 text-white rounded-lg shadow-md transition obera-green obera-green-hover"
+                type="button"
+                onClick={openConsumablesFromSummary}
+              >
+                Commander des consommables
+              </button>
             </div>
           )}
 
