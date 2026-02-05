@@ -227,6 +227,16 @@ body {
   object-fit: contain;
 }
 
+.logo-fallback {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #1a3668;
+}
+
+.logo-fallback-accent {
+  color: #8bc53f;
+}
+
 @media (min-width: 768px) {
   .logo-img {
     height: 80px;

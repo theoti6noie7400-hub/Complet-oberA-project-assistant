@@ -318,14 +318,11 @@ export default function AssistantOberaPage() {
   };
 
   const renderLogo = (clickable: boolean) => {
-    if (logoFailed) {
-      return (
-        <div className="text-4xl font-bold" style={{ color: "#1a3668" }}>
-          ober<span style={{ color: "#8bc53f" }}>A</span>
-        </div>
-      );
-    }
-    const logoImg = (
+    const logoContent = logoFailed ? (
+      <span className="logo-fallback">
+        ober<span className="logo-fallback-accent">A</span>
+      </span>
+    ) : (
       <img
         src={logoSrc}
         alt="oberA"
@@ -333,10 +330,10 @@ export default function AssistantOberaPage() {
         onError={() => setLogoFailed(true)}
       />
     );
-    if (!clickable) return logoImg;
+    if (!clickable) return logoContent;
     return (
       <button id="logo-btn" className="logo-button" onClick={goToDashboard} type="button">
-        {logoImg}
+        {logoContent}
       </button>
     );
   };
