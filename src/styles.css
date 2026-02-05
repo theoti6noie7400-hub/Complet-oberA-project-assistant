@@ -154,6 +154,52 @@ body {
   width: 100%;
 }
 
+.category-btn {
+  border: 1px solid #e2e5dd;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+
+.category-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(32, 48, 80, 0.12);
+}
+
+.category-btn[data-category="rafraichisseurs"] {
+  background: linear-gradient(150deg, #eef4f6 0%, #f7fbfb 100%);
+  border-color: #d9e6ec;
+}
+
+.category-btn[data-category="rafraichisseurs"]:hover {
+  background: linear-gradient(150deg, #e6f0f4 0%, #f2f8f9 100%);
+}
+
+.category-btn[data-category="purificateurs"] {
+  background: linear-gradient(150deg, #edf4ee 0%, #f7fbf6 100%);
+  border-color: #d9e6da;
+}
+
+.category-btn[data-category="purificateurs"]:hover {
+  background: linear-gradient(150deg, #e6f0e6 0%, #f1f7f1 100%);
+}
+
+.category-btn[data-category="depoussiereurs"] {
+  background: linear-gradient(150deg, #f4f2ea 0%, #fbfaf6 100%);
+  border-color: #e6e0d2;
+}
+
+.category-btn[data-category="depoussiereurs"]:hover {
+  background: linear-gradient(150deg, #f0ece1 0%, #f8f6f0 100%);
+}
+
+.category-btn[data-category="tables-aspirantes"] {
+  background: linear-gradient(150deg, #eef1f7 0%, #f7f9fd 100%);
+  border-color: #d8dfee;
+}
+
+.category-btn[data-category="tables-aspirantes"]:hover {
+  background: linear-gradient(150deg, #e6ebf6 0%, #f2f5fb 100%);
+}
+
 .consumables-button {
   grid-column: 1 / -1;
 }
