@@ -353,6 +353,34 @@ body {
   }
 }
 
+.obera-header {
+  position: relative;
+  padding-left: 120px;
+}
+
+.obera-header-logo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+}
+
+.obera-header-text {
+  text-align: center;
+}
+
+.obera-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.obera-header-cta {
+  margin-left: auto;
+}
+
 @media (max-width: 640px) {
   .category-grid {
     grid-template-columns: 1fr;
@@ -361,6 +389,25 @@ body {
   .obera-tab {
     font-size: 0.78rem;
     padding: 0.45rem 0.8rem;
+  }
+
+  .obera-header {
+    padding-left: 0;
+  }
+
+  .obera-header-logo {
+    position: static;
+    margin: 0 auto 0.75rem;
+    justify-content: center;
+  }
+
+  .obera-header-row {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .obera-header-cta {
+    margin-left: 0;
   }
 }
 

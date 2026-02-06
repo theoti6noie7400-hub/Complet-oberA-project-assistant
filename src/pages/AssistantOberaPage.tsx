@@ -400,25 +400,25 @@ export default function AssistantOberaPage() {
     <div className="bg-stone-100 min-h-screen flex items-center justify-center p-4">
       <div className="container mx-auto p-8 bg-white rounded-xl shadow-lg obera-shell">
         {showHeader && (
-          <header className="text-center mb-10" id="main-header">
-            <div className="flex justify-center">
-              {renderLogo(isAdmin)}
+          <header className="text-center mb-10 obera-header" id="main-header">
+            <div className="obera-header-logo">{renderLogo(isAdmin)}</div>
+            <div className="obera-header-text">
+              <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
+              <p className="mt-4 text-lg text-stone-600" id="header-subtitle">
+                Diagnostiquez votre appareil ou commandez des consommables.
+              </p>
+              {isAdmin && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-lg text-sm text-white obera-red obera-red-hover shadow-md"
+                    onClick={goToDashboard}
+                  >
+                    Dashboard SAV
+                  </button>
+                </div>
+              )}
             </div>
-            <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
-            <p className="mt-4 text-lg text-stone-600" id="header-subtitle">
-              Diagnostiquez votre appareil ou commandez des consommables.
-            </p>
-            {isAdmin && (
-              <div className="mt-4 flex justify-center">
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg text-sm text-white obera-red obera-red-hover shadow-md"
-                  onClick={goToDashboard}
-                >
-                  Dashboard SAV
-                </button>
-              </div>
-            )}
           </header>
         )}
 

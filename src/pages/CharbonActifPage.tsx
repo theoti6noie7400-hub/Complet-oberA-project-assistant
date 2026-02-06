@@ -390,8 +390,8 @@ export default function CharbonActifPage() {
   return (
     <div className="min-h-screen w-full bg-stone-100 p-4 md:p-8">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="obera-header obera-header-row">
+          <div className="obera-header-logo">
             {logoFailed ? (
               <span className="charbon-logo-fallback">oberA</span>
             ) : (
@@ -402,18 +402,20 @@ export default function CharbonActifPage() {
                 onError={() => setLogoFailed(true)}
               />
             )}
-            <div className="flex flex-col gap-2">
-              <h1 className="text-2xl md:text-3xl charbon-title">
-                Calculateur de saturation du charbon actif
-              </h1>
-              <p className="text-sm text-stone-500 charbon-subtitle">
-                Selectionne le polluant (ou melange), la reference, puis saisis le poids brut mesure.
-              </p>
-            </div>
           </div>
-          <Link to="/" className={buttonClass("outline")}>
-            Retour assistant
-          </Link>
+          <div className="obera-header-text">
+            <h1 className="text-2xl md:text-3xl charbon-title">
+              Calculateur de saturation du charbon actif
+            </h1>
+            <p className="text-sm text-stone-500 charbon-subtitle">
+              Selectionne le polluant (ou melange), la reference, puis saisis le poids brut mesure.
+            </p>
+          </div>
+          <div className="obera-header-cta">
+            <Link to="/" className={buttonClass("outline")}>
+              Retour assistant
+            </Link>
+          </div>
         </div>
 
         {showReportPreview && (
