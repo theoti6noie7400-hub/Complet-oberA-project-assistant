@@ -378,14 +378,6 @@ body {
   color: var(--obera-ink);
 }
 
-.charbon-powder {
-  background:
-    radial-gradient(circle at 18% 20%, rgba(112, 144, 96, 0.08), transparent 45%),
-    radial-gradient(circle at 85% 15%, rgba(32, 48, 80, 0.08), transparent 45%),
-    linear-gradient(180deg, #f7f1e6 0%, #f4f2ea 50%, #f2f1ea 100%);
-  color: #44403c;
-}
-
 .charbon-logo {
   height: 52px;
   width: auto;

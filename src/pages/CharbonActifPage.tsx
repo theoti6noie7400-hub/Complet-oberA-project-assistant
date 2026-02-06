@@ -388,7 +388,7 @@ export default function CharbonActifPage() {
   };
 
   return (
-    <div className="min-h-screen w-full charbon-powder p-4 md:p-8">
+    <div className="min-h-screen w-full bg-stone-100 p-4 md:p-8">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
