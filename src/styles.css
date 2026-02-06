@@ -386,90 +386,32 @@ body {
   color: #e7edf4;
 }
 
-.charbon-theme .bg-white {
-  background-color: #171a1f;
+.charbon-hero {
+  color: #e7edf4;
 }
 
-.charbon-theme .bg-stone-100 {
-  background-color: #0f1216;
-}
-
-.charbon-theme .text-stone-500 {
+.charbon-hero .text-stone-500 {
   color: #b4bfca;
 }
 
-.charbon-theme .text-stone-600 {
+.charbon-hero .text-stone-600 {
   color: #c7d0da;
 }
 
-.charbon-theme .text-stone-700 {
-  color: #e5ecf3;
-}
-
-.charbon-theme .border {
-  border-color: #2a323b;
-}
-
-.charbon-theme .border-stone-200,
-.charbon-theme .border-stone-300 {
-  border-color: #2a323b;
-}
-
-.charbon-theme .shadow-sm {
-  box-shadow: 0 18px 36px rgba(3, 6, 10, 0.45);
-}
-
-.charbon-theme .hover\\:bg-stone-100:hover {
-  background-color: #1f242b;
-}
-
-.charbon-theme .bg-stone-200 {
-  background-color: #2a313a;
-}
-
-.charbon-theme .text-stone-600 {
-  color: #c7d0da;
-}
-
-.charbon-theme .bg-green-100 {
-  background-color: rgba(111, 145, 92, 0.18);
-}
-
-.charbon-theme .text-green-700 {
-  color: #9fbe8a;
-}
-
-.charbon-theme .bg-red-100 {
-  background-color: rgba(160, 48, 48, 0.18);
-}
-
-.charbon-theme .text-red-700 {
-  color: #f0a5a5;
-}
-
-.charbon-theme .border-yellow-300 {
-  border-color: rgba(234, 179, 8, 0.4);
-}
-
-.charbon-theme .text-yellow-700 {
-  color: #f3d48a;
-}
-
-.charbon-theme input,
-.charbon-theme textarea,
-.charbon-theme select {
-  background-color: #14181d;
+.charbon-hero .text-stone-700 {
   color: #e7edf4;
-  border-color: #2a323b;
 }
 
-.charbon-theme input::placeholder,
-.charbon-theme textarea::placeholder {
-  color: #8f9aa6;
+.charbon-logo {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
 }
 
-.charbon-theme a {
-  color: #9fc3ff;
+.charbon-logo-fallback {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #e7edf4;
 }
 
 .charbon-theme .obera-blue {

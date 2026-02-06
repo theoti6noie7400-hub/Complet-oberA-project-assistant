@@ -80,6 +80,8 @@ function ImageThumb({ src, alt, size = 44 }: { src?: string; alt: string; size?:
 }
 
 export default function CharbonActifPage() {
+  const logoSrc = useMemo(() => withBase("obera-logo.png"), []);
+  const [logoFailed, setLogoFailed] = useState(false);
   const [filterId, setFilterId] = useState<FilterRef["id"]>(
     FILTER_REFERENCES.EPUREX_1000.id
   );
@@ -389,13 +391,25 @@ export default function CharbonActifPage() {
     <div className="min-h-screen w-full charbon-theme p-4 md:p-8">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-              Calculateur de saturation du charbon actif
-            </h1>
-            <p className="text-sm text-stone-500">
-              Selectionne le polluant (ou melange), la reference, puis saisis le poids brut mesure.
-            </p>
+          <div className="flex items-center gap-3 charbon-hero">
+            {logoFailed ? (
+              <span className="charbon-logo-fallback">oberA</span>
+            ) : (
+              <img
+                src={logoSrc}
+                alt="oberA"
+                className="charbon-logo"
+                onError={() => setLogoFailed(true)}
+              />
+            )}
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+                Calculateur de saturation du charbon actif
+              </h1>
+              <p className="text-sm text-stone-500">
+                Selectionne le polluant (ou melange), la reference, puis saisis le poids brut mesure.
+              </p>
+            </div>
           </div>
           <Link to="/" className={buttonClass("outline")}>
             Retour assistant
