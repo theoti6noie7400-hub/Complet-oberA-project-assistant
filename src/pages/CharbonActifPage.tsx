@@ -403,10 +403,10 @@ export default function CharbonActifPage() {
               />
             )}
             <div className="flex flex-col gap-2">
-              <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+              <h1 className="text-2xl md:text-3xl charbon-title">
                 Calculateur de saturation du charbon actif
               </h1>
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-stone-500 charbon-subtitle">
                 Selectionne le polluant (ou melange), la reference, puis saisis le poids brut mesure.
               </p>
             </div>
