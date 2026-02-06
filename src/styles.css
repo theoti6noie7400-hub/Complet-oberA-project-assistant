@@ -378,28 +378,12 @@ body {
   color: var(--obera-ink);
 }
 
-.charbon-theme {
+.charbon-powder {
   background:
-    radial-gradient(circle at 15% 20%, rgba(112, 144, 96, 0.12), transparent 45%),
-    radial-gradient(circle at 85% 15%, rgba(32, 48, 80, 0.2), transparent 45%),
-    linear-gradient(180deg, #0b0d10 0%, #11151a 45%, #0f1317 100%);
-  color: #e7edf4;
-}
-
-.charbon-hero {
-  color: #e7edf4;
-}
-
-.charbon-hero .text-stone-500 {
-  color: #b4bfca;
-}
-
-.charbon-hero .text-stone-600 {
-  color: #c7d0da;
-}
-
-.charbon-hero .text-stone-700 {
-  color: #e7edf4;
+    radial-gradient(circle at 18% 20%, rgba(112, 144, 96, 0.08), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(32, 48, 80, 0.08), transparent 45%),
+    linear-gradient(180deg, #f7f1e6 0%, #f4f2ea 50%, #f2f1ea 100%);
+  color: #44403c;
 }
 
 .charbon-logo {
@@ -411,15 +395,7 @@ body {
 .charbon-logo-fallback {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #e7edf4;
-}
-
-.charbon-theme .obera-blue {
-  background-color: #2b4f8a;
-}
-
-.charbon-theme .obera-blue-hover:hover {
-  background-color: #3763a5;
+  color: #1a3668;
 }
 
 .obera-dashboard-shell {
