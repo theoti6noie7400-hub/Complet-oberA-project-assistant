@@ -957,6 +957,17 @@ body {
   transition: all 0.2s ease;
 }
 
+.admin-session-logout {
+  position: fixed;
+  left: 50%;
+  bottom: 1.2rem;
+  transform: translateX(-50%);
+  z-index: 1188;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(32, 48, 80, 0.2);
+  box-shadow: 0 10px 22px rgba(32, 48, 80, 0.18);
+}
+
 .admin-session-link:hover,
 .admin-session-logout:hover {
   border-color: rgba(32, 48, 80, 0.25);
