@@ -16,6 +16,10 @@ import {
 import SavDashboard from "../dashboard/SavDashboard";
 import { savData } from "../data/savData";
 
+type AssistantOberaPageProps = {
+  forceAdmin?: boolean;
+};
+
 type StepId =
   | "login"
   | "category"
@@ -111,14 +115,16 @@ function DeviceThumb({
   );
 }
 
-export default function AssistantOberaPage() {
+export default function AssistantOberaPage({
+  forceAdmin = false
+}: AssistantOberaPageProps) {
   const logoSrc = useMemo(() => withBase("obera-logo.png"), []);
   const [logoFailed, setLogoFailed] = useState(false);
-  const [activeStep, setActiveStep] = useState<StepId>("login");
+  const [activeStep, setActiveStep] = useState<StepId>(forceAdmin ? "category" : "login");
   const [clientId, setClientId] = useState("");
   const [pin, setPin] = useState("");
   const [loginError, setLoginError] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(forceAdmin);
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductCatalogItem | null>(null);
@@ -186,11 +192,11 @@ export default function AssistantOberaPage() {
   }, [currentDiagNode?.id]);
 
   const resetAll = () => {
-    setActiveStep("login");
+    setActiveStep(forceAdmin ? "category" : "login");
     setClientId("");
     setPin("");
     setLoginError(false);
-    setIsAdmin(false);
+    setIsAdmin(forceAdmin);
     setSelectedCategory(null);
     setSelectedProduct(null);
     setSerialNumber("");
@@ -232,7 +238,7 @@ export default function AssistantOberaPage() {
     }
 
     setLoginError(false);
-    const admin = cleanId.toUpperCase() === "SAV" && cleanPin === "1789";
+    const admin = !forceAdmin && cleanId.toUpperCase() === "SAV" && cleanPin === "1789";
     setIsAdmin(admin);
     setActiveStep("category");
   };

@@ -50,7 +50,7 @@ const PORTAL_TILES: PortalTile[] = [
     title: "Espace Client",
     description: "Acces client au parc machines et documents.",
     icon: "🏭",
-    to: "/service/espace-client"
+    to: "/client-space"
   },
   {
     id: "espace-revendeur",
@@ -85,4 +85,3 @@ export default function PortalHomePage() {
     </div>
   );
 }
-
