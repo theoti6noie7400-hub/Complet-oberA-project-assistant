@@ -1,3 +1,5 @@
+import { getCurrentLanguage } from "../i18n/language";
+
 export const FILTER_REFERENCES = {
   EPUREX_1000: {
     id: "EPUREX_1000",
@@ -578,17 +580,30 @@ export function calcMixSaturation(
 })();
 
 export function statusFromSaturation(satPct: number) {
+  const en = getCurrentLanguage() === "en";
   if (!Number.isFinite(satPct)) {
     return { label: "-", tone: "secondary" as const, icon: "help" as const };
   }
   if (satPct >= 100) {
-    return { label: "Sature", tone: "destructive" as const, icon: "alert" as const };
+    return {
+      label: en ? "Saturated" : "Sature",
+      tone: "destructive" as const,
+      icon: "alert" as const
+    };
   }
   if (satPct >= 75) {
-    return { label: "A remplacer", tone: "destructive" as const, icon: "alert" as const };
+    return {
+      label: en ? "Replace" : "A remplacer",
+      tone: "destructive" as const,
+      icon: "alert" as const
+    };
   }
   if (satPct >= 70) {
-    return { label: "A surveiller", tone: "outline" as const, icon: "alert" as const };
+    return {
+      label: en ? "Monitor" : "A surveiller",
+      tone: "outline" as const,
+      icon: "alert" as const
+    };
   }
   return { label: "OK", tone: "default" as const, icon: "check" as const };
 }
@@ -715,41 +730,47 @@ export function buildReportText(args: {
   humidite?: number;
   temperature?: number;
 }): string {
+  const en = getCurrentLanguage() === "en";
   const lines: string[] = [];
-  lines.push("RAPPORT - Saturation charbon actif");
+  lines.push(en ? "REPORT - Activated carbon saturation" : "RAPPORT - Saturation charbon actif");
 
   const dateLine = args.dateClient && args.dateClient.trim() ? args.dateClient.trim() : args.dateIso;
-  lines.push(`Date: ${dateLine}`);
-  if (args.clientName && args.clientName.trim()) lines.push(`Client: ${args.clientName.trim()}`);
+  lines.push(`${en ? "Date" : "Date"}: ${dateLine}`);
+  if (args.clientName && args.clientName.trim())
+    lines.push(`${en ? "Client" : "Client"}: ${args.clientName.trim()}`);
   if (args.clientSite && args.clientSite.trim())
-    lines.push(`Site client: ${args.clientSite.trim()}`);
+    lines.push(`${en ? "Client site" : "Site client"}: ${args.clientSite.trim()}`);
   if (args.operatorName && args.operatorName.trim())
-    lines.push(`Operateur: ${args.operatorName.trim()}`);
+    lines.push(`${en ? "Operator" : "Operateur"}: ${args.operatorName.trim()}`);
   if (args.deviceSerial && args.deviceSerial.trim())
-    lines.push(`SN appareil: ${args.deviceSerial.trim()}`);
+    lines.push(`${en ? "Unit serial" : "SN appareil"}: ${args.deviceSerial.trim()}`);
 
   lines.push("---");
-  lines.push(`Reference: ${args.reference.label}`);
-  lines.push(`Poids neuf brut: ${args.reference.poidsNeufBrutKg.toFixed(2)} kg`);
-  lines.push(`Charbon net (neuf): ${args.charbonNetKg.toFixed(2)} kg`);
-  lines.push(`Support (estime): ${args.supportKg.toFixed(2)} kg`);
+  lines.push(`${en ? "Reference" : "Reference"}: ${args.reference.label}`);
   lines.push(
-    `Poids brut mesure: ${
+    `${en ? "New gross weight" : "Poids neuf brut"}: ${args.reference.poidsNeufBrutKg.toFixed(2)} kg`
+  );
+  lines.push(
+    `${en ? "Net carbon (new)" : "Charbon net (neuf)"}: ${args.charbonNetKg.toFixed(2)} kg`
+  );
+  lines.push(`${en ? "Support (estimated)" : "Support (estime)"}: ${args.supportKg.toFixed(2)} kg`);
+  lines.push(
+    `${en ? "Measured gross weight" : "Poids brut mesure"}: ${
       Number.isFinite(args.poidsMesureKg) ? args.poidsMesureKg.toFixed(2) : "-"
     } kg`
   );
   lines.push(
-    `Gain (adsorption): ${
+    `${en ? "Gain (adsorption)" : "Gain (adsorption)"}: ${
       Number.isFinite(args.gainKg) ? args.gainKg.toFixed(2) : "-"
     } kg`
   );
   if (Number.isFinite(args.humidite ?? NaN))
-    lines.push(`Humidite: ${(args.humidite as number).toFixed(0)} %`);
+    lines.push(`${en ? "Humidity" : "Humidite"}: ${(args.humidite as number).toFixed(0)} %`);
   if (Number.isFinite(args.temperature ?? NaN))
-    lines.push(`Temperature: ${(args.temperature as number).toFixed(0)} C`);
+    lines.push(`${en ? "Temperature" : "Temperature"}: ${(args.temperature as number).toFixed(0)} C`);
 
   lines.push("---");
-  lines.push(`Mode: ${args.mode === "mono" ? "1 polluant" : "Melange"}`);
+  lines.push(`Mode: ${args.mode === "mono" ? (en ? "1 pollutant" : "1 polluant") : en ? "Mixture" : "Melange"}`);
 
   args.polluants.forEach((p, i) => {
     const share = args.shares[i];
@@ -758,16 +779,16 @@ export function buildReportText(args: {
   });
 
   lines.push("---");
-  lines.push("RESULTAT (decision)");
+  lines.push(en ? "RESULT (decision)" : "RESULTAT (decision)");
   lines.push(
-    `Capacite max utilisee: ${
+    `${en ? "Used max capacity" : "Capacite max utilisee"}: ${
       Number.isFinite(args.resultDecision.capaciteMaxKg)
         ? args.resultDecision.capaciteMaxKg.toFixed(2)
         : "-"
     } kg`
   );
   lines.push(
-    `Saturation (decision): ${
+    `${en ? "Saturation (decision)" : "Saturation (decision)"}: ${
       Number.isFinite(args.resultDecision.saturationPct)
         ? args.resultDecision.saturationPct.toFixed(0)
         : "-"
@@ -776,16 +797,16 @@ export function buildReportText(args: {
 
   if (args.mode === "melange" && args.resultEstimated && args.resultConservative) {
     lines.push("---");
-    lines.push("DETAILS MELANGE");
+    lines.push(en ? "MIXTURE DETAILS" : "DETAILS MELANGE");
     lines.push(
-      `Estimation: ${
+      `${en ? "Estimate" : "Estimation"}: ${
         Number.isFinite(args.resultEstimated.saturationPct)
           ? args.resultEstimated.saturationPct.toFixed(0)
           : "-"
       } % (avg ${(args.resultEstimated.avgUsed * 100).toFixed(1)}%)`
     );
     lines.push(
-      `Conservateur: ${
+      `${en ? "Conservative" : "Conservateur"}: ${
         Number.isFinite(args.resultConservative.saturationPct)
           ? args.resultConservative.saturationPct.toFixed(0)
           : "-"
@@ -794,7 +815,11 @@ export function buildReportText(args: {
   }
 
   lines.push("---");
-  lines.push("Seuils: OK < 70% | Surveiller 70-75% | Remplacer >= 75% | Sature >= 100%");
+  lines.push(
+    en
+      ? "Thresholds: OK < 70% | Monitor 70-75% | Replace >= 75% | Saturated >= 100%"
+      : "Seuils: OK < 70% | Surveiller 70-75% | Remplacer >= 75% | Sature >= 100%"
+  );
   return lines.join("\n");
 }
 

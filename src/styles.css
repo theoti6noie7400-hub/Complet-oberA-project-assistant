@@ -850,3 +850,43 @@ body {
     justify-content: center;
   }
 }
+
+.language-switcher {
+  position: fixed;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 48, 80, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(32, 48, 80, 0.16);
+  backdrop-filter: blur(5px);
+}
+
+.language-chip {
+  min-width: 38px;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--obera-navy);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.language-chip:hover {
+  border-color: rgba(32, 48, 80, 0.25);
+  background: #eef2e8;
+}
+
+.language-chip.is-active {
+  color: #ffffff;
+  background: var(--obera-navy);
+  border-color: var(--obera-navy);
+}

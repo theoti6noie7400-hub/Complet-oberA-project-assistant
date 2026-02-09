@@ -1,5 +1,6 @@
 import { PRODUCTS } from "../lib/assistantData";
 import type { Contract, Ticket, TicketStatus } from "../data/savData";
+import { getCurrentLanguage } from "../i18n/language";
 
 export type TimeRange = "7d" | "30d" | "90d" | "12m";
 
@@ -33,12 +34,20 @@ export type KPIs = {
   satisfactionNoRate: number | null;
 };
 
-export const STATUS_LABELS: Record<TicketStatus, string> = {
+export const STATUS_LABELS_FR: Record<TicketStatus, string> = {
   open: "Ouvert",
   in_progress: "En cours",
   waiting_client: "En attente client",
   waiting_parts: "En attente pièces",
   closed: "Clos"
+};
+
+export const STATUS_LABELS_EN: Record<TicketStatus, string> = {
+  open: "Open",
+  in_progress: "In progress",
+  waiting_client: "Waiting on client",
+  waiting_parts: "Waiting on parts",
+  closed: "Closed"
 };
 
 const MODEL_CATEGORY_MAP = (() => {
@@ -230,14 +239,15 @@ export function formatDate(value: string | null) {
   if (!value) return "-";
   const d = parseDate(value);
   if (!d) return "-";
-  return d.toLocaleDateString("fr-FR");
+  return d.toLocaleDateString(getCurrentLanguage() === "en" ? "en-GB" : "fr-FR");
 }
 
 export function formatHours(value: number | null) {
   if (value === null || Number.isNaN(value)) return "-";
+  const lang = getCurrentLanguage();
   if (value >= 24) {
     const days = value / 24;
-    return `${days.toFixed(1)} j`;
+    return `${days.toFixed(1)} ${lang === "en" ? "d" : "j"}`;
   }
   return `${value.toFixed(1)} h`;
 }
@@ -248,7 +258,8 @@ export function formatPercent(value: number | null) {
 }
 
 export function formatTicketStatus(status: TicketStatus) {
-  return STATUS_LABELS[status] ?? status;
+  const labels = getCurrentLanguage() === "en" ? STATUS_LABELS_EN : STATUS_LABELS_FR;
+  return labels[status] ?? status;
 }
 
 export function computeNextVisit(contract: Contract): Date | null {
