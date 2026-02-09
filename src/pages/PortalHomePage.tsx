@@ -1,15 +1,8 @@
 import { Link } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
+import { CLIENT_SECTION, INTERNAL_SECTIONS, RESELLER_SECTION } from "../portal/sections";
 
-type PortalTile = {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  to: string;
-};
-
-const PORTAL_TILES: PortalTile[] = [
+const PORTAL_TILES = [
   {
     id: "sav-maintenance",
     title: "SAV / Maintenance",
@@ -17,47 +10,26 @@ const PORTAL_TILES: PortalTile[] = [
     icon: "🛠️",
     to: "/sav-maintenance"
   },
+  ...INTERNAL_SECTIONS.map((section) => ({
+    id: section.id,
+    title: section.title,
+    description: section.description,
+    icon: section.icon,
+    to: section.route
+  })),
   {
-    id: "marketing",
-    title: "Marketing",
-    description: "Supports, contenus et actions marketing OberA.",
-    icon: "📣",
-    to: "/service/marketing"
+    id: CLIENT_SECTION.id,
+    title: CLIENT_SECTION.title,
+    description: CLIENT_SECTION.description,
+    icon: CLIENT_SECTION.icon,
+    to: CLIENT_SECTION.route
   },
   {
-    id: "commercial",
-    title: "Commercial",
-    description: "Pilotage commercial, offres et suivi clients.",
-    icon: "🤝",
-    to: "/service/commercial"
-  },
-  {
-    id: "adv",
-    title: "ADV",
-    description: "Administration des ventes et suivi administratif.",
-    icon: "🧾",
-    to: "/service/adv"
-  },
-  {
-    id: "logistique",
-    title: "Logistique",
-    description: "Flux, expeditions et coordination logistique.",
-    icon: "🚚",
-    to: "/service/logistique"
-  },
-  {
-    id: "espace-client",
-    title: "Espace Client",
-    description: "Acces client au parc machines et documents.",
-    icon: "🏭",
-    to: "/client-space"
-  },
-  {
-    id: "espace-revendeur",
-    title: "Espace Revendeur",
-    description: "Commandes de pieces et suivi revendeur.",
-    icon: "📦",
-    to: "/service/espace-revendeur"
+    id: RESELLER_SECTION.id,
+    title: RESELLER_SECTION.title,
+    description: RESELLER_SECTION.description,
+    icon: RESELLER_SECTION.icon,
+    to: RESELLER_SECTION.route
   }
 ];
 

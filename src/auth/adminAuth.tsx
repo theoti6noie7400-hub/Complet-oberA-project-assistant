@@ -1,47 +1,120 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "obera_admin_auth";
-const ADMIN_ID = "SAV";
 const ADMIN_PIN = "1789";
 
-type AdminAuthContextValue = {
+export type AdminRole = "global" | "service";
+
+export type AdminSession = {
   isAuthenticated: boolean;
+  role: AdminRole | null;
+  serviceKey: string | null;
+  displayName: string | null;
+};
+
+type AdminAuthContextValue = AdminSession & {
   login: (adminId: string, pin: string) => boolean;
   logout: () => void;
 };
 
 const AdminAuthContext = createContext<AdminAuthContextValue | null>(null);
 
+const GLOBAL_ADMINS = new Map<string, string>([
+  ["HERVEJEHEL", "HERVE JEHEL"],
+  ["BANCHONPANITHTHEO", "BANCHONPANITH THEO"]
+]);
+
+const SERVICE_ADMINS = new Map<string, { serviceKey: string; label: string }>([
+  ["SAV", { serviceKey: "sav-maintenance", label: "SAV / Maintenance" }],
+  ["MAINTENANCE", { serviceKey: "sav-maintenance", label: "SAV / Maintenance" }],
+  ["SAVMAINTENANCE", { serviceKey: "sav-maintenance", label: "SAV / Maintenance" }],
+  ["MARKETING", { serviceKey: "marketing", label: "Marketing" }],
+  ["COMMERCIAL", { serviceKey: "commercial", label: "Commercial" }],
+  ["ADV", { serviceKey: "adv", label: "ADV" }],
+  ["LOGISTIQUE", { serviceKey: "logistique", label: "Logistique" }]
+]);
+
+const normalizeId = (value: string) =>
+  value
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[^A-Z0-9]+/g, "");
+
+const emptySession: AdminSession = {
+  isAuthenticated: false,
+  role: null,
+  serviceKey: null,
+  displayName: null
+};
+
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [session, setSession] = useState<AdminSession>(emptySession);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setIsAuthenticated(window.sessionStorage.getItem(STORAGE_KEY) === "1");
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as AdminSession;
+      setSession({
+        isAuthenticated: !!parsed.isAuthenticated,
+        role: parsed.role ?? null,
+        serviceKey: parsed.serviceKey ?? null,
+        displayName: parsed.displayName ?? null
+      });
+    } catch {
+      setSession(emptySession);
+    }
   }, []);
 
   const value = useMemo<AdminAuthContextValue>(
     () => ({
-      isAuthenticated,
+      ...session,
       login: (adminId, pin) => {
-        const ok =
-          adminId.trim().toUpperCase() === ADMIN_ID && pin.trim() === ADMIN_PIN;
-        if (ok) {
-          setIsAuthenticated(true);
+        const cleanId = normalizeId(adminId);
+        const cleanPin = pin.trim();
+        if (cleanPin !== ADMIN_PIN) return false;
+
+        if (GLOBAL_ADMINS.has(cleanId)) {
+          const displayName = GLOBAL_ADMINS.get(cleanId) ?? "ADMIN";
+          const next: AdminSession = {
+            isAuthenticated: true,
+            role: "global",
+            serviceKey: null,
+            displayName
+          };
+          setSession(next);
           if (typeof window !== "undefined") {
-            window.sessionStorage.setItem(STORAGE_KEY, "1");
+            window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
           }
+          return true;
         }
-        return ok;
+
+        if (SERVICE_ADMINS.has(cleanId)) {
+          const service = SERVICE_ADMINS.get(cleanId)!;
+          const next: AdminSession = {
+            isAuthenticated: true,
+            role: "service",
+            serviceKey: service.serviceKey,
+            displayName: service.label
+          };
+          setSession(next);
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          }
+          return true;
+        }
+
+        return false;
       },
       logout: () => {
-        setIsAuthenticated(false);
+        setSession(emptySession);
         if (typeof window !== "undefined") {
           window.sessionStorage.removeItem(STORAGE_KEY);
         }
       }
     }),
-    [isAuthenticated]
+    [session]
   );
 
   return (
@@ -56,4 +129,3 @@ export function useAdminAuth() {
   }
   return ctx;
 }
-

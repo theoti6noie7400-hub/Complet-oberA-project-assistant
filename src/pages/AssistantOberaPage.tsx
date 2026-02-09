@@ -237,9 +237,19 @@ export default function AssistantOberaPage({
       return;
     }
 
+    if (forceAdmin) {
+      setLoginError(true);
+      return;
+    }
+
+    const isClient = cleanId.toUpperCase() === "OBERACLIENT" && cleanPin === "1234";
+    if (!isClient) {
+      setLoginError(true);
+      return;
+    }
+
     setLoginError(false);
-    const admin = !forceAdmin && cleanId.toUpperCase() === "SAV" && cleanPin === "1789";
-    setIsAdmin(admin);
+    setIsAdmin(false);
     setActiveStep("category");
   };
 

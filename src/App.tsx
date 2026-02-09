@@ -2,7 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AssistantOberaPage from "./pages/AssistantOberaPage";
 import CharbonActifPage from "./pages/CharbonActifPage";
 import PortalHomePage from "./pages/PortalHomePage";
-import ServicePlaceholderPage from "./pages/ServicePlaceholderPage";
+import ServiceHubPage from "./pages/ServiceHubPage";
+import ResellerSpacePage from "./pages/ResellerSpacePage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import { AdminAuthProvider } from "./auth/adminAuth";
 import RequireAdmin from "./components/RequireAdmin";
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/" element={<PortalHomePage />} />
           <Route path="/admin-login" element={<AdminLoginPage />} />
           <Route path="/client-space" element={<AssistantOberaPage />} />
+          <Route path="/reseller-space" element={<ResellerSpacePage />} />
           <Route
             path="/sav-maintenance"
             element={
@@ -44,7 +46,7 @@ export default function App() {
             path="/service/:serviceKey"
             element={
               <RequireAdmin>
-                <ServicePlaceholderPage />
+                <ServiceHubPage />
               </RequireAdmin>
             }
           />
