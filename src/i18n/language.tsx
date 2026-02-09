@@ -38,6 +38,7 @@ const EXACT_TEXT_EN: Record<string, string> = {
   "Identifiant admin": "Admin ID",
   "Code PIN": "PIN code",
   "Identifiant admin ou code PIN incorrect.": "Invalid admin ID or PIN.",
+  Deconnexion: "Sign out",
   Connexion: "Sign in",
   "Numéro client ou Code PIN incorrect.": "Incorrect client ID or PIN code.",
   "Que souhaitez-vous faire ?": "What do you want to do?",

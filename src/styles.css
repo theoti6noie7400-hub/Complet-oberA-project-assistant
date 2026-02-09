@@ -890,3 +890,41 @@ body {
   background: var(--obera-navy);
   border-color: var(--obera-navy);
 }
+
+.admin-session-bar {
+  position: fixed;
+  top: 3.1rem;
+  right: 0.9rem;
+  z-index: 1190;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 48, 80, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(32, 48, 80, 0.16);
+  backdrop-filter: blur(5px);
+}
+
+.admin-session-link,
+.admin-session-logout {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--obera-navy);
+  background: transparent;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-session-link:hover,
+.admin-session-logout:hover {
+  border-color: rgba(32, 48, 80, 0.25);
+  background: #eef2e8;
+}

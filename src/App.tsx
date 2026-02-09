@@ -6,6 +6,7 @@ import ServicePlaceholderPage from "./pages/ServicePlaceholderPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import { AdminAuthProvider } from "./auth/adminAuth";
 import RequireAdmin from "./components/RequireAdmin";
+import AdminSessionBar from "./components/AdminSessionBar";
 import {
   LanguageProvider,
   LanguageSwitcher,
@@ -18,6 +19,7 @@ export default function App() {
       <AdminAuthProvider>
         <RuntimeTextTranslator />
         <LanguageSwitcher />
+        <AdminSessionBar />
         <Routes>
           <Route path="/" element={<PortalHomePage />} />
           <Route path="/admin-login" element={<AdminLoginPage />} />
