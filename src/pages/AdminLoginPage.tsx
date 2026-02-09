@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useAdminAuth } from "../auth/adminAuth";
+import { getAdminAccessPreview, useAdminAuth } from "../auth/adminAuth";
 
 function withBase(path: string): string {
   const base = (import.meta as any).env?.BASE_URL ?? "/";
@@ -19,6 +19,10 @@ export default function AdminLoginPage() {
   const [error, setError] = useState(false);
 
   const next = searchParams.get("next") || "/sav-maintenance";
+  const accessPreview = useMemo(
+    () => getAdminAccessPreview(adminId),
+    [adminId]
+  );
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -63,6 +67,17 @@ export default function AdminLoginPage() {
               onChange={(e) => setAdminId(e.target.value)}
               required
             />
+            {adminId.trim() && (
+              <p
+                className={`mt-2 text-xs ${
+                  accessPreview.type === "unknown"
+                    ? "text-red-600"
+                    : "text-stone-500"
+                }`}
+              >
+                {accessPreview.label || "Identifiant admin non reconnu"}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">
@@ -101,4 +116,3 @@ export default function AdminLoginPage() {
     </div>
   );
 }
-

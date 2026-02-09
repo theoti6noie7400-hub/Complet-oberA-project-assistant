@@ -40,6 +40,31 @@ const normalizeId = (value: string) =>
     .normalize("NFD")
     .replace(/[^A-Z0-9]+/g, "");
 
+export type AdminAccessPreview =
+  | { type: "global"; label: string }
+  | { type: "service"; label: string; serviceKey: string }
+  | { type: "unknown"; label: string };
+
+export function getAdminAccessPreview(adminId: string): AdminAccessPreview {
+  const cleanId = normalizeId(adminId);
+  if (!cleanId) {
+    return { type: "unknown", label: "" };
+  }
+  if (GLOBAL_ADMINS.has(cleanId)) {
+    const displayName = GLOBAL_ADMINS.get(cleanId) ?? "ADMIN";
+    return { type: "global", label: `Admin global ${displayName}` };
+  }
+  if (SERVICE_ADMINS.has(cleanId)) {
+    const service = SERVICE_ADMINS.get(cleanId)!;
+    return {
+      type: "service",
+      label: `Admin ${service.label}`,
+      serviceKey: service.serviceKey
+    };
+  }
+  return { type: "unknown", label: "Identifiant admin non reconnu" };
+}
+
 const emptySession: AdminSession = {
   isAuthenticated: false,
   role: null,
