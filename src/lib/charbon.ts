@@ -68,6 +68,13 @@ export const FILTER_REFERENCES = {
 
 export type FilterRef = (typeof FILTER_REFERENCES)[keyof typeof FILTER_REFERENCES];
 
+export function getFilterReferenceById(id: string): FilterRef {
+  return (
+    Object.values(FILTER_REFERENCES).find((x) => x.id === id) ??
+    FILTER_REFERENCES.EPUREX_1000
+  );
+}
+
 export const GROUPS = {
   "1": { label: "Groupe 1 - Tres haute adsorption", avg: 0.35 },
   "2": { label: "Groupe 2 - Forte adsorption", avg: 0.17 },
@@ -103,16 +110,10 @@ export function parsePolluantLabel(raw: string): {
   const cleaned = raw.trim();
   if (!cleaned) return { name: "", label: "" };
 
-  const parts = cleaned.split(/\s*\(([^()]*)\)\s*/g).filter((x) => x !== "");
-
-  let base = parts[0]?.trim() ?? cleaned;
-  const parens: string[] = [];
-
-  for (let i = 1; i < parts.length; i += 2) {
-    parens.push((parts[i] ?? "").trim());
-    const tail = (parts[i + 1] ?? "").trim();
-    if (tail) base = `${base} ${tail}`.trim();
-  }
+  const parens = [...cleaned.matchAll(/\(([^()]*)\)/g)]
+    .map((m) => (m[1] ?? "").trim())
+    .filter(Boolean);
+  const base = cleaned.replace(/\s*\([^()]*\)/g, "").replace(/\s+/g, " ").trim();
 
   const last = parens.length ? parens[parens.length - 1] : undefined;
   const looksLikeFormula = (s?: string) => {

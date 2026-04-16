@@ -21,6 +21,7 @@ import {
   displayPolluant,
   formatKg,
   formatPct,
+  getFilterReferenceById,
   parseNumberLoose,
   pickRepresentativePolluantsForGroups,
   statusFromSaturation,
@@ -108,10 +109,7 @@ export default function CharbonActifPage() {
   const [reportPreview, setReportPreview] = useState<string>("");
   const [showReportPreview, setShowReportPreview] = useState<boolean>(false);
 
-  const filter = useMemo(() => {
-    const f = Object.values(FILTER_REFERENCES).find((x) => x.id === filterId);
-    return f ?? FILTER_REFERENCES.EPUREX_1000;
-  }, [filterId]);
+  const filter = useMemo(() => getFilterReferenceById(filterId), [filterId]);
 
   const filterImage = useMemo(() => {
     return filter.image ? withBase(filter.image) : undefined;
@@ -156,6 +154,18 @@ export default function CharbonActifPage() {
     () => parseNumberLoose(temperatureStr),
     [temperatureStr]
   );
+
+  const groupCapacities = useMemo(() => {
+    return (Object.keys(GROUPS) as GroupKey[]).map((groupKey) => {
+      const group = GROUPS[groupKey];
+      return {
+        groupKey,
+        label: group.label,
+        avgPct: group.avg * 100,
+        capaciteKg: filter.poidsCharbonNetKg * group.avg
+      };
+    });
+  }, [filter.poidsCharbonNetKg]);
 
   const gain = useMemo(() => {
     if (!Number.isFinite(poidsMesure)) return NaN;
@@ -453,7 +463,12 @@ export default function CharbonActifPage() {
               <label className="text-sm font-medium">Reference filtre</label>
               <select
                 value={filterId}
-                onChange={(e) => setFilterId(e.target.value as FilterRef["id"])}
+                onChange={(e) => {
+                  const nextId = e.target.value as FilterRef["id"];
+                  const nextFilter = getFilterReferenceById(nextId);
+                  setFilterId(nextId);
+                  setPoidsMesureStr(nextFilter.poidsNeufBrutKg.toFixed(2));
+                }}
                 className="w-full rounded-2xl border p-2"
               >
                 {Object.values(FILTER_REFERENCES).map((f) => (
@@ -476,6 +491,19 @@ export default function CharbonActifPage() {
 
               <div className="text-xs text-stone-500">
                 Images: place-les dans <span className="font-medium">/public/products/</span> (ex: can1500.jpg). Si une image manque, elle se masque.
+              </div>
+
+              <div className="mt-3 rounded-xl border p-3 bg-stone-50">
+                <div className="text-xs font-medium text-stone-700 mb-2">
+                  Distinction groupes (capacite max theorique pour cette cartouche)
+                </div>
+                <div className="grid grid-cols-1 gap-1 text-xs text-stone-600">
+                  {groupCapacities.map((g) => (
+                    <div key={g.groupKey}>
+                      G{g.groupKey} · {g.avgPct.toFixed(0)}% · {formatKg(g.capaciteKg)}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

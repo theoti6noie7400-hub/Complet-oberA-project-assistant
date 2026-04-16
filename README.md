@@ -75,6 +75,16 @@ Dans GitHub :
 - Settings → Pages
 - Source: **GitHub Actions**
 
+### Version ultra simple (sans prise de tête)
+1. Mets tes changements sur la branche `main`.
+2. Fais `git push origin main`.
+3. Va dans **Actions** et vérifie que **Deploy GitHub Pages** est en vert.
+4. Ouvre ton site (Ctrl+F5 pour vider le cache).
+
+Si tu veux lancer à la main :
+- Actions → **Deploy GitHub Pages** → **Run workflow**
+- Choisis la branche **main** uniquement.
+
 ## Variables d'environnement
 Aucune.
 
