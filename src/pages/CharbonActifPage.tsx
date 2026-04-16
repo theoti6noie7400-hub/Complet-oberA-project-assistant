@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   displayPolluant,
   formatKg,
   formatPct,
+  getFilterReferenceById,
   parseNumberLoose,
   pickRepresentativePolluantsForGroups,
   statusFromSaturation,
@@ -107,11 +108,9 @@ export default function CharbonActifPage() {
   );
   const [reportPreview, setReportPreview] = useState<string>("");
   const [showReportPreview, setShowReportPreview] = useState<boolean>(false);
+  const prevFilterIdRef = useRef<FilterRef["id"]>(FILTER_REFERENCES.EPUREX_1000.id);
 
-  const filter = useMemo(() => {
-    const f = Object.values(FILTER_REFERENCES).find((x) => x.id === filterId);
-    return f ?? FILTER_REFERENCES.EPUREX_1000;
-  }, [filterId]);
+  const filter = useMemo(() => getFilterReferenceById(filterId), [filterId]);
 
   const filterImage = useMemo(() => {
     return filter.image ? withBase(filter.image) : undefined;
@@ -156,6 +155,23 @@ export default function CharbonActifPage() {
     () => parseNumberLoose(temperatureStr),
     [temperatureStr]
   );
+
+  useEffect(() => {
+    const previousFilter = getFilterReferenceById(prevFilterIdRef.current);
+    const currentFilter = getFilterReferenceById(filterId);
+    const currentMeasured = parseNumberLoose(poidsMesureStr);
+
+    const isEmpty = poidsMesureStr.trim().length === 0;
+    const matchesPreviousNeuf =
+      Number.isFinite(currentMeasured) &&
+      Math.abs(currentMeasured - previousFilter.poidsNeufBrutKg) < 0.01;
+
+    if (isEmpty || matchesPreviousNeuf) {
+      setPoidsMesureStr(currentFilter.poidsNeufBrutKg.toFixed(2));
+    }
+
+    prevFilterIdRef.current = filterId;
+  }, [filterId, poidsMesureStr]);
 
   const gain = useMemo(() => {
     if (!Number.isFinite(poidsMesure)) return NaN;

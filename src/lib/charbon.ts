@@ -68,6 +68,13 @@ export const FILTER_REFERENCES = {
 
 export type FilterRef = (typeof FILTER_REFERENCES)[keyof typeof FILTER_REFERENCES];
 
+export function getFilterReferenceById(id: string): FilterRef {
+  return (
+    Object.values(FILTER_REFERENCES).find((x) => x.id === id) ??
+    FILTER_REFERENCES.EPUREX_1000
+  );
+}
+
 export const GROUPS = {
   "1": { label: "Groupe 1 - Tres haute adsorption", avg: 0.35 },
   "2": { label: "Groupe 2 - Forte adsorption", avg: 0.17 },
