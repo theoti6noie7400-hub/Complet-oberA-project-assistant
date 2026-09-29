@@ -515,9 +515,9 @@ export default function AssistantOberaPage({
     );
     if (!clickable) return logoContent;
     return (
-      <button id="logo-btn" className="logo-button" onClick={goToDashboard} type="button">
+      <Link id="logo-btn" className="logo-button" to="/" aria-label="Retour au portail OberA">
         {logoContent}
-      </button>
+      </Link>
     );
   };
 
@@ -1449,14 +1449,13 @@ export default function AssistantOberaPage({
           <SavDashboard onOpenManualSav={() => setActiveStep("manual-sav")}
             enableRecipeCases={forceAdmin} />
 
-          <button
+          <Link
             id="back-to-category-dashboard"
             className="mt-8 px-6 py-2 text-stone-500 rounded-lg border border-stone-300 hover:bg-stone-200 transition"
-            type="button"
-            onClick={() => setActiveStep("category")}
+            to="/"
           >
-            Retour à l'accueil
-          </button>
+            Retour au portail
+          </Link>
         </div>
       </div>
     </div>

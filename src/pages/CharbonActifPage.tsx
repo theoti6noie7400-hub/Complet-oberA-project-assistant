@@ -147,7 +147,7 @@ export default function CharbonActifPage() {
   }, [polluantSearch, groupFilter]);
 
   const poidsMesure = useMemo(
-    () => parseNumberLoose(poidsMesureStr),
+    () => poidsMesureStr.trim() ? parseNumberLoose(poidsMesureStr) : NaN,
     [poidsMesureStr]
   );
   const humidite = useMemo(() => parseNumberLoose(humiditeStr), [humiditeStr]);
@@ -159,19 +159,18 @@ export default function CharbonActifPage() {
   useEffect(() => {
     const previousFilter = getFilterReferenceById(prevFilterIdRef.current);
     const currentFilter = getFilterReferenceById(filterId);
-    const currentMeasured = parseNumberLoose(poidsMesureStr);
-
-    const isEmpty = poidsMesureStr.trim().length === 0;
-    const matchesPreviousNeuf =
-      Number.isFinite(currentMeasured) &&
-      Math.abs(currentMeasured - previousFilter.poidsNeufBrutKg) < 0.01;
-
-    if (isEmpty || matchesPreviousNeuf) {
-      setPoidsMesureStr(currentFilter.poidsNeufBrutKg.toFixed(2));
-    }
+    setPoidsMesureStr(current => {
+      const measured = parseNumberLoose(current);
+      const isEmpty = current.trim().length === 0;
+      const matchesPreviousNeuf = Number.isFinite(measured) &&
+        Math.abs(measured - previousFilter.poidsNeufBrutKg) < 0.01;
+      return isEmpty || matchesPreviousNeuf
+        ? currentFilter.poidsNeufBrutKg.toFixed(2)
+        : current;
+    });
 
     prevFilterIdRef.current = filterId;
-  }, [filterId, poidsMesureStr]);
+  }, [filterId]);
 
   const gain = useMemo(() => {
     if (!Number.isFinite(poidsMesure)) return NaN;
