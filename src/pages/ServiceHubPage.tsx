@@ -6,7 +6,7 @@ import { useAdminAuth } from "../auth/adminAuth";
 
 export default function ServiceHubPage() {
   const { serviceKey = "" } = useParams();
-  const { role, serviceKey: adminService } = useAdminAuth();
+  const { role } = useAdminAuth();
 
   const section = useMemo(
     () => INTERNAL_SECTIONS.find((s) => s.id === serviceKey),
@@ -35,7 +35,9 @@ export default function ServiceHubPage() {
     );
   }
 
-  const canEdit = role === "global" || (role === "service" && adminService === section.id);
+  const canEdit = role === "global_admin" ||
+    (role === "sales" && section.id === "commercial") ||
+    (role === "logistics" && section.id === "logistique") || role === section.id;
 
   return (
     <div className="portal-page">
@@ -67,4 +69,3 @@ export default function ServiceHubPage() {
     </div>
   );
 }
-

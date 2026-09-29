@@ -14,7 +14,8 @@ test("session cookie is inaccessible to browser scripts and scoped to HTTPS", ()
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /Secure/);
   assert.match(cookie, /SameSite=Lax/);
-  assert.match(sessionClearCookie, /Max-Age=0/);
+  assert.match(sessionClearCookie(), /Max-Age=0/);
+  assert.doesNotMatch(sessionSetCookie("a".repeat(64), false), /Secure/);
 });
 
 test("verified client session retains multiple organizations, rejects mixed kinds", async () => {

@@ -1,50 +1,42 @@
-# Socle backend OberA (étape de préparation)
+# Backend du Portail OberA — bêta interne fictive
 
-Ce dossier contient le serveur API de préparation. Dans un **mode de recette local explicite**, le formulaire manuel SAV et l'onglet distinct « Dossiers SAV enregistrés » peuvent lui parler. Les statistiques, graphiques et contrats restent sur le prototype. Il **ne doit pas être publié comme portail de production**. Aucun jeu SAV embarqué dans le frontend n'est importé. L'authentification OIDC attend la confirmation de l'environnement de comptes OberA ; hors recette locale, aucun endpoint de connexion de démonstration n'est disponible.
+Ce serveur Fastify utilise PostgreSQL pour les comptes internes, les sessions et les dossiers SAV enregistrés. L'interface React, les routes, les diagnostics, les contrats et les KPI de démonstration restent distincts. Aucune donnée OberA réelle et aucune connexion Wavesoft ne sont prévues dans cette recette.
 
-## Contenu
+## Comptes internes et rôles
 
-- `src/access.ts` : rôles et vérification explicite des ressources ; aucune vue SAV transverse Commercial/ADV/Logistique tant que ses champs n'ont pas été approuvés.
-- `src/session.ts` : consultation/révocation d'une session PostgreSQL, cookie sécurisé, fonction interne de création réservée à un futur callback d'identité vérifié.
-- `src/app.ts` : premières API internes (`/api/session`, `/api/logout`, `/api/sav/cases`, `/api/sav/cases/:id`, `/api/sav/contracts`). La création manuelle de dossier est transactionnelle, journalisée et rejouable sans doublon avec `submissionKey`. Aucun endpoint client/revendeur n'expose les données SAV internes.
-- `migrations/001_initial.sql` et `002_manual_sav_fields.sql` : schéma versionné ; la référence SAV saisie, la série, le nom et le numéro client, le type, le problème, la cause et l'action sont des champs distincts. Le UUID est technique et aucune référence métier n'est générée automatiquement par la nouvelle API. `src/migrate.ts` applique les migrations une seule fois.
+Les comptes de la bêta sont fournis exclusivement au serveur par `BETA_INTERNAL_ACCOUNTS` : un tableau JSON d'objets `{ "identifier": "<IDENTIFIANT>", "pin": "<CODE>", "role": "<ROLE>" }`. Les rôles admis sont `global_admin`, `sav_manager`, `sav_technician`, `marketing`, `sales`, `adv` et `logistics`. Le code numérique doit contenir 4 à 12 chiffres. Chaque identifiant doit être individuel et unique. Ne commitez jamais les valeurs de cette variable ni les fichiers `.env` ; `server/.env.example` ne contient que les noms des variables.
 
-## Développement isolé, uniquement avec données fictives
+Le serveur refuse de démarrer sans configuration de comptes. Après vérification du code côté serveur, `/api/login` lie l'identifiant à `users` et crée une session PostgreSQL de huit heures. Le navigateur reçoit uniquement un cookie `HttpOnly`, `SameSite=Lax`, `Secure` sous HTTPS. Le token est aléatoire et seul son haché est stocké en base. `/api/session` consulte la session et fournit le rôle ; `/api/logout` supprime la session en base et efface le cookie. Un changement de compte révoque l'ancien cookie. Les écritures exigent une origine exacte `PUBLIC_ORIGIN`. Les tentatives répétées sont limitées dans la mémoire du processus unique (5 par identifiant/IP et 10 par IP, sur 15 minutes).
 
-Node.js 24 et une instance PostgreSQL de test sont nécessaires.
+L'ancienne URL `/api/recipe/session` renvoie `410` et ne délivre plus de session. La migration `003_beta_sales_role.sql` remplace le rôle `commercial` par `sales` en base et révoque les anciennes sessions de recette. Aucun endpoint client/revendeur ne donne accès aux dossiers internes ; leurs connexions prototype sont suspendues dans React, leurs routes sont conservées.
+
+## Lancement local fictif
+
+Node.js 24 et une base PostgreSQL **vide et fictive** nommée `obera_recipe` sont requis. Ne renseignez jamais de compte ni de donnée réelle pour ces essais.
 
 ```bash
 cd server
 npm ci
-npm test
-npm run typecheck
-DATABASE_URL='postgres://.../obera_fictif' npm run migrate
-DATABASE_URL='postgres://.../obera_fictif' PUBLIC_ORIGIN='https://portail-test.example.invalid' npm start
-```
-
-Ne jamais utiliser une base contenant des données OberA réelles dans cette phase. `PUBLIC_ORIGIN` est l'origine HTTPS exacte autorisée pour les requêtes d'écriture. Le serveur écoute seulement `127.0.0.1:3000` ; son exposition ultérieure passera par l'hébergement HTTPS retenu. La future connexion OIDC liera une identité vérifiée (`issuer`, `subject`) à un utilisateur et ses droits dans la base ; la présence d'une ligne `users` seule ne connecte personne.
-
-### Mode de recette local, fictif uniquement
-
-Créer une base PostgreSQL **vide** nommée `obera_recipe` avec un compte de test, puis lancer :
-
-```bash
-cd server
 DATABASE_URL='postgres://.../obera_recipe' npm run migrate
-RECIPE_MODE=1 DATABASE_URL='postgres://.../obera_recipe' npm run seed:recipe
-RECIPE_MODE=1 DATABASE_URL='postgres://.../obera_recipe' PUBLIC_ORIGIN='http://localhost:5173' npm start
+RECIPE_MODE=1 DATABASE_URL='postgres://.../obera_recipe' PUBLIC_ORIGIN='http://localhost:5173' BETA_INTERNAL_ACCOUNTS='<JSON_LOCAL_NON_COMMITÉ>' npm start
 ```
 
 Dans un autre terminal, à la racine du dépôt :
 
 ```bash
-VITE_SAV_RECIPE_API=1 npm run dev
+VITE_INTERNAL_API=1 npm run dev
 ```
 
-Ouvrir l'URL Vite locale, accéder au formulaire SAV existant, choisir « Enregistrement partagé (API de recette) », puis « Ouvrir la session fictive SAV ». La simulation reste sélectionnable séparément. Dans le dashboard SAV interne, l'onglet « Dossiers SAV enregistrés » relit la liste et le détail via l'API ; il ne modifie pas les statistiques ni la liste de démonstration. L'API renvoie au maximum 100 dossiers récents et l'onglet signale cette limite lorsqu'elle est atteinte. La route `/api/recipe/session` et son compte fictif n'existent que si `RECIPE_MODE=1`, avec la base `obera_recipe` et l'origine locale ci-dessus. Le mode de recette ne transforme pas la connexion PIN du prototype en authentification de production. Aucun repli en simulation n'est déclenché après erreur API. Un UUID de dossier n'est jamais affiché comme référence métier.
+Sur un hébergement bêta, `PUBLIC_ORIGIN` doit être l'origine HTTPS exacte du frontend et les requêtes `/api` doivent arriver au backend sur la même origine. Le backend écoute `127.0.0.1` derrière le frontal HTTPS. Exécuter `npm run migrate` avant le démarrage. Les secrets sont fournis à l'environnement du serveur, jamais via les variables `VITE_`.
 
-Les migrations, la création, la relecture et l'audit ont été vérifiés sur PostgreSQL réel avec des identités fictives. Une sauvegarde/restauration à froid du socle avait également été vérifiée avant le raccordement. Les sauvegardes automatiques et leur fréquence finale relèvent de l'hébergeur, à confirmer selon la perte de données acceptable. Aucun hébergeur, stockage de fichiers ou fournisseur d'identité n'est choisi à ce stade.
+## Autorisations effectivement servies
 
-## Raccordement ultérieur
+- `global_admin`, `sav_manager`, `sav_technician` : liste et détail de tous les dossiers SAV, création manuelle, lecture des contrats API ; les modifications techniques futures ne disposent pas encore d'endpoint.
+- `marketing`, `sales`, `adv`, `logistics` : aucun accès aux API SAV dans ce lot ; seul leur espace React correspondant est proposé.
+- Un client ou revendeur ne peut pas créer de session via cette connexion interne.
 
-Avant d'utiliser ce socle en production : confirmer l'IdP et l'hébergement Node 24, intégrer OIDC, mettre en place le stockage privé et les sauvegardes, compléter les projections client/revendeur, retirer les données SAV privées du bundle React, puis rejouer la recette validée de l'étape 0 sur deux sessions et une base fictive. La référence SAV métier reste exactement celle saisie (`sav_reference`) et ne se confond pas avec l'UUID ni avec `serial_number`. Le numéro client reste une donnée distincte, sans appel Wavesoft.
+Les contrôles de chaque requête SAV sont dans `src/app.ts` et `src/access.ts`. Les gardes React servent à la navigation, jamais à accorder l'accès aux données. Le mode simulation manuel reste séparé des dossiers PostgreSQL. Aucun repli automatique en simulation n'intervient après une erreur API.
+
+## Avant production
+
+Cette connexion par PIN reste temporaire : choisir et intégrer l'identité OIDC, organiser les comptes individuels et leur révocation, définir l'hébergement HTTPS, les sauvegardes, la supervision et les projections client/revendeur, puis terminer la recette navigateur et sécurité. Le verrouillage des tentatives est local à un seul processus ; une architecture à plusieurs instances nécessitera un contrôle partagé. Les sessions déjà ouvertes restent valides jusqu'à expiration ou révocation si un compte est retiré de la configuration : désactiver son utilisateur en base et révoquer ses sessions lors d'un retrait urgent.

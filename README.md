@@ -1,5 +1,9 @@
 # Assistant OberA + Calculateur Charbon Actif
 
+## Bêta interne
+
+La connexion interne passe par le backend Fastify et PostgreSQL. Les routes Client et Revendeur sont conservées, mais leurs connexions prototype sont suspendues. Le build frontend seul (Docker statique ou GitHub Pages) ne peut pas authentifier les utilisateurs internes : il faut servir `/api` sur la même origine avec un backend configuré. Voir [server/README.md](server/README.md) pour les comptes fictifs, migrations et variables d'environnement. Ne pas utiliser de données réelles dans cette recette.
+
 Intégration propre des deux modules fournis :
 - Assistant OberA (diagnostic + consommables + SAV)
 - Calculateur de saturation du charbon actif (route `/charbon-actif`)
@@ -76,10 +80,10 @@ Dans GitHub :
 - Source: **GitHub Actions**
 
 ## Variables d'environnement
-Aucune.
+`VITE_INTERNAL_API=1` active le raccordement SAV partagé côté frontend. Les comptes et PIN sont configurés uniquement côté serveur via `BETA_INTERNAL_ACCOUNTS`, jamais dans une variable `VITE_`.
 
 ## Tests rapides (checklist)
-- [ ] Connexion client valide (ex: ID non vide + PIN 4 chiffres)
+- [ ] Connexion interne validée par `/api/session` ; Client et Revendeur affichent l'indisponibilité temporaire
 - [ ] Diagnostic : sélection d’une réponse + progression + résumé
 - [ ] Bouton “Calculateur saturation charbon actif” -> `/charbon-actif`
 - [ ] Calculateur : saisie poids + polluant -> saturation cohérente

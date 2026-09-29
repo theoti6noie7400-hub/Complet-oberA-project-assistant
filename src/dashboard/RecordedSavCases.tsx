@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 type SavCase = {
   id: string;
@@ -19,7 +20,7 @@ type SavCase = {
 
 function errorMessage(error: unknown, detail = false): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) return "Session API expirée ou absente. Ouvrez la session fictive SAV.";
+    if (error.status === 401) return "Session interne expirée ou absente. Reconnectez-vous.";
     if (error.status === 403) return "Accès refusé aux dossiers SAV.";
     if (error.status === 404 && detail) return "Dossier introuvable ou supprimé.";
     return `Lecture des dossiers impossible (${error.status}).`;
@@ -67,15 +68,6 @@ export default function RecordedSavCases() {
     return () => controller.abort();
   }, [reload]);
 
-  async function openSession() {
-    try {
-      await readJson(await fetch("/api/recipe/session", {
-        method: "POST", credentials: "same-origin"
-      }));
-      setReload(value => value + 1);
-    } catch (error) { setListError(errorMessage(error)); }
-  }
-
   useEffect(() => {
     if (!selected) return;
     const controller = new AbortController();
@@ -104,9 +96,9 @@ export default function RecordedSavCases() {
       </div>
       {loading && <p role="status">Chargement des dossiers…</p>}
       {listError && <p role="alert" className="text-red-700">{listError}</p>}
-      {sessionMissing && <button type="button" className="obera-tab" onClick={openSession}>
-        Ouvrir la session fictive SAV
-      </button>}
+      {sessionMissing && <Link className="obera-tab" to="/admin-login?next=%2Fsav-maintenance">
+        Se reconnecter
+      </Link>}
       {!loading && !listError && cases.length === 0 && <p>Aucun dossier SAV enregistré.</p>}
       {!loading && !listError && cases.length > 0 && (
         <div className="overflow-x-auto">

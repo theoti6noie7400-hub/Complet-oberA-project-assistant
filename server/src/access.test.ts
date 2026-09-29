@@ -10,7 +10,7 @@ test("SAV staff sees all SAV cases, other services are denied by default", () =>
   for (const role of ["sav_manager", "sav_technician", "global_admin"] as const) {
     assert.equal(can(person(role), "read", caseA), true);
   }
-  for (const role of ["commercial", "adv", "logistics", "marketing", "client", "reseller"] as const) {
+  for (const role of ["sales", "adv", "logistics", "marketing", "client", "reseller"] as const) {
     assert.equal(can(person(role, "client-a"), "read", caseA), false);
   }
   assert.equal(can(person("sav_technician"), "manage", caseA), false);
@@ -45,6 +45,7 @@ test("service hubs are scoped; unknown hubs are denied", () => {
   assert.equal(canEnterService(person("sav_technician"), "sav-maintenance"), true);
   assert.equal(canEnterService(person("marketing"), "sav-maintenance"), false);
   assert.equal(canEnterService(person("marketing"), "marketing"), true);
-  assert.equal(canEnterService(person("commercial"), "marketing"), false);
+  assert.equal(canEnterService(person("sales"), "commercial"), true);
+  assert.equal(canEnterService(person("sales"), "marketing"), false);
   assert.equal(canEnterService(person("client"), "unknown"), false);
 });

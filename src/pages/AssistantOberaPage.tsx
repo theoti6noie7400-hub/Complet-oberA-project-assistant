@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import PortalTopBar from "../components/PortalTopBar";
 import {
   CATEGORIES,
   DIAGNOSTIC_NODES,
@@ -25,7 +26,6 @@ type AssistantOberaPageProps = {
 };
 
 type StepId =
-  | "login"
   | "category"
   | "product"
   | "serial"
@@ -119,15 +119,22 @@ function DeviceThumb({
   );
 }
 
-export default function AssistantOberaPage({
+export default function AssistantOberaPage({ forceAdmin = false }: AssistantOberaPageProps) {
+  if (!forceAdmin) return <div className="portal-page"><PortalTopBar subtitle="Espace Client" />
+    <main className="portal-main"><section className="obera-panel p-5">
+      <h1 className="text-2xl font-semibold">Espace Client</h1>
+      <p role="status" className="mt-3">Espace temporairement indisponible pendant la bêta interne.</p>
+      <Link to="/" className="obera-btn-outline mt-4 inline-flex">Retour Portail</Link>
+    </section></main></div>;
+  return <InternalSavPage forceAdmin />;
+}
+
+function InternalSavPage({
   forceAdmin = false
 }: AssistantOberaPageProps) {
   const logoSrc = useMemo(() => withBase("obera-logo.png"), []);
   const [logoFailed, setLogoFailed] = useState(false);
-  const [activeStep, setActiveStep] = useState<StepId>(forceAdmin ? "category" : "login");
-  const [clientId, setClientId] = useState("");
-  const [pin, setPin] = useState("");
-  const [loginError, setLoginError] = useState(false);
+  const [activeStep, setActiveStep] = useState<StepId>("category");
   const [isAdmin, setIsAdmin] = useState(forceAdmin);
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
@@ -234,7 +241,7 @@ export default function AssistantOberaPage({
     return `Etape ${step} / ${total}`;
   }, [currentDiagNode, diagStack.length]);
 
-  const showHeader = activeStep !== "login";
+  const showHeader = true;
 
   useEffect(() => {
     setSelectedOptionIdx(null);
@@ -242,10 +249,7 @@ export default function AssistantOberaPage({
   }, [currentDiagNode?.id]);
 
   const resetAll = () => {
-    setActiveStep(forceAdmin ? "category" : "login");
-    setClientId("");
-    setPin("");
-    setLoginError(false);
+    setActiveStep("category");
     setIsAdmin(forceAdmin);
     setSelectedCategory(null);
     setSelectedProduct(null);
@@ -275,32 +279,6 @@ export default function AssistantOberaPage({
     setManualSavCause("");
     setManualSavAction("");
     setManualSavType("technique");
-  };
-
-  const handleLogin = () => {
-    const cleanId = clientId.trim();
-    const cleanPin = pin.trim();
-    const pinOk = /^\d{4}$/.test(cleanPin);
-
-    if (!cleanId || !pinOk) {
-      setLoginError(true);
-      return;
-    }
-
-    if (forceAdmin) {
-      setLoginError(true);
-      return;
-    }
-
-    const isClient = cleanId.toUpperCase() === "OBERACLIENT" && cleanPin === "1234";
-    if (!isClient) {
-      setLoginError(true);
-      return;
-    }
-
-    setLoginError(false);
-    setIsAdmin(false);
-    setActiveStep("category");
   };
 
   const startDiagnostic = () => {
@@ -395,21 +373,6 @@ export default function AssistantOberaPage({
       `Consommables: ${consMessage}`
     ].join("\n");
     sendMail(subject, body);
-  };
-
-  const connectRecipeSession = async () => {
-    setRecipeError("");
-    try {
-      const response = await fetch("/api/recipe/session", {
-        method: "POST", credentials: "same-origin"
-      });
-      if (!response.ok) throw new Error(`Connexion de recette indisponible (${response.status}).`);
-      setRecipeSessionReady(true);
-      const saved = await recipeClient().lastSaved();
-      if (saved) restoreRecipeCase(saved);
-    } catch (error) {
-      setRecipeError(error instanceof Error ? error.message : "Connexion de recette impossible.");
-    }
   };
 
   const startNewRecipeCase = () => {
@@ -546,74 +509,6 @@ export default function AssistantOberaPage({
             </div>
           </header>
         )}
-
-        <div
-          id="step-login"
-          className={`step-container ${activeStep === "login" ? "active" : ""}`}
-        >
-          <div className="text-center mb-10">
-            <div className="flex justify-center">
-              {renderLogo(false)}
-            </div>
-            <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
-          </div>
-
-          <h2 className="text-2xl font-semibold text-stone-600 mb-6">
-            Accès Sécurisé Client
-          </h2>
-          <div className="w-full max-w-sm">
-            <div className="mb-4">
-              <label
-                htmlFor="client-id-input"
-                className="block text-sm font-medium text-stone-600 text-left"
-              >
-                Numéro Client
-              </label>
-              <input
-                type="text"
-                id="client-id-input"
-                className="w-full p-3 mt-1 rounded-md border border-stone-300 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ex: OBERACLIENT ou SAV"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              />
-            </div>
-            <div className="mb-6">
-              <label
-                htmlFor="pin-input"
-                className="block text-sm font-medium text-stone-600 text-left"
-              >
-                Code PIN (4 chiffres)
-              </label>
-              <input
-                type="password"
-                id="pin-input"
-                className="w-full p-3 mt-1 rounded-md border border-stone-300 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="••••"
-                maxLength={4}
-                inputMode="numeric"
-                pattern="\\d{4}"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-              />
-            </div>
-
-            {loginError && (
-              <p id="login-error-msg" className="text-red-500 text-sm mb-4">
-                Numéro client ou Code PIN incorrect.
-              </p>
-            )}
-
-            <button
-              id="login-btn"
-              className="w-full px-6 py-3 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
-              onClick={handleLogin}
-              type="button"
-            >
-              Connexion
-            </button>
-          </div>
-        </div>
 
         <div
           id="step-product-category"
@@ -1241,7 +1136,7 @@ export default function AssistantOberaPage({
 
           {RECIPE_API_ENABLED && (
             <div className="mb-4 p-4 rounded-lg border border-blue-200 bg-blue-50 max-w-lg">
-              <p className="font-medium text-blue-900">Recette locale : données fictives uniquement</p>
+              <p className="font-medium text-blue-900">Bêta interne : données fictives uniquement</p>
               <label className="block mt-2 text-sm">
                 <input type="radio" name="manual-sav-mode" checked={manualSavMode === "simulation"}
                   onChange={() => { setManualSavMode("simulation"); window.sessionStorage.setItem(RECIPE_MODE_KEY, "simulation"); setRecipeError(""); }} />{" "}
@@ -1250,13 +1145,10 @@ export default function AssistantOberaPage({
               <label className="block mt-1 text-sm">
                 <input type="radio" name="manual-sav-mode" checked={manualSavMode === "api"}
                   onChange={() => { setManualSavMode("api"); window.sessionStorage.setItem(RECIPE_MODE_KEY, "api"); setManualSavSaved(false); }} />{" "}
-                Enregistrement partagé (API de recette)
+                Enregistrement partagé (API interne)
               </label>
               {manualSavMode === "api" && !recipeSessionReady && (
-                <button type="button" onClick={connectRecipeSession}
-                  className="mt-3 px-3 py-2 rounded border border-blue-400 text-blue-900">
-                  Ouvrir la session fictive SAV
-                </button>
+                <p className="mt-3 text-sm text-blue-900">Session interne absente ou expirée. <Link to="/admin-login?next=%2Fsav-maintenance" className="underline">Se reconnecter</Link></p>
               )}
             </div>
           )}

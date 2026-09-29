@@ -46,8 +46,10 @@ export async function revokeSession(db: Database, cookieHeader: string | undefin
   if (token) await db.query("DELETE FROM sessions WHERE token_hash = $1", [tokenHash(token)]);
 }
 
-export function sessionSetCookie(token: string): string {
-  return `${sessionCookie}=${token}; Path=/; Max-Age=${sessionLifetimeMs / 1000}; HttpOnly; Secure; SameSite=Lax`;
+export function sessionSetCookie(token: string, secure = true): string {
+  return `${sessionCookie}=${token}; Path=/; Max-Age=${sessionLifetimeMs / 1000}; HttpOnly; ${secure ? "Secure; " : ""}SameSite=Lax`;
 }
 
-export const sessionClearCookie = `${sessionCookie}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+export function sessionClearCookie(secure = true): string {
+  return `${sessionCookie}=; Path=/; Max-Age=0; HttpOnly; ${secure ? "Secure; " : ""}SameSite=Lax`;
+}

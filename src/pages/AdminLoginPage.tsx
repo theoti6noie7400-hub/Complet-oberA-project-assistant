@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { getAdminAccessPreview, useAdminAuth } from "../auth/adminAuth";
+import { canUseInternalPath, useAdminAuth, type InternalRole } from "../auth/adminAuth";
 
 function withBase(path: string): string {
   const base = (import.meta as any).env?.BASE_URL ?? "/";
@@ -19,20 +19,27 @@ export default function AdminLoginPage() {
   const [error, setError] = useState(false);
 
   const next = searchParams.get("next") || "/sav-maintenance";
-  const accessPreview = useMemo(
-    () => getAdminAccessPreview(adminId),
-    [adminId]
-  );
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e: FormEvent) => {
+  const homeForRole: Record<InternalRole, string> = {
+    global_admin: "/sav-maintenance", sav_manager: "/sav-maintenance",
+    sav_technician: "/sav-maintenance", marketing: "/service/marketing",
+    sales: "/service/commercial", adv: "/service/adv", logistics: "/service/logistique"
+  };
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const ok = login(adminId, pin);
-    if (!ok) {
+    if (submitting) return;
+    setSubmitting(true);
+    const verifiedRole = await login(adminId, pin);
+    setSubmitting(false);
+    setPin("");
+    if (!verifiedRole) {
       setError(true);
       return;
     }
     setError(false);
-    navigate(next, { replace: true });
+    navigate(canUseInternalPath(verifiedRole, next) ? next : homeForRole[verifiedRole], { replace: true });
   };
 
   return (
@@ -51,59 +58,51 @@ export default function AdminLoginPage() {
               ober<span className="logo-fallback-accent">A</span>
             </div>
           )}
-          <p className="mt-3 text-sm text-stone-500">Connexion administrateur</p>
+          <p className="mt-3 text-sm text-stone-500">Connexion interne</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">
-              Identifiant admin
+            <label htmlFor="internal-id" className="block text-sm font-medium text-stone-700 mb-1">
+              Identifiant interne
             </label>
             <input
               type="text"
+              id="internal-id"
               className="w-full p-3 rounded-md border border-stone-300"
-              placeholder="Ex: SAV"
+              placeholder="Votre identifiant"
               value={adminId}
               onChange={(e) => setAdminId(e.target.value)}
               required
             />
-            {adminId.trim() && (
-              <p
-                className={`mt-2 text-xs ${
-                  accessPreview.type === "unknown"
-                    ? "text-red-600"
-                    : "text-stone-500"
-                }`}
-              >
-                {accessPreview.label || "Identifiant admin non reconnu"}
-              </p>
-            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">
+            <label htmlFor="internal-pin" className="block text-sm font-medium text-stone-700 mb-1">
               Code PIN
             </label>
             <input
               type="password"
+              id="internal-pin"
               className="w-full p-3 rounded-md border border-stone-300"
               placeholder="••••"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               inputMode="numeric"
-              maxLength={4}
+              maxLength={12}
               required
             />
           </div>
           {error && (
             <p className="text-sm text-red-600">
-              Identifiant admin ou code PIN incorrect.
+              Connexion refusée. Vérifiez vos informations ou réessayez plus tard.
             </p>
           )}
           <button
             type="submit"
+            disabled={submitting}
             className="w-full px-6 py-3 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
           >
-            Acceder
+            {submitting ? "Vérification…" : "Acceder"}
           </button>
         </form>
 

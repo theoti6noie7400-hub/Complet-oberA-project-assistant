@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
+import { canUseInternalPath, useAdminAuth } from "../auth/adminAuth";
 import { CLIENT_SECTION, INTERNAL_SECTIONS, RESELLER_SECTION } from "../portal/sections";
 
 const PORTAL_TILES = [
@@ -34,13 +35,15 @@ const PORTAL_TILES = [
 ];
 
 export default function PortalHomePage() {
+  const { isAuthenticated, role } = useAdminAuth();
+  const tiles = isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
   return (
     <div className="portal-page">
       <PortalTopBar subtitle="Acces centralise aux outils et services" />
 
       <main className="portal-main">
         <section className="portal-grid" aria-label="Sections du Portail OberA">
-          {PORTAL_TILES.map((tile) => (
+          {tiles.map((tile) => (
             <article key={tile.id} className="portal-card obera-panel">
               <div className="portal-card-icon" aria-hidden="true">
                 {tile.icon}

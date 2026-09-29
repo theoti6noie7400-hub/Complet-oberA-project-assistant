@@ -2,7 +2,7 @@ export type Role =
   | "global_admin"
   | "sav_manager"
   | "sav_technician"
-  | "commercial"
+  | "sales"
   | "adv"
   | "logistics"
   | "marketing"
@@ -61,7 +61,7 @@ export function canEnterService(principal: Principal, serviceKey: string): boole
   if (principal.role === "global_admin") return true;
   const serviceRoles: Record<string, Role> = {
     "sav-maintenance": "sav_manager",
-    marketing: "marketing", commercial: "commercial", adv: "adv", logistique: "logistics"
+    marketing: "marketing", commercial: "sales", adv: "adv", logistique: "logistics"
   };
   return serviceKey === "sav-maintenance"
     ? principal.role === "sav_manager" || principal.role === "sav_technician"

@@ -2,7 +2,10 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import RecordedSavCases from "./RecordedSavCases";
+
+const renderCases = () => render(<MemoryRouter><RecordedSavCases /></MemoryRouter>);
 
 const sample = (number: number) => ({
   id: `20000000-0000-4000-8000-${String(number).padStart(12, "0")}`,
@@ -24,10 +27,6 @@ let detailCalls = 0;
 
 function apiFetch(url: string) {
   if (networkFailure) return Promise.reject(new TypeError("Réseau fictif indisponible"));
-  if (url === "/api/recipe/session") {
-    authorized = true;
-    return Promise.resolve(Response.json({ mode: "fictional_recipe" }));
-  }
   if (!authorized) return Promise.resolve(Response.json({}, { status: 401 }));
   if (denied) return Promise.resolve(Response.json({}, { status: 403 }));
   if (url === "/api/sav/cases") {
@@ -53,7 +52,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("dossiers SAV enregistrés, distincts des statistiques", () => {
   it("affiche une liste vide puis les dossiers après actualisation, sans générer de référence", async () => {
     records = [];
-    const view = render(<RecordedSavCases />);
+    const view = renderCases();
     await waitFor(() => expect(view.getByText("Aucun dossier SAV enregistré.")).toBeTruthy());
     records = [{ ...sample(1), sav_reference: "" }, sample(2)];
     fireEvent.click(view.getByText("Actualiser la liste"));
@@ -64,7 +63,7 @@ describe("dossiers SAV enregistrés, distincts des statistiques", () => {
   });
 
   it("relit le détail par UUID sans l'afficher et retrouve la liste après actualisation", async () => {
-    const view = render(<RecordedSavCases />);
+    const view = renderCases();
     fireEvent.click(await view.findByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" }));
     const dialog = await view.findByRole("dialog", { name: "Détail du dossier SAV" });
     await waitFor(() => expect(within(dialog).getByText("Cause fictive 1")).toBeTruthy());
@@ -73,20 +72,20 @@ describe("dossiers SAV enregistrés, distincts des statistiques", () => {
     expect(dialog.textContent).not.toContain(sample(1).id);
     expect(detailCalls).toBe(1);
     view.unmount();
-    const refreshed = render(<RecordedSavCases />);
+    const refreshed = renderCases();
     await refreshed.findByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" });
     expect(listCalls).toBe(2);
   });
 
   it("permet une nouvelle session SAV autorisée et n'affiche pas les dossiers à une session refusée", async () => {
     authorized = false;
-    const view = render(<RecordedSavCases />);
+    const view = renderCases();
     await view.findByRole("alert");
     expect(view.queryByText("SAV-FICTIF-1")).toBeNull();
-    fireEvent.click(view.getByText("Ouvrir la session fictive SAV"));
-    await view.findByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" });
+    expect(view.getByRole("link", { name: "Se reconnecter" }).getAttribute("href")).toContain("/admin-login");
     view.unmount();
-    const secondSession = render(<RecordedSavCases />);
+    authorized = true;
+    const secondSession = renderCases();
     await secondSession.findByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" });
     denied = true;
     fireEvent.click(secondSession.getByText("Actualiser la liste"));
@@ -95,7 +94,7 @@ describe("dossiers SAV enregistrés, distincts des statistiques", () => {
   });
 
   it("signale l'erreur réseau sans conserver une liste devenue inaccessible, puis reprend", async () => {
-    const view = render(<RecordedSavCases />);
+    const view = renderCases();
     await view.findByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" });
     networkFailure = true;
     fireEvent.click(view.getByText("Actualiser la liste"));
@@ -107,7 +106,7 @@ describe("dossiers SAV enregistrés, distincts des statistiques", () => {
   });
 
   it("signale un dossier supprimé sans afficher les anciennes données du détail", async () => {
-    const view = render(<RecordedSavCases />);
+    const view = renderCases();
     await view.findByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" });
     missing = true;
     fireEvent.click(view.getByRole("button", { name: "Ouvrir le dossier SAV-FICTIF-1" }));
@@ -118,7 +117,7 @@ describe("dossiers SAV enregistrés, distincts des statistiques", () => {
 
   it("annonce la limite de 100 dossiers lorsqu'elle est atteinte", async () => {
     records = Array.from({ length: 100 }, (_, index) => sample(index + 1));
-    const view = render(<RecordedSavCases />);
+    const view = renderCases();
     await waitFor(() => expect(view.getByText(/Limite de 100 dossiers affichés/)).toBeTruthy());
     expect(view.getAllByRole("button", { name: /Ouvrir le dossier SAV-FICTIF-/ })).toHaveLength(100);
   });

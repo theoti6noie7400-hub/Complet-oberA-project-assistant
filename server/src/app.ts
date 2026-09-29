@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import Fastify from "fastify";
 import { can, type Principal } from "./access.ts";
+import { provisionBetaUser, verifyBetaAccount, type BetaAccount } from "./beta-auth.ts";
 import type { Database } from "./db.ts";
 import { findPrincipal, issueSession, revokeSession, sessionClearCookie, sessionSetCookie } from "./session.ts";
 
@@ -16,9 +17,11 @@ type ManualSavInput = {
   savType: "technique" | "usure" | "fournisseur" | "casse" | "autre";
 };
 
-export function createApp(db: Database, publicOrigin: string, recipeMode = false) {
+export function createApp(db: Database, publicOrigin: string, betaAccounts: BetaAccount[] = []) {
   // Request paths can contain case identifiers; audit writes are stored separately.
   const app = Fastify({ logger: false, bodyLimit: 64 * 1024 });
+  const secureCookie = publicOrigin.startsWith("https://");
+  const failedLogins = new Map<string, { count: number; resetAt: number }>();
 
   function sameOrigin(origin: string | undefined): boolean {
     return origin === publicOrigin;
@@ -33,25 +36,52 @@ export function createApp(db: Database, publicOrigin: string, recipeMode = false
   app.get("/api/session", async (request, reply) => {
     const principal = await authorized(request.headers.cookie);
     if (!principal) return reply.code(401).send({ error: "authentication_required" });
-    return principal;
+    return reply.header("Cache-Control", "no-store").send(principal);
   });
 
-  if (recipeMode) {
-    app.post("/api/recipe/session", async (request, reply) => {
-      if (!sameOrigin(request.headers.origin)) return reply.code(403).send({ error: "origin_denied" });
-      const result = await db.query(`SELECT id FROM users WHERE identity_issuer = $1
-        AND identity_subject = $2 AND role = 'sav_technician' AND active = true`,
-      ["https://identity.example.invalid", "technicien-fictif"]);
-      if (!result.rows.length) return reply.code(503).send({ error: "recipe_identity_missing" });
-      const token = await issueSession(db, result.rows[0].id);
-      return reply.header("Set-Cookie", sessionSetCookie(token)).send({ mode: "fictional_recipe" });
-    });
-  }
+  // Keep the old URL inert: the former no-PIN recipe endpoint must not issue a session.
+  app.post("/api/recipe/session", async (_request, reply) =>
+    reply.code(410).send({ error: "recipe_session_disabled" }));
+
+  app.post("/api/login", { schema: { body: {
+    type: "object", additionalProperties: false, required: ["identifier", "pin"],
+    properties: {
+      identifier: { type: "string", minLength: 1, maxLength: 80 },
+      pin: { type: "string", minLength: 4, maxLength: 12, pattern: "^\\d+$" }
+    }
+  } } }, async (request, reply) => {
+    if (!sameOrigin(request.headers.origin)) return reply.code(403).send({ error: "origin_denied" });
+    const { identifier, pin } = request.body as { identifier: string; pin: string };
+    const now = Date.now();
+    const keys = [`ip:${request.ip}`, `id:${request.ip}:${identifier.trim().toUpperCase()}`];
+    if (keys.some(key => {
+      const failure = failedLogins.get(key);
+      return failure && failure.resetAt > now && failure.count >= (key.startsWith("ip:") ? 10 : 5);
+    })) return reply.code(429).send({ error: "too_many_attempts" });
+
+    const account = verifyBetaAccount(betaAccounts, identifier, pin);
+    if (!account) {
+      for (const key of keys) {
+        const previous = failedLogins.get(key);
+        failedLogins.set(key, { count: previous && previous.resetAt > now ? previous.count + 1 : 1,
+          resetAt: previous && previous.resetAt > now ? previous.resetAt : now + 15 * 60 * 1000 });
+      }
+      return reply.code(401).send({ error: "invalid_credentials" });
+    }
+    const userId = await provisionBetaUser(db, account);
+    if (!userId) return reply.code(401).send({ error: "invalid_credentials" });
+    for (const key of keys) failedLogins.delete(key);
+    await revokeSession(db, request.headers.cookie);
+    const token = await issueSession(db, userId);
+    return reply.header("Set-Cookie", sessionSetCookie(token, secureCookie))
+      .header("Cache-Control", "no-store").send({ role: account.role });
+  });
 
   app.post("/api/logout", async (request, reply) => {
     if (!sameOrigin(request.headers.origin)) return reply.code(403).send({ error: "origin_denied" });
     await revokeSession(db, request.headers.cookie);
-    return reply.header("Set-Cookie", sessionClearCookie).code(204).send();
+    return reply.header("Set-Cookie", sessionClearCookie(secureCookie))
+      .header("Cache-Control", "no-store").code(204).send();
   });
 
   app.get("/api/sav/cases", async (request, reply) => {

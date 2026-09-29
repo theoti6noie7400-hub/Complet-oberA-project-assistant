@@ -21,7 +21,6 @@ let saved: Record<string, string> | null = null;
 
 function mockFetch(url: string, init?: RequestInit) {
   if (url === "/api/session") return Promise.resolve(Response.json({}, { status: session ? 200 : 401 }));
-  if (url === "/api/recipe/session") { session = true; return Promise.resolve(Response.json({ mode: "fictional_recipe" })); }
   if (url === "/api/sav/cases" && init?.method === "POST") {
     posts++;
     if (networkFailure) return Promise.reject(new TypeError("Réseau fictif indisponible"));
@@ -71,11 +70,10 @@ describe("formulaire manuel SAV en mode recette", () => {
   });
 
   it("sépare les champs, affiche la référence métier et restaure le dossier après actualisation", async () => {
+    session = true;
     const view = await form();
-    fireEvent.click(view.getByLabelText("Enregistrement partagé (API de recette)"));
-    await waitFor(() => expect(view.getByText("Ouvrir la session fictive SAV")).toBeTruthy());
-    fireEvent.click(view.getByText("Ouvrir la session fictive SAV"));
-    await waitFor(() => expect(session).toBe(true));
+    fireEvent.click(view.getByLabelText("Enregistrement partagé (API interne)"));
+    await waitFor(() => expect(view.queryByText(/Session interne absente/)).toBeNull());
     input(view, "manual-sav-ref", " SAV-FICTIF-1 ");
     input(view, "manual-sav-serial", "SERIE-FICTIVE-1");
     input(view, "manual-sav-client", "Client fictif");
@@ -101,18 +99,21 @@ describe("formulaire manuel SAV en mode recette", () => {
     refreshed.unmount();
     session = false;
     const reconnected = await form();
-    await waitFor(() => expect(reconnected.getByText("Ouvrir la session fictive SAV")).toBeTruthy());
-    fireEvent.click(reconnected.getByText("Ouvrir la session fictive SAV"));
-    await waitFor(() => expect(reconnected.getByRole("status").textContent).toContain(" SAV-FICTIF-1 "));
+    fireEvent.click(reconnected.getByLabelText("Enregistrement partagé (API interne)"));
+    await waitFor(() => expect(reconnected.getByText("Se reconnecter")).toBeTruthy());
+    reconnected.unmount();
+    session = true;
+    const authorizedAgain = await form();
+    fireEvent.click(authorizedAgain.getByLabelText("Enregistrement partagé (API interne)"));
+    await waitFor(() => expect(authorizedAgain.getByRole("status").textContent).toContain(" SAV-FICTIF-1 "));
     expect(posts).toBe(1);
   });
 
   it("affiche une erreur serveur sans création en simulation", async () => {
+    session = true;
     const view = await form();
-    fireEvent.click(view.getByLabelText("Enregistrement partagé (API de recette)"));
-    await waitFor(() => expect(view.getByText("Ouvrir la session fictive SAV")).toBeTruthy());
-    fireEvent.click(view.getByText("Ouvrir la session fictive SAV"));
-    await waitFor(() => expect(session).toBe(true));
+    fireEvent.click(view.getByLabelText("Enregistrement partagé (API interne)"));
+    await waitFor(() => expect(view.queryByText(/Session interne absente/)).toBeNull());
     errorStatus = 500;
     input(view, "manual-sav-appareil", "Appareil fictif");
     input(view, "manual-sav-site", "Site fictif");
@@ -127,11 +128,10 @@ describe("formulaire manuel SAV en mode recette", () => {
   });
 
   it("garde le mode API après une erreur réseau et reprend sans double enregistrement", async () => {
+    session = true;
     const view = await form();
-    fireEvent.click(view.getByLabelText("Enregistrement partagé (API de recette)"));
-    await waitFor(() => expect(view.getByText("Ouvrir la session fictive SAV")).toBeTruthy());
-    fireEvent.click(view.getByText("Ouvrir la session fictive SAV"));
-    await waitFor(() => expect(session).toBe(true));
+    fireEvent.click(view.getByLabelText("Enregistrement partagé (API interne)"));
+    await waitFor(() => expect(view.queryByText(/Session interne absente/)).toBeNull());
     input(view, "manual-sav-appareil", "Appareil fictif");
     input(view, "manual-sav-site", "Site fictif");
     input(view, "manual-sav-probleme", "Panne fictive");
@@ -144,7 +144,7 @@ describe("formulaire manuel SAV en mode recette", () => {
     await waitFor(() => expect(view.getByRole("alert").textContent).toContain("Réseau fictif indisponible"));
     expect(posts).toBe(1);
     expect(savData.tickets).toHaveLength(0);
-    expect(view.getByLabelText("Enregistrement partagé (API de recette)")).toHaveProperty("checked", true);
+    expect(view.getByLabelText("Enregistrement partagé (API interne)")).toHaveProperty("checked", true);
     networkFailure = false;
     fireEvent.submit(formNode);
     fireEvent.submit(formNode);
