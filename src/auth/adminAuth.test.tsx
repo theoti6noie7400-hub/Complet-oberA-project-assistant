@@ -88,12 +88,13 @@ it("ne croit pas un rôle dans la réponse login et révoque la session lors de 
   expect(role).toBeNull();
 });
 
-it("conserve les routes externes sans formulaire d'authentification prototype", async () => {
+it("présente les connexions externes sans identifiants ou PIN prédéfinis", async () => {
   const client = appAt("/client-space");
-  expect(await client.findByText(/Espace temporairement indisponible/)).toBeTruthy();
-  expect(client.queryByLabelText("Code PIN")).toBeNull();
+  expect(await client.findByText("Connexion espace client")).toBeTruthy();
+  expect((client.getByLabelText("Identifiant") as HTMLInputElement).value).toBe("");
+  expect((client.getByLabelText("Code PIN") as HTMLInputElement).value).toBe("");
   client.unmount();
   const reseller = appAt("/reseller-space");
-  expect(await reseller.findByText(/Espace temporairement indisponible/)).toBeTruthy();
-  expect(reseller.queryByLabelText("Code PIN")).toBeNull();
+  expect(await reseller.findByText("Connexion espace revendeur")).toBeTruthy();
+  expect((reseller.getByLabelText("Identifiant") as HTMLInputElement).value).toBe("");
 });

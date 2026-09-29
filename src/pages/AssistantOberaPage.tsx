@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
+import ExternalSpacePage from "./ExternalSpacePage";
 import {
   CATEGORIES,
   DIAGNOSTIC_NODES,
@@ -120,12 +121,7 @@ function DeviceThumb({
 }
 
 export default function AssistantOberaPage({ forceAdmin = false }: AssistantOberaPageProps) {
-  if (!forceAdmin) return <div className="portal-page"><PortalTopBar subtitle="Espace Client" />
-    <main className="portal-main"><section className="obera-panel p-5">
-      <h1 className="text-2xl font-semibold">Espace Client</h1>
-      <p role="status" className="mt-3">Espace temporairement indisponible pendant la bêta interne.</p>
-      <Link to="/" className="obera-btn-outline mt-4 inline-flex">Retour Portail</Link>
-    </section></main></div>;
+  if (!forceAdmin) return <ExternalSpacePage role="client" />;
   return <InternalSavPage forceAdmin />;
 }
 

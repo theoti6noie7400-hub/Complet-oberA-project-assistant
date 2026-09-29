@@ -23,6 +23,24 @@ services:
     command: ["npm", "run", "migrate"]
     restart: "no"
 
+  seed-demo:
+    profiles: ["demo"]
+    user: "0:0"
+    build:
+      context: ../..
+      dockerfile: deploy/beta/Dockerfile.api
+    env_file: .env.beta
+    environment:
+      EXTERNAL_DEMO_MODE: "1"
+      PRIVATE_DOCUMENT_ROOT: /app/private-documents
+    volumes:
+      - ./private-documents:/app/private-documents
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "npm run seed:external-demo && chown -R node:node /app/private-documents && find /app/private-documents -type d -exec chmod 700 {} + && find /app/private-documents -type f -exec chmod 600 {} +"]
+    restart: "no"
+
   api:
     build:
       context: ../..
@@ -32,6 +50,9 @@ services:
       NODE_ENV: production
       BIND_HOST: 0.0.0.0
       PORT: "3000"
+      PRIVATE_DOCUMENT_ROOT: /app/private-documents
+    volumes:
+      - ./private-documents:/app/private-documents:ro
     expose:
       - "3000"
     depends_on:

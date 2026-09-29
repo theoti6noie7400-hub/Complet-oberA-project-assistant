@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { can, type Principal } from "./access.ts";
 import { provisionBetaUser, verifyBetaAccount, type BetaAccount } from "./beta-auth.ts";
+import { provisionExternalUser, verifyExternalAccount, type ExternalAccount, type ExternalRole } from "./external-auth.ts";
+import { registerExternalRoutes } from "./external-routes.ts";
 import type { Database } from "./db.ts";
 import { findPrincipal, issueSession, revokeSession, sessionClearCookie, sessionSetCookie } from "./session.ts";
 
@@ -17,7 +19,8 @@ type ManualSavInput = {
   savType: "technique" | "usure" | "fournisseur" | "casse" | "autre";
 };
 
-export function createApp(db: Database, publicOrigin: string, betaAccounts: BetaAccount[] = []) {
+export function createApp(db: Database, publicOrigin: string, betaAccounts: BetaAccount[] = [],
+  externalAccounts: ExternalAccount[] = []) {
   // Request paths can contain case identifiers; audit writes are stored separately.
   const app = Fastify({ logger: process.env.NODE_ENV === "production", bodyLimit: 64 * 1024 });
   const secureCookie = publicOrigin.startsWith("https://");
@@ -52,23 +55,26 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
   app.post("/api/recipe/session", async (_request, reply) =>
     reply.code(410).send({ error: "recipe_session_disabled" }));
 
-  app.post("/api/login", { schema: { body: {
+  const loginSchema = { body: {
     type: "object", additionalProperties: false, required: ["identifier", "pin"],
     properties: {
       identifier: { type: "string", minLength: 1, maxLength: 80 },
       pin: { type: "string", minLength: 4, maxLength: 12, pattern: "^\\d+$" }
     }
-  } } }, async (request, reply) => {
+  } } as const;
+
+  async function login(request: FastifyRequest, reply: FastifyReply, realm: "internal" | ExternalRole) {
     if (!sameOrigin(request.headers.origin)) return reply.code(403).send({ error: "origin_denied" });
     const { identifier, pin } = request.body as { identifier: string; pin: string };
     const now = Date.now();
-    const keys = [`ip:${request.ip}`, `id:${request.ip}:${identifier.trim().toUpperCase()}`];
+    const keys = [`ip:${request.ip}`, `id:${request.ip}:${realm}:${identifier.trim().toUpperCase()}`];
     if (keys.some(key => {
       const failure = failedLogins.get(key);
       return failure && failure.resetAt > now && failure.count >= (key.startsWith("ip:") ? 10 : 5);
     })) return reply.code(429).send({ error: "too_many_attempts" });
 
-    const account = verifyBetaAccount(betaAccounts, identifier, pin);
+    const account = realm === "internal" ? verifyBetaAccount(betaAccounts, identifier, pin)
+      : verifyExternalAccount(externalAccounts, identifier, pin, realm);
     if (!account) {
       for (const key of keys) {
         const previous = failedLogins.get(key);
@@ -77,14 +83,19 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
       }
       return reply.code(401).send({ error: "invalid_credentials" });
     }
-    const userId = await provisionBetaUser(db, account);
+    const userId = realm === "internal" ? await provisionBetaUser(db, account as BetaAccount)
+      : await provisionExternalUser(db, account as ExternalAccount);
     if (!userId) return reply.code(401).send({ error: "invalid_credentials" });
     for (const key of keys) failedLogins.delete(key);
     await revokeSession(db, request.headers.cookie);
     const token = await issueSession(db, userId);
     return reply.header("Set-Cookie", sessionSetCookie(token, secureCookie))
       .header("Cache-Control", "no-store").send({ role: account.role });
-  });
+  }
+
+  app.post("/api/login", { schema: loginSchema }, (request, reply) => login(request, reply, "internal"));
+  app.post("/api/client/login", { schema: loginSchema }, (request, reply) => login(request, reply, "client"));
+  app.post("/api/reseller/login", { schema: loginSchema }, (request, reply) => login(request, reply, "reseller"));
 
   app.post("/api/logout", async (request, reply) => {
     if (!sameOrigin(request.headers.origin)) return reply.code(403).send({ error: "origin_denied" });
@@ -187,6 +198,8 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
       GROUP BY c.id ORDER BY c.id LIMIT 100`);
     return { contracts: result.rows };
   });
+
+  registerExternalRoutes(app, db, publicOrigin);
 
   return app;
 }

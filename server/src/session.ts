@@ -26,7 +26,8 @@ export async function findPrincipal(db: Database, cookieHeader: string | undefin
   if (!result.rows.length) return null;
   const user = result.rows[0];
   const external = user.role === "client" || user.role === "reseller";
-  if (external && (user.organization_id === null || result.rows.some(row => row.organization_kind !== user.role))) return null;
+  if (external && (result.rows.length !== 1 || user.organization_id === null ||
+    user.organization_kind !== user.role)) return null;
   return { userId: user.id, role: user.role as Role,
     organizationIds: external ? result.rows.map(row => row.organization_id as string) : [] };
 }

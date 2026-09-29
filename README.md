@@ -2,7 +2,7 @@
 
 ## Bêta interne
 
-La connexion interne passe par le backend Fastify et PostgreSQL. Les routes Client et Revendeur sont conservées, mais leurs connexions prototype sont suspendues. Le build frontend seul (Docker statique ou GitHub Pages) ne peut pas authentifier les utilisateurs internes : il faut servir `/api` sur la même origine avec un backend configuré. Voir [server/README.md](server/README.md) pour les comptes fictifs et [deploy/beta/README.md](deploy/beta/README.md) pour le profil HTTPS portable, les migrations et les sauvegardes. Ne pas utiliser de données réelles dans cette recette.
+Les connexions internes, Client et Revendeur passent par le backend Fastify et PostgreSQL. Les demandes externes sont séparées des dossiers SAV internes et filtrées par organisation côté serveur. Le build frontend seul (Docker statique ou GitHub Pages) ne peut pas authentifier les utilisateurs : il faut servir `/api` sur la même origine avec un backend configuré. Voir [server/README.md](server/README.md) pour les comptes fictifs et [deploy/beta/README.md](deploy/beta/README.md) pour le profil HTTPS portable, les migrations et les sauvegardes. Ne pas utiliser de données réelles dans cette recette.
 
 Intégration propre des deux modules fournis :
 - Assistant OberA (diagnostic + consommables + SAV)

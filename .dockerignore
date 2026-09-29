@@ -8,3 +8,4 @@ dist
 .env.*
 deploy/beta/certs
 deploy/beta/backups
+deploy/beta/private-documents

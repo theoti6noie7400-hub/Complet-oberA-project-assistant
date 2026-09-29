@@ -18,15 +18,18 @@ test("session cookie is inaccessible to browser scripts and scoped to HTTPS", ()
   assert.doesNotMatch(sessionSetCookie("a".repeat(64), false), /Secure/);
 });
 
-test("verified client session retains multiple organizations, rejects mixed kinds", async () => {
+test("external session requires exactly one organization of the matching kind", async () => {
   const rows = [
     { id: "fictional-id", role: "client", organization_id: "client-a", organization_kind: "client" },
     { id: "fictional-id", role: "client", organization_id: "client-b", organization_kind: "client" }
   ];
   const db = { query: async () => ({ rows }) } as unknown as Database;
+  assert.equal(await findPrincipal(db, `obera_session=${"a".repeat(64)}`), null);
+  rows.pop();
   assert.deepEqual(await findPrincipal(db, `obera_session=${"a".repeat(64)}`), {
-    userId: "fictional-id", role: "client", organizationIds: ["client-a", "client-b"]
+    userId: "fictional-id", role: "client", organizationIds: ["client-a"]
   });
+  rows.push({ id: "fictional-id", role: "client", organization_id: "reseller-a", organization_kind: "reseller" });
   rows[1].organization_kind = "reseller";
   assert.equal(await findPrincipal(db, `obera_session=${"a".repeat(64)}`), null);
 });

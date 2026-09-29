@@ -35,8 +35,9 @@ const PORTAL_TILES = [
 ];
 
 export default function PortalHomePage() {
-  const { isAuthenticated, role } = useAdminAuth();
-  const tiles = isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
+  const { isAuthenticated, role, externalRole } = useAdminAuth();
+  const tiles = externalRole ? PORTAL_TILES.filter(tile => tile.to === `/${externalRole}-space`) :
+    isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
   return (
     <div className="portal-page">
       <PortalTopBar subtitle="Acces centralise aux outils et services" />

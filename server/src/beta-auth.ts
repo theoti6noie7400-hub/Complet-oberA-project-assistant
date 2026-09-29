@@ -33,7 +33,8 @@ export function loadBetaAccounts(value: string | undefined): BetaAccount[] {
   });
 }
 
-export function verifyBetaAccount(accounts: BetaAccount[], identifier: string, pin: string): BetaAccount | null {
+export function verifyBetaAccount<T extends { identifier: string; salt: Buffer; pinHash: Buffer }>(
+  accounts: T[], identifier: string, pin: string): T | null {
   const id = identifier.trim().toUpperCase();
   const account = accounts.find(item => item.identifier === id);
   const candidate = scryptSync(pin, account?.salt ?? dummySalt, 64);

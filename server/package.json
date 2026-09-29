@@ -9,6 +9,7 @@
     "start": "node src/main.ts",
     "migrate": "node src/migrate.ts",
     "seed:recipe": "node src/seed-recipe.ts",
+    "seed:external-demo": "node src/seed-external-demo.ts",
     "test": "node --test src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

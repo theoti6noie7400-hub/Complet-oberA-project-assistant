@@ -9,9 +9,10 @@ function withBase(path: string): string {
 
 type PortalTopBarProps = {
   subtitle?: string;
+  showInternalLink?: boolean;
 };
 
-export default function PortalTopBar({ subtitle }: PortalTopBarProps) {
+export default function PortalTopBar({ subtitle, showInternalLink = true }: PortalTopBarProps) {
   const logoSrc = useMemo(() => withBase("obera-logo.png"), []);
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -41,12 +42,11 @@ export default function PortalTopBar({ subtitle }: PortalTopBarProps) {
           <Link to="/" className="portal-nav-link">
             Portail
           </Link>
-          <Link to="/sav-maintenance" className="portal-nav-link">
+          {showInternalLink && <Link to="/sav-maintenance" className="portal-nav-link">
             SAV / Maintenance
-          </Link>
+          </Link>}
         </nav>
       </div>
     </header>
   );
 }
-
