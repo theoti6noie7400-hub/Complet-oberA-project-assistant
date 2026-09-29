@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import RecordedSavCases from "./RecordedSavCases";
+import PortalRequests from "./PortalRequests";
 import { RECIPE_API_ENABLED } from "../lib/recipeConfig";
 import { savData } from "../data/savData";
 import type { Contract, Ticket } from "../data/savData";
@@ -23,7 +24,7 @@ import {
   type TimeRange
 } from "./savUtils";
 
-type TabKey = "stats" | "contracts" | "recorded-cases";
+type TabKey = "stats" | "contracts" | "recorded-cases" | "portal-requests";
 
 const DEFAULT_TICKET_FILTERS: TicketFilters = {
   range: "90d",
@@ -377,9 +378,13 @@ export default function SavDashboard({
         >
           Dossiers SAV enregistrés
         </button>}
+        {enableRecipeCases && <button type="button"
+          className={`obera-tab ${tab === "portal-requests" ? "is-active" : ""}`}
+          onClick={() => setTab("portal-requests")}>Demandes Portail</button>}
         </div>
 
         {tab === "recorded-cases" && RECIPE_API_ENABLED && enableRecipeCases && <RecordedSavCases />}
+        {tab === "portal-requests" && enableRecipeCases && <PortalRequests />}
 
         {tab === "stats" && (
           <div className="space-y-6">

@@ -4,6 +4,7 @@ import { can, type Principal } from "./access.ts";
 import { provisionBetaUser, verifyBetaAccount, type BetaAccount } from "./beta-auth.ts";
 import { provisionExternalUser, verifyExternalAccount, type ExternalAccount, type ExternalRole } from "./external-auth.ts";
 import { registerExternalRoutes } from "./external-routes.ts";
+import { registerPortalRequestRoutes } from "./portal-requests.ts";
 import type { Database } from "./db.ts";
 import { findPrincipal, issueSession, revokeSession, sessionClearCookie, sessionSetCookie } from "./session.ts";
 
@@ -200,6 +201,7 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
   });
 
   registerExternalRoutes(app, db, publicOrigin);
+  registerPortalRequestRoutes(app, db, publicOrigin);
 
   return app;
 }

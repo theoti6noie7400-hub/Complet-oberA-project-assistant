@@ -10,7 +10,7 @@ type PublicRequest = { id: string; request_type: string; device_id: string | nul
   subject: string; message: string; public_status: string; created_at: string };
 type Document = { id: string; title: string; created_at: string };
 const publicStatusLabel = (status: string) => ({ received: "Reçue", in_progress: "En cours",
-  closed: "Clôturée", unavailable: "Indisponible" }[status] ?? "Indisponible");
+  closed: "Terminée", unavailable: "Indisponible" }[status] ?? "Indisponible");
 const requestTypeLabel = (type: string) => ({ sav: "SAV", consumables: "Consommables",
   general: "Autre demande" }[type] ?? "Demande");
 

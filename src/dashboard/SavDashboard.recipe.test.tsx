@@ -18,8 +18,9 @@ import { savData } from "../data/savData";
 let requests = 0;
 beforeEach(() => {
   requests = 0;
-  vi.stubGlobal("fetch", vi.fn(() => {
+  vi.stubGlobal("fetch", vi.fn((path: string) => {
     requests++;
+    if (path === "/api/portal/requests") return Promise.resolve(Response.json({ requests: [], has_more: false }));
     return Promise.resolve(Response.json({ cases: [{
       id: "20000000-0000-4000-8000-000000000001", sav_reference: "SAV-API-FICTIF",
       serial_number: "SERIE-API", client_name: "Client API fictif", model: "Machine API fictive",
@@ -40,10 +41,17 @@ it("garde les KPI de démonstration distincts de la liste API", async () => {
   expect(view.getByText("Demandes totales").parentElement?.textContent).toContain("1");
   expect(savData.tickets).toHaveLength(1);
   expect(requests).toBe(1);
+  fireEvent.click(view.getByRole("button", { name: "Demandes Portail" }));
+  await waitFor(() => expect(view.getByText("Aucune demande portail.")).toBeTruthy());
+  expect(view.queryByText("Demandes totales")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Statistiques" }));
+  expect(view.getByText("Demandes totales").parentElement?.textContent).toContain("1");
+  expect(requests).toBe(2);
 });
 
 it("ne propose pas l'onglet API dans l'espace client du prototype", () => {
   const view = render(<SavDashboard onOpenManualSav={() => {}} />);
   expect(view.queryByRole("button", { name: "Dossiers SAV enregistrés" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Demandes Portail" })).toBeNull();
   expect(requests).toBe(0);
 });
