@@ -5,3 +5,5 @@ dist
 .env
 .env.*
 !.env.example
+deploy/beta/certs/
+deploy/beta/backups/

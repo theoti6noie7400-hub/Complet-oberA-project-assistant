@@ -16,7 +16,7 @@ if (recipeMode) {
 const db = openDatabase();
 const app = createApp(db, origin!, accounts);
 try {
-  await app.listen({ port: Number(process.env.PORT || "3000"), host: "127.0.0.1" });
+  await app.listen({ port: Number(process.env.PORT || "3000"), host: process.env.BIND_HOST || "127.0.0.1" });
 } catch (error) {
   await db.end();
   throw error;

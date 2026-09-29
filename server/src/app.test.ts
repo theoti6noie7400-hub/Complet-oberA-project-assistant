@@ -52,6 +52,17 @@ test("API denies unauthenticated, marketing and client requests to internal SAV"
   } finally { await client.close(); }
 });
 
+test("readiness checks PostgreSQL and exposes no database error", async () => {
+  const healthy = createApp({ query: async () => ({ rows: [{ '?column?': 1 }] }) } as unknown as Database, origin);
+  assert.equal((await healthy.inject({ method: "GET", url: "/api/ready" })).statusCode, 200);
+  await healthy.close();
+  const unavailable = createApp({ query: async () => { throw new Error("database secret details"); } } as unknown as Database, origin);
+  const response = await unavailable.inject({ method: "GET", url: "/api/ready" });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.includes("database secret details"), false);
+  await unavailable.close();
+});
+
 test("technician can consult all cases; malformed IDs are rejected", async () => {
   const app = createApp(fakeDatabase("sav_technician").db, origin);
   try {

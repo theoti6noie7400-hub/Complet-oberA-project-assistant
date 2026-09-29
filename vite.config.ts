@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  base: "/Complet-oberA-project-assistant/",
+  // Keep the existing Pages URL; the internal beta is served at the domain root.
+  base: process.env.VITE_BETA_DEPLOY === "1" ? "/" : "/Complet-oberA-project-assistant/",
   plugins: [react()],
   server: {
     host: process.env.VITE_INTERNAL_API === "1" || process.env.VITE_SAV_RECIPE_API === "1" ? "127.0.0.1" : true,

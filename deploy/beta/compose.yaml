@@ -1,0 +1,61 @@
+name: obera-beta
+services:
+  db:
+    image: postgres:17-alpine
+    env_file: .env.beta
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/beta/Dockerfile.api
+    env_file: .env.beta
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["npm", "run", "migrate"]
+    restart: "no"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/beta/Dockerfile.api
+    env_file: .env.beta
+    environment:
+      NODE_ENV: production
+      BIND_HOST: 0.0.0.0
+      PORT: "3000"
+    expose:
+      - "3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/ready').then(r => { if (!r.ok) process.exitCode = 1 }).catch(() => { process.exitCode = 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/beta/Dockerfile.web
+    ports:
+      - "443:443"
+    volumes:
+      - ./certs:/etc/obera/tls:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

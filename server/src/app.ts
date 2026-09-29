@@ -19,7 +19,7 @@ type ManualSavInput = {
 
 export function createApp(db: Database, publicOrigin: string, betaAccounts: BetaAccount[] = []) {
   // Request paths can contain case identifiers; audit writes are stored separately.
-  const app = Fastify({ logger: false, bodyLimit: 64 * 1024 });
+  const app = Fastify({ logger: process.env.NODE_ENV === "production", bodyLimit: 64 * 1024 });
   const secureCookie = publicOrigin.startsWith("https://");
   const failedLogins = new Map<string, { count: number; resetAt: number }>();
 
@@ -32,6 +32,15 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
   }
 
   app.get("/api/health", async () => ({ status: "ok" }));
+
+  app.get("/api/ready", async (_request, reply) => {
+    try {
+      await db.query("SELECT 1");
+      return { status: "ready" };
+    } catch {
+      return reply.code(503).send({ status: "unavailable" });
+    }
+  });
 
   app.get("/api/session", async (request, reply) => {
     const principal = await authorized(request.headers.cookie);
