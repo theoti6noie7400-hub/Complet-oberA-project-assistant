@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CATEGORIES,
@@ -15,6 +15,10 @@ import {
 } from "../lib/assistantData";
 import SavDashboard from "../dashboard/SavDashboard";
 import { savData } from "../data/savData";
+import { createManualSavRecipeClient, type SavedManualSav } from "../lib/manualSavRecipe";
+import { RECIPE_API_ENABLED } from "../lib/recipeConfig";
+
+const RECIPE_MODE_KEY = "obera_manual_sav_recipe_mode";
 
 type AssistantOberaPageProps = {
   forceAdmin?: boolean;
@@ -152,13 +156,59 @@ export default function AssistantOberaPage({
   const [manualSavSaved, setManualSavSaved] = useState(false);
   const [manualSavId, setManualSavId] = useState<string | null>(null);
   const [manualSavRef, setManualSavRef] = useState("");
+  const [manualSavSerial, setManualSavSerial] = useState("");
   const [manualSavAppareil, setManualSavAppareil] = useState("");
   const [manualSavClient, setManualSavClient] = useState("");
+  const [manualSavClientNumber, setManualSavClientNumber] = useState("");
   const [manualSavSite, setManualSavSite] = useState("");
   const [manualSavProbleme, setManualSavProbleme] = useState("");
   const [manualSavCause, setManualSavCause] = useState("");
   const [manualSavAction, setManualSavAction] = useState("");
   const [manualSavType, setManualSavType] = useState("technique");
+  const [manualSavMode, setManualSavMode] = useState<"simulation" | "api">(() =>
+    RECIPE_API_ENABLED && typeof window !== "undefined" &&
+      window.sessionStorage.getItem(RECIPE_MODE_KEY) === "api" ? "api" : "simulation");
+  const [recipeSessionReady, setRecipeSessionReady] = useState(false);
+  const [recipeSaving, setRecipeSaving] = useState(false);
+  const [recipeError, setRecipeError] = useState("");
+  const [recipeSaved, setRecipeSaved] = useState<SavedManualSav | null>(null);
+  const recipeSavingRef = useRef(false);
+  const recipeClientRef = useRef<ReturnType<typeof createManualSavRecipeClient> | null>(null);
+
+  const recipeClient = () => {
+    if (!recipeClientRef.current) {
+      recipeClientRef.current = createManualSavRecipeClient(fetch.bind(window), window.sessionStorage);
+    }
+    return recipeClientRef.current;
+  };
+
+  const restoreRecipeCase = (saved: SavedManualSav) => {
+    setRecipeSaved(saved);
+    setManualSavRef(saved.sav_reference);
+    setManualSavSerial(saved.serial_number);
+    setManualSavClient(saved.client_name);
+    setManualSavClientNumber(saved.client_number);
+    setManualSavAppareil(saved.model);
+    setManualSavSite(saved.site);
+    setManualSavProbleme(saved.problem);
+    setManualSavCause(saved.cause);
+    setManualSavAction(saved.sav_action);
+    setManualSavType(saved.sav_type);
+  };
+
+  useEffect(() => {
+    if (!RECIPE_API_ENABLED || manualSavMode !== "api") return;
+    let mounted = true;
+    fetch("/api/session", { credentials: "same-origin" }).then(async response => {
+      if (!mounted) return;
+      setRecipeSessionReady(response.ok);
+      if (!response.ok) return;
+      const saved = await recipeClient().lastSaved();
+      if (!mounted || !saved) return;
+      restoreRecipeCase(saved);
+    }).catch(() => { if (mounted) setRecipeSessionReady(false); });
+    return () => { mounted = false; };
+  }, [manualSavMode]);
 
   const filteredProducts = useMemo(() => {
     if (!selectedCategory) return [];
@@ -347,8 +397,67 @@ export default function AssistantOberaPage({
     sendMail(subject, body);
   };
 
-  const submitManualSav = (e: React.FormEvent) => {
+  const connectRecipeSession = async () => {
+    setRecipeError("");
+    try {
+      const response = await fetch("/api/recipe/session", {
+        method: "POST", credentials: "same-origin"
+      });
+      if (!response.ok) throw new Error(`Connexion de recette indisponible (${response.status}).`);
+      setRecipeSessionReady(true);
+      const saved = await recipeClient().lastSaved();
+      if (saved) restoreRecipeCase(saved);
+    } catch (error) {
+      setRecipeError(error instanceof Error ? error.message : "Connexion de recette impossible.");
+    }
+  };
+
+  const startNewRecipeCase = () => {
+    recipeClient().startNew();
+    setRecipeSaved(null);
+    setRecipeError("");
+    setManualSavRef("");
+    setManualSavSerial("");
+    setManualSavAppareil("");
+    setManualSavClient("");
+    setManualSavClientNumber("");
+    setManualSavSite("");
+    setManualSavProbleme("");
+    setManualSavCause("");
+    setManualSavAction("");
+    setManualSavType("technique");
+  };
+
+  const submitManualSav = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (RECIPE_API_ENABLED && manualSavMode === "api") {
+      if (recipeSavingRef.current) return;
+      recipeSavingRef.current = true;
+      setRecipeSaving(true);
+      setRecipeError("");
+      setRecipeSaved(null);
+      try {
+        const saved = await recipeClient().save({
+          savReference: manualSavRef,
+          serialNumber: manualSavSerial,
+          clientName: manualSavClient,
+          clientNumber: manualSavClientNumber,
+          model: manualSavAppareil,
+          site: manualSavSite,
+          problem: manualSavProbleme,
+          cause: manualSavCause,
+          savAction: manualSavAction,
+          savType: manualSavType as "technique" | "usure" | "fournisseur" | "casse" | "autre"
+        });
+        if (saved) setRecipeSaved(saved);
+      } catch (error) {
+        setRecipeError(error instanceof Error ? error.message : "Enregistrement impossible. Réessayez en mode recette.");
+      } finally {
+        recipeSavingRef.current = false;
+        setRecipeSaving(false);
+      }
+      return;
+    }
     const now = new Date();
     const year = now.getFullYear();
     const suffix = String(Date.now()).slice(-5);
@@ -1130,6 +1239,28 @@ export default function AssistantOberaPage({
             Enregistrez un nouveau dossier ou mettez à jour les informations SAV.
           </p>
 
+          {RECIPE_API_ENABLED && (
+            <div className="mb-4 p-4 rounded-lg border border-blue-200 bg-blue-50 max-w-lg">
+              <p className="font-medium text-blue-900">Recette locale : données fictives uniquement</p>
+              <label className="block mt-2 text-sm">
+                <input type="radio" name="manual-sav-mode" checked={manualSavMode === "simulation"}
+                  onChange={() => { setManualSavMode("simulation"); window.sessionStorage.setItem(RECIPE_MODE_KEY, "simulation"); setRecipeError(""); }} />{" "}
+                Simulation actuelle
+              </label>
+              <label className="block mt-1 text-sm">
+                <input type="radio" name="manual-sav-mode" checked={manualSavMode === "api"}
+                  onChange={() => { setManualSavMode("api"); window.sessionStorage.setItem(RECIPE_MODE_KEY, "api"); setManualSavSaved(false); }} />{" "}
+                Enregistrement partagé (API de recette)
+              </label>
+              {manualSavMode === "api" && !recipeSessionReady && (
+                <button type="button" onClick={connectRecipeSession}
+                  className="mt-3 px-3 py-2 rounded border border-blue-400 text-blue-900">
+                  Ouvrir la session fictive SAV
+                </button>
+              )}
+            </div>
+          )}
+
           <form
             id="manual-sav-form"
             className="p-6 bg-stone-100 rounded-lg shadow-md w-full max-w-lg"
@@ -1145,9 +1276,20 @@ export default function AssistantOberaPage({
                 className="mt-1 p-2 w-full rounded-md border border-stone-300"
                 placeholder="N° de dossier"
                 value={manualSavRef}
-                onChange={(e) => setManualSavRef(e.target.value)}
+                onChange={(e) => { setManualSavRef(e.target.value); setRecipeSaved(null); }}
               />
             </div>
+            {RECIPE_API_ENABLED && manualSavMode === "api" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-stone-600 text-left" htmlFor="manual-sav-serial">
+                  Numéro de série de l'appareil (distinct de la référence SAV)
+                </label>
+                <input id="manual-sav-serial" type="text"
+                  className="mt-1 p-2 w-full rounded-md border border-stone-300"
+                  value={manualSavSerial}
+                  onChange={(e) => { setManualSavSerial(e.target.value); setRecipeSaved(null); }} />
+              </div>
+            )}
             <div className="mb-4">
               <label className="block text-sm font-medium text-stone-600 text-left">
                 Appareil
@@ -1157,13 +1299,14 @@ export default function AssistantOberaPage({
                 id="manual-sav-appareil"
                 className="mt-1 p-2 w-full rounded-md border border-stone-300"
                 placeholder="Ex: Ecoclim 22"
+                required={RECIPE_API_ENABLED && manualSavMode === "api"}
                 value={manualSavAppareil}
-                onChange={(e) => setManualSavAppareil(e.target.value)}
+                onChange={(e) => { setManualSavAppareil(e.target.value); setRecipeSaved(null); }}
               />
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-stone-600 text-left">
-                Client / Numéro Client
+                {RECIPE_API_ENABLED && manualSavMode === "api" ? "Client" : "Client / Numéro Client"}
               </label>
               <input
                 type="text"
@@ -1171,9 +1314,20 @@ export default function AssistantOberaPage({
                 className="mt-1 p-2 w-full rounded-md border border-stone-300"
                 placeholder="Ex: SLEEVER INTERNATIONAL / CL11549"
                 value={manualSavClient}
-                onChange={(e) => setManualSavClient(e.target.value)}
+                onChange={(e) => { setManualSavClient(e.target.value); setRecipeSaved(null); }}
               />
             </div>
+            {RECIPE_API_ENABLED && manualSavMode === "api" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-stone-600 text-left" htmlFor="manual-sav-client-number">
+                  Numéro client (donnée fictive, sans liaison Wavesoft)
+                </label>
+                <input id="manual-sav-client-number" type="text"
+                  className="mt-1 p-2 w-full rounded-md border border-stone-300"
+                  value={manualSavClientNumber}
+                  onChange={(e) => { setManualSavClientNumber(e.target.value); setRecipeSaved(null); }} />
+              </div>
+            )}
             <div className="mb-4">
               <label className="block text-sm font-medium text-stone-600 text-left">
                 Site / Localisation
@@ -1183,8 +1337,9 @@ export default function AssistantOberaPage({
                 id="manual-sav-site"
                 className="mt-1 p-2 w-full rounded-md border border-stone-300"
                 placeholder="Ex: Lyon, FR"
+                required={RECIPE_API_ENABLED && manualSavMode === "api"}
                 value={manualSavSite}
-                onChange={(e) => setManualSavSite(e.target.value)}
+                onChange={(e) => { setManualSavSite(e.target.value); setRecipeSaved(null); }}
               />
             </div>
             <div className="mb-4">
@@ -1198,7 +1353,7 @@ export default function AssistantOberaPage({
                 placeholder="Description courte du symptôme"
                 required
                 value={manualSavProbleme}
-                onChange={(e) => setManualSavProbleme(e.target.value)}
+                onChange={(e) => { setManualSavProbleme(e.target.value); setRecipeSaved(null); }}
               />
             </div>
             <div className="mb-4">
@@ -1212,7 +1367,7 @@ export default function AssistantOberaPage({
                 placeholder="Ex: Pompe HS / Filtre colmaté"
                 required
                 value={manualSavCause}
-                onChange={(e) => setManualSavCause(e.target.value)}
+                onChange={(e) => { setManualSavCause(e.target.value); setRecipeSaved(null); }}
               />
             </div>
             <div className="mb-4">
@@ -1226,7 +1381,7 @@ export default function AssistantOberaPage({
                 placeholder="Ex: Remplacement pompe"
                 required
                 value={manualSavAction}
-                onChange={(e) => setManualSavAction(e.target.value)}
+                onChange={(e) => { setManualSavAction(e.target.value); setRecipeSaved(null); }}
               />
             </div>
             <div className="mb-4">
@@ -1237,7 +1392,7 @@ export default function AssistantOberaPage({
                 id="manual-sav-type"
                 className="w-full p-2 mt-1 rounded-md border border-stone-300"
                 value={manualSavType}
-                onChange={(e) => setManualSavType(e.target.value)}
+                onChange={(e) => { setManualSavType(e.target.value); setRecipeSaved(null); }}
               >
                 <option value="technique">SAV Technique</option>
                 <option value="usure">SAV Usure Normale</option>
@@ -1248,13 +1403,31 @@ export default function AssistantOberaPage({
             </div>
             <button
               type="submit"
+              disabled={recipeSaving || (RECIPE_API_ENABLED && manualSavMode === "api" && !recipeSessionReady)}
               className="w-full px-4 py-2 text-white font-medium rounded-lg transition obera-blue obera-blue-hover"
             >
-              Enregistrer l'Intervention
+              {recipeSaving ? "Enregistrement en cours…" : "Enregistrer l'Intervention"}
             </button>
-            {manualSavSaved && (
+            {manualSavMode === "simulation" && manualSavSaved && (
               <p className="mt-3 text-sm text-green-700">
                 Intervention enregistrée (simulation){manualSavId ? ` - ${manualSavId}` : ""}.
+              </p>
+            )}
+            {RECIPE_API_ENABLED && manualSavMode === "api" && recipeSaved && (
+              <div className="mt-3">
+                <p role="status" className="text-sm text-green-700">
+                  Dossier enregistré et relu depuis le serveur
+                  {recipeSaved.sav_reference ? ` — Référence SAV : ${recipeSaved.sav_reference}` : ""}.
+                </p>
+                <button type="button" onClick={startNewRecipeCase}
+                  className="mt-2 px-3 py-2 rounded border border-stone-300 text-stone-700">
+                  Nouvelle saisie SAV
+                </button>
+              </div>
+            )}
+            {RECIPE_API_ENABLED && manualSavMode === "api" && recipeError && (
+              <p role="alert" className="mt-3 text-sm text-red-700">
+                {recipeError} Aucun enregistrement en simulation n'a été effectué.
               </p>
             )}
           </form>
@@ -1273,7 +1446,8 @@ export default function AssistantOberaPage({
           id="step-dashboard"
           className={`step-container ${activeStep === "dashboard" ? "active" : ""}`}
         >
-          <SavDashboard onOpenManualSav={() => setActiveStep("manual-sav")} />
+          <SavDashboard onOpenManualSav={() => setActiveStep("manual-sav")}
+            enableRecipeCases={forceAdmin} />
 
           <button
             id="back-to-category-dashboard"

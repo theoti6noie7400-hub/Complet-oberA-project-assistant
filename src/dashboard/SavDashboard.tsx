@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import RecordedSavCases from "./RecordedSavCases";
+import { RECIPE_API_ENABLED } from "../lib/recipeConfig";
 import { savData } from "../data/savData";
 import type { Contract, Ticket } from "../data/savData";
 import {
@@ -21,7 +23,7 @@ import {
   type TimeRange
 } from "./savUtils";
 
-type TabKey = "stats" | "contracts";
+type TabKey = "stats" | "contracts" | "recorded-cases";
 
 const DEFAULT_TICKET_FILTERS: TicketFilters = {
   range: "90d",
@@ -274,9 +276,11 @@ function ContractDrawer({
 }
 
 export default function SavDashboard({
-  onOpenManualSav
+  onOpenManualSav,
+  enableRecipeCases = false
 }: {
   onOpenManualSav: () => void;
+  enableRecipeCases?: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("stats");
   const [ticketFilters, setTicketFilters] = useState<TicketFilters>(DEFAULT_TICKET_FILTERS);
@@ -366,7 +370,16 @@ export default function SavDashboard({
         >
           Contrats de maintenance
         </button>
+        {RECIPE_API_ENABLED && enableRecipeCases && <button
+          type="button"
+          className={`obera-tab ${tab === "recorded-cases" ? "is-active" : ""}`}
+          onClick={() => setTab("recorded-cases")}
+        >
+          Dossiers SAV enregistrés
+        </button>}
         </div>
+
+        {tab === "recorded-cases" && RECIPE_API_ENABLED && enableRecipeCases && <RecordedSavCases />}
 
         {tab === "stats" && (
           <div className="space-y-6">

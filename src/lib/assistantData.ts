@@ -21,7 +21,7 @@ export const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: "tables-aspirantes", label: "Tables aspirantes", icon: "🛠️" }
 ];
 
-export const PRODUCTS: ProductCatalogItem[] = [
+export const PRODUCTS: ProductCatalogItem[] = ([
   { id: "ic12", name: "IC 12", category: "rafraichisseurs", noticeFile: "FR NOTICE TECHNIQUE IC-12 .pdf" },
   { id: "vl120", name: "VL 120", category: "rafraichisseurs", noticeFile: "OberA FR NOTICE TECHNIQUE VL-120 .pdf" },
   { id: "ic22", name: "IC 22", category: "rafraichisseurs", noticeFile: "FR NOTICE TECHNIQUE IC-22 .pdf" },
@@ -68,7 +68,7 @@ export const PRODUCTS: ProductCatalogItem[] = [
 
   { id: "table-aspirante", name: "Table Aspirante (BAS-V)", category: "tables-aspirantes", noticeFile: "NOTICE BAS-V - FR.pdf" },
   { id: "dosseret-aspirant", name: "Dosseret Aspirant", category: "tables-aspirantes" }
-].map((p) => ({ ...p, imageFile: OBERA_PRODUCT_IMAGES[p.id] }));
+] satisfies ProductCatalogItem[]).map((p) => ({ ...p, imageFile: OBERA_PRODUCT_IMAGES[p.id] }));
 
 export type DiagnosticTarget = "sav" | "sav-pump" | "filter" | "resolved";
 
