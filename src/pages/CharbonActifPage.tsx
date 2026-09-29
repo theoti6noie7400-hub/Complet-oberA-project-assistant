@@ -468,7 +468,12 @@ export default function CharbonActifPage() {
               <label className="text-sm font-medium">Reference filtre</label>
               <select
                 value={filterId}
-                onChange={(e) => setFilterId(e.target.value as FilterRef["id"])}
+                onChange={(e) => {
+                  const selectedId = e.currentTarget.value;
+                  if (Object.values(FILTER_REFERENCES).some((ref) => ref.id === selectedId)) {
+                    setFilterId(selectedId as FilterRef["id"]);
+                  }
+                }}
                 className="w-full rounded-2xl border p-2"
               >
                 {Object.values(FILTER_REFERENCES).map((f) => (

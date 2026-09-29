@@ -512,7 +512,7 @@ const FR_TO_EN_REPLACEMENTS: Array<[string, string]> = [
   ["Bientôt disponible", "Coming soon"]
 ];
 
-const textNodeOriginals = new WeakMap<Text, string>();
+const textNodeOriginals = new WeakMap<Text, { original: string; rendered: string }>();
 const attrOriginals = new WeakMap<Element, Map<string, string>>();
 
 function normalizeInput(value: string): string {
@@ -546,10 +546,19 @@ function shouldSkipNode(node: Node): boolean {
 
 function transformTextNode(node: Text, lang: AppLanguage): void {
   if (shouldSkipNode(node)) return;
-  const raw = textNodeOriginals.has(node) ? textNodeOriginals.get(node)! : node.nodeValue ?? "";
-  if (!textNodeOriginals.has(node)) textNodeOriginals.set(node, raw);
-  const next = lang === "en" ? toEnglish(raw) : raw;
-  if (node.nodeValue !== next) node.nodeValue = next;
+  const current = node.nodeValue ?? "";
+  let entry = textNodeOriginals.get(node);
+  if (!entry) {
+    entry = { original: current, rendered: current };
+    textNodeOriginals.set(node, entry);
+  } else if (current !== entry.rendered) {
+    // React peut réutiliser ce nœud pour une autre valeur (poids, résultat, référence).
+    // Cette nouvelle valeur devient la source, plutôt que l'ancien texte mis en cache.
+    entry.original = current;
+  }
+  const next = lang === "en" ? toEnglish(entry.original) : entry.original;
+  entry.rendered = next;
+  if (current !== next) node.nodeValue = next;
 }
 
 function transformAttributes(el: Element, lang: AppLanguage): void {
