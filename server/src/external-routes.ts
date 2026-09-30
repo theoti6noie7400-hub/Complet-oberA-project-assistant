@@ -11,8 +11,12 @@ const idParams = { params: { type: "object", required: ["id"], properties: { id:
 const publicRequestFields = `id, request_type, device_id, subject, message,
   CASE WHEN public_status IN ('received','in_progress','closed') THEN public_status
     ELSE 'unavailable' END AS public_status, created_at`;
-type RequestInput = { submissionKey: string; requestType: "sav" | "consumables" | "general";
-  deviceId?: string; subject: string; message: string };
+const publicReadFields = `${publicRequestFields}, COALESCE((
+  SELECT json_agg(d.device_id ORDER BY d.device_id)
+  FROM portal_request_devices d WHERE d.request_id = portal_requests.id
+), '[]'::json) AS device_ids`;
+type RequestInput = { submissionKey: string; requestType: "sav" | "consumables" | "maintenance_quote" | "general";
+  deviceId?: string; deviceIds?: string[]; subject: string; message: string };
 
 export function registerExternalRoutes(app: FastifyInstance, db: Database, publicOrigin: string) {
   async function scope(request: FastifyRequest, reply: FastifyReply, role: ExternalRole) {
@@ -56,7 +60,7 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
     app.get(`${base}/requests`, async (request, reply) => {
       const owner = await scope(request, reply, role);
       if (!owner) return reply;
-      const result = await db.query(`SELECT ${publicRequestFields} FROM portal_requests
+      const result = await db.query(`SELECT ${publicReadFields} FROM portal_requests
         WHERE kind = $1 AND organization_id = $2 ORDER BY created_at DESC, id DESC LIMIT 100`,
       [role, owner.organizationId]);
       return { requests: result.rows };
@@ -64,7 +68,7 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
     app.get(`${base}/requests/:id`, { schema: idParams }, async (request, reply) => {
       const owner = await scope(request, reply, role);
       if (!owner) return reply;
-      const result = await db.query(`SELECT ${publicRequestFields} FROM portal_requests
+      const result = await db.query(`SELECT ${publicReadFields} FROM portal_requests
         WHERE id = $1 AND kind = $2 AND organization_id = $3`,
       [(request.params as { id: string }).id, role, owner.organizationId]);
       return result.rows[0] ?? reply.code(404).send({ error: "not_found" });
@@ -75,8 +79,8 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
       required: ["submissionKey", "requestType", "subject", "message"],
       properties: {
         submissionKey: uuid,
-        requestType: { type: "string", enum: role === "client" ? ["sav", "consumables"] : ["general", "consumables"] },
-        ...(role === "client" ? { deviceId: uuid } : {}),
+        requestType: { type: "string", enum: role === "client" ? ["sav", "consumables", "maintenance_quote"] : ["general", "consumables"] },
+        ...(role === "client" ? { deviceId: uuid, deviceIds: { type: "array", items: uuid, maxItems: 50, uniqueItems: true } } : {}),
         subject: { type: "string", minLength: 1, maxLength: 200, pattern: "\\S" },
         message: { type: "string", minLength: 1, maxLength: 5000, pattern: "\\S" }
       }
@@ -87,10 +91,15 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
       const input = request.body as RequestInput;
       if (role === "client" && input.requestType === "sav" && !input.deviceId)
         return reply.code(400).send({ error: "device_required" });
+      if ((input.requestType === "maintenance_quote" && input.deviceId) ||
+          (input.requestType !== "maintenance_quote" && input.deviceIds !== undefined))
+        return reply.code(400).send({ error: "invalid_device_selection" });
       const deviceId = role === "client" ? input.deviceId ?? null : null;
-      const hash = createHash("sha256").update(JSON.stringify([
-        role, owner.organizationId, input.requestType, deviceId, input.subject, input.message
-      ])).digest("hex");
+      const deviceIds = input.requestType === "maintenance_quote" ? [...(input.deviceIds ?? [])].sort() : [];
+      // Preserve hashes of pre-migration submissions, including their retry semantics.
+      const identity = [role, owner.organizationId, input.requestType, deviceId,
+        ...(input.requestType === "maintenance_quote" ? [deviceIds] : []), input.subject, input.message];
+      const hash = createHash("sha256").update(JSON.stringify(identity)).digest("hex");
       const client = await db.connect();
       try {
         await client.query("BEGIN");
@@ -99,26 +108,41 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
             WHERE id = $1 AND client_organization_id = $2`, [deviceId, owner.organizationId]);
           if (!device.rows.length) { await client.query("ROLLBACK"); return reply.code(404).send({ error: "not_found" }); }
         }
+        if (deviceIds.length) {
+          const selected = await client.query(`SELECT id FROM devices
+            WHERE id = ANY($1::uuid[]) AND client_organization_id = $2`, [deviceIds, owner.organizationId]);
+          if (selected.rows.length !== deviceIds.length) {
+            await client.query("ROLLBACK"); return reply.code(404).send({ error: "not_found" });
+          }
+        }
         const id = randomUUID();
         const result = await client.query(`INSERT INTO portal_requests
           (id, kind, organization_id, created_by, request_type, device_id, subject, message, submission_key, request_hash)
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-          ON CONFLICT (created_by, submission_key) DO NOTHING RETURNING ${publicRequestFields}`,
+          ON CONFLICT (created_by, submission_key) DO NOTHING RETURNING id`,
         [id, role, owner.organizationId, owner.userId, input.requestType, deviceId,
           input.subject, input.message, input.submissionKey, hash]);
         if (!result.rows.length) {
-          const prior = await client.query(`SELECT ${publicRequestFields}, request_hash FROM portal_requests
+          const prior = await client.query(`SELECT request_hash FROM portal_requests
+            WHERE created_by = $1 AND submission_key = $2`, [owner.userId, input.submissionKey]);
+          if (prior.rows[0]?.request_hash !== hash) {
+            await client.query("ROLLBACK");
+            return reply.code(409).send({ error: "submission_key_conflict" });
+          }
+          const existing = await client.query(`SELECT ${publicReadFields} FROM portal_requests
             WHERE created_by = $1 AND submission_key = $2`, [owner.userId, input.submissionKey]);
           await client.query("COMMIT");
-          if (prior.rows[0]?.request_hash !== hash)
-            return reply.code(409).send({ error: "submission_key_conflict" });
-          const { request_hash: _hash, ...publicRequest } = prior.rows[0];
-          return reply.code(200).send(publicRequest);
+          return reply.code(200).send(existing.rows[0]);
+        }
+        for (const selectedDeviceId of deviceIds) {
+          await client.query(`INSERT INTO portal_request_devices (request_id, organization_id, device_id)
+            VALUES ($1, $2, $3)`, [id, owner.organizationId, selectedDeviceId]);
         }
         await client.query(`INSERT INTO audit_events (actor_user_id, action, resource_kind, resource_id)
           VALUES ($1, 'create', 'portal_request', $2)`, [owner.userId, id]);
+        const created = await client.query(`SELECT ${publicReadFields} FROM portal_requests WHERE id = $1`, [id]);
         await client.query("COMMIT");
-        return reply.code(201).send(result.rows[0]);
+        return reply.code(201).send(created.rows[0]);
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;

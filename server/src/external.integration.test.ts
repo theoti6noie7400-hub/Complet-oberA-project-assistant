@@ -94,7 +94,8 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const created = await send("POST", "/api/client/requests", a, payload);
     assert.equal(created.statusCode, 201);
     assert.deepEqual(Object.keys(created.json()).sort(),
-      ["created_at","device_id","id","message","public_status","request_type","subject"]);
+      ["created_at","device_id","device_ids","id","message","public_status","request_type","subject"]);
+    assert.deepEqual(created.json().device_ids, []);
     assert.equal((await send("POST", "/api/client/requests", a, payload)).statusCode, 200);
     assert.equal((await send("POST", "/api/client/requests", a,
       { ...payload, message: "DIFFERENT" })).statusCode, 409);
@@ -110,6 +111,45 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const clientConsumables = await send("POST", "/api/client/requests", a,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO sacs", message: "DEMO quantité" });
     assert.equal(clientConsumables.statusCode, 201);
+    const casesBefore = (await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n;
+    const contractsBefore = (await db.query("SELECT count(*)::int AS n FROM contracts")).rows[0].n;
+    const auditMaintenanceBefore = Number((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n);
+    const otherOwnDevice = "e1000000-0000-4000-8000-000000000002";
+    for (const deviceIds of [[], [deviceA], [otherOwnDevice, deviceA]]) {
+      const submissionKey = randomUUID();
+      const quote = { submissionKey, requestType: "maintenance_quote", deviceIds,
+        subject: "DEMO devis maintenance", message: "DEMO étude demandée" };
+      const response = await send("POST", "/api/client/requests", a, quote);
+      assert.equal(response.statusCode, 201);
+      assert.equal(response.json().request_type, "maintenance_quote");
+      assert.equal(response.json().device_id, null);
+      assert.deepEqual(response.json().device_ids, [...deviceIds].sort());
+      assert.deepEqual((await send("GET", `/api/client/requests/${response.json().id}`, a2)).json().device_ids,
+        [...deviceIds].sort());
+      assert.equal((await send("GET", `/api/client/requests/${response.json().id}`, b)).statusCode, 404);
+      assert.equal((await send("POST", "/api/client/requests", a,
+        { ...quote, deviceIds: [...deviceIds].reverse() })).statusCode, 200);
+      assert.equal((await send("POST", "/api/client/requests", a,
+        { ...quote, message: "DEMO autre motif" })).statusCode, 409);
+    }
+    assert.equal((await send("POST", "/api/client/requests", a, {
+      submissionKey: randomUUID(), requestType: "maintenance_quote", deviceIds: [deviceA, deviceB],
+      subject: "DEMO croisé", message: "DEMO interdit" })).statusCode, 404);
+    assert.equal((await send("POST", "/api/client/requests", a, {
+      submissionKey: randomUUID(), requestType: "maintenance_quote", deviceIds: [deviceA, deviceA],
+      subject: "DEMO doublon", message: "DEMO interdit" })).statusCode, 400);
+    assert.equal((await send("POST", "/api/client/requests", a, {
+      submissionKey: randomUUID(), requestType: "maintenance_quote", deviceId: deviceA,
+      subject: "DEMO mauvais champ", message: "DEMO interdit" })).statusCode, 400);
+    assert.equal((await send("POST", "/api/client/requests", a, {
+      submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA, deviceIds: [],
+      subject: "DEMO mauvais champ", message: "DEMO interdit" })).statusCode, 400);
+    assert.equal((await send("POST", "/api/reseller/requests", undefined, {
+      submissionKey: randomUUID(), requestType: "maintenance_quote",
+      subject: "DEMO interdit", message: "DEMO interdit" })).statusCode, 401);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n, casesBefore);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM contracts")).rows[0].n, contractsBefore);
+    assert.equal(Number((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n),auditMaintenanceBefore+3);
     const resellerCreated = await send("POST", "/api/reseller/requests", undefined,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO filtre", message: "DEMO quantité" });
     assert.equal(resellerCreated.statusCode, 401);
