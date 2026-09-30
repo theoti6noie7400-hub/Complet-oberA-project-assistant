@@ -9,6 +9,7 @@ import AdminSessionBar from "../components/AdminSessionBar";
 import AdminLoginPage from "../pages/AdminLoginPage";
 import AssistantOberaPage from "../pages/AssistantOberaPage";
 import ResellerSpacePage from "../pages/ResellerSpacePage";
+import ServiceHubPage from "../pages/ServiceHubPage";
 
 let role: string | null = null;
 let logoutCalls = 0;
@@ -38,10 +39,11 @@ function appAt(path: string) {
     <Routes>
       <Route path="/admin-login" element={<AdminLoginPage />} />
       <Route path="/sav-maintenance" element={<RequireAdmin><div>SAV autorisé</div></RequireAdmin>} />
-      <Route path="/service/marketing" element={<RequireAdmin><div>Marketing autorisé</div></RequireAdmin>} />
+      <Route path="/service/marketing" element={<RequireAdmin><ServiceHubPage /></RequireAdmin>} />
       <Route path="/" element={<div>Portail</div>} />
       <Route path="/client-space" element={<AssistantOberaPage />} />
       <Route path="/reseller-space" element={<ResellerSpacePage />} />
+      <Route path="/reseller-space/requests/:id" element={<ResellerSpacePage />} />
     </Routes>
   </AdminAuthProvider></MemoryRouter>);
 }
@@ -62,7 +64,7 @@ it("refuse l'URL SAV directe sans session, y compris après falsification de ses
   expect(window.sessionStorage.getItem("obera_admin_auth")).toBeNull();
 });
 
-it("vérifie le PIN par API puis n'accorde à Marketing que son espace", async () => {
+it("vérifie le PIN par API et montre l'indisponibilité de l'ancien espace Marketing", async () => {
   const view = appAt("/admin-login?next=%2Fsav-maintenance");
   await waitFor(() => expect(view.getByText("Connexion interne")).toBeTruthy());
   fireEvent.change(view.getByPlaceholderText("Votre identifiant"), { target: { value: "DEMO-MARKETING" } });
@@ -71,7 +73,7 @@ it("vérifie le PIN par API puis n'accorde à Marketing que son espace", async (
   await waitFor(() => expect(view.getByText(/Connexion refusée/)).toBeTruthy());
   fireEvent.change(view.getByLabelText("Code PIN"), { target: { value: "5678" } });
   fireEvent.click(view.getByRole("button", { name: "Acceder" }));
-  await waitFor(() => expect(view.getByText("Marketing autorisé")).toBeTruthy());
+  await waitFor(() => expect(view.getByText("Cet espace n'est plus disponible dans le portail SAV / service client.")).toBeTruthy());
   expect(view.queryByText("SAV autorisé")).toBeNull();
 });
 
@@ -88,13 +90,13 @@ it("ne croit pas un rôle dans la réponse login et révoque la session lors de 
   expect(role).toBeNull();
 });
 
-it("présente les connexions externes sans identifiants ou PIN prédéfinis", async () => {
+it("préserve la connexion Client et affiche l'indisponibilité Revendeur, y compris sur une URL profonde", async () => {
   const client = appAt("/client-space");
   expect(await client.findByText("Connexion espace client")).toBeTruthy();
   expect((client.getByLabelText("Identifiant") as HTMLInputElement).value).toBe("");
   expect((client.getByLabelText("Code PIN") as HTMLInputElement).value).toBe("");
   client.unmount();
-  const reseller = appAt("/reseller-space");
-  expect(await reseller.findByText("Connexion espace revendeur")).toBeTruthy();
-  expect((reseller.getByLabelText("Identifiant") as HTMLInputElement).value).toBe("");
+  const reseller = appAt("/reseller-space/requests/fictional-id");
+  expect(await reseller.findByRole("heading", { name: "Espace Revendeur indisponible" })).toBeTruthy();
+  expect(reseller.queryByLabelText("Code PIN")).toBeNull();
 });

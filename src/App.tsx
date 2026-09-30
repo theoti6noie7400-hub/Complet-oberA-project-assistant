@@ -30,7 +30,7 @@ export default function App() {
           <Route path="/client-space/diagnostic/:id" element={<ExternalSpacePage role="client" view="diagnostic" />} />
           <Route path="/client-space/requests/:id" element={<ExternalSpacePage role="client" view="request" />} />
           <Route path="/reseller-space" element={<ResellerSpacePage />} />
-          <Route path="/reseller-space/requests/:id" element={<ExternalSpacePage role="reseller" view="request" />} />
+          <Route path="/reseller-space/requests/:id" element={<ResellerSpacePage />} />
           <Route
             path="/sav-maintenance"
             element={

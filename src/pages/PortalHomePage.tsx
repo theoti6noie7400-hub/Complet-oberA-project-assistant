@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
 import { canUseInternalPath, useAdminAuth } from "../auth/adminAuth";
-import { CLIENT_SECTION, INTERNAL_SECTIONS, RESELLER_SECTION } from "../portal/sections";
+import { CLIENT_SECTION } from "../portal/sections";
 
 const PORTAL_TILES = [
   {
@@ -11,36 +11,23 @@ const PORTAL_TILES = [
     icon: "🛠️",
     to: "/sav-maintenance"
   },
-  ...INTERNAL_SECTIONS.map((section) => ({
-    id: section.id,
-    title: section.title,
-    description: section.description,
-    icon: section.icon,
-    to: section.route
-  })),
   {
     id: CLIENT_SECTION.id,
     title: CLIENT_SECTION.title,
     description: CLIENT_SECTION.description,
     icon: CLIENT_SECTION.icon,
     to: CLIENT_SECTION.route
-  },
-  {
-    id: RESELLER_SECTION.id,
-    title: RESELLER_SECTION.title,
-    description: RESELLER_SECTION.description,
-    icon: RESELLER_SECTION.icon,
-    to: RESELLER_SECTION.route
   }
 ];
 
 export default function PortalHomePage() {
   const { isAuthenticated, role, externalRole } = useAdminAuth();
-  const tiles = externalRole ? PORTAL_TILES.filter(tile => tile.to === `/${externalRole}-space`) :
+  const tiles = externalRole ? PORTAL_TILES.filter(tile => externalRole === "client" && tile.to === "/client-space") :
     isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
   return (
     <div className="portal-page">
-      <PortalTopBar subtitle="Acces centralise aux outils et services" />
+      <PortalTopBar subtitle="Accès SAV et service client"
+        showInternalLink={!externalRole && (!isAuthenticated || canUseInternalPath(role, "/sav-maintenance"))} />
 
       <main className="portal-main">
         <section className="portal-grid" aria-label="Sections du Portail OberA">
@@ -57,6 +44,10 @@ export default function PortalHomePage() {
             </article>
           ))}
         </section>
+        {tiles.length === 0 && <p className="obera-panel p-5">
+          Aucun espace disponible pour cette session dans le portail SAV / service client.
+          {externalRole === "reseller" && <> <Link to="/reseller-space" className="underline">Gérer la session</Link></>}
+        </p>}
       </main>
     </div>
   );
