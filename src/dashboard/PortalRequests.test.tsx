@@ -78,3 +78,35 @@ it("signale session refusée, réseau indisponible et reprise sans montrer les a
   await waitFor(() => expect(view.getByRole("link", { name: "Se reconnecter" })).toBeTruthy());
   expect(view.queryByText("DEMO assistance")).toBeNull();
 });
+
+it("filtre au serveur les motifs et montre les appareils d'une demande maintenance sans rattachement SAV", async () => {
+  const maintenance = { ...record, id: "f0000000-0000-4000-8000-000000000002",
+    request_type: "maintenance_quote", subject: "DEMO maintenance", device_id: null,
+    device_model: null, device_serial: null, maintenance_devices: [
+      { model: "IC 12", serial: "DEMO-SN-A-001" },
+      { model: "DUSTOMAT 4-24", serial: "DEMO-SN-A-002" }
+    ] };
+  const paths: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((path: string) => {
+    paths.push(path);
+    if (path === "/api/portal/requests?requestType=maintenance_quote")
+      return Promise.resolve(Response.json({ requests: [maintenance], has_more: false }));
+    if (path === "/api/portal/requests")
+      return Promise.resolve(Response.json({ requests: [record, maintenance], has_more: false }));
+    if (path === `/api/portal/requests/${maintenance.id}`)
+      return Promise.resolve(Response.json(maintenance));
+    throw new Error(`Unexpected ${path}`);
+  }));
+  const view = render(<MemoryRouter><PortalRequests /></MemoryRouter>);
+  await view.findByRole("button", { name: "DEMO assistance" });
+  fireEvent.change(view.getByRole("combobox", { name: "Filtrer par motif" }),
+    { target: { value: "maintenance_quote" } });
+  const item = await view.findByRole("button", { name: "DEMO maintenance" });
+  expect(view.queryByRole("button", { name: "DEMO assistance" })).toBeNull();
+  expect(view.getByText("IC 12 — DEMO-SN-A-001, DUSTOMAT 4-24 — DEMO-SN-A-002")).toBeTruthy();
+  fireEvent.click(item);
+  const dialog = await view.findByRole("dialog", { name: "Détail de la demande portail" });
+  await waitFor(() => expect(dialog.textContent).toContain("DEMO-SN-A-002"));
+  expect(within(dialog).queryByRole("button", { name: "Rattacher le dossier SAV" })).toBeNull();
+  expect(paths).not.toContain(`/api/portal/requests/${maintenance.id}/compatible-cases`);
+});

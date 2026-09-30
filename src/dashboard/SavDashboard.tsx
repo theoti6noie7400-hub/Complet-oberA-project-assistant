@@ -380,7 +380,7 @@ export default function SavDashboard({
         </button>}
         {enableRecipeCases && <button type="button"
           className={`obera-tab ${tab === "portal-requests" ? "is-active" : ""}`}
-          onClick={() => setTab("portal-requests")}>Demandes Portail</button>}
+          onClick={() => setTab("portal-requests")}>Demandes Client</button>}
         </div>
 
         {tab === "recorded-cases" && RECIPE_API_ENABLED && enableRecipeCases && <RecordedSavCases />}

@@ -41,8 +41,8 @@ it("garde les KPI de démonstration distincts de la liste API", async () => {
   expect(view.getByText("Demandes totales").parentElement?.textContent).toContain("1");
   expect(savData.tickets).toHaveLength(1);
   expect(requests).toBe(1);
-  fireEvent.click(view.getByRole("button", { name: "Demandes Portail" }));
-  await waitFor(() => expect(view.getByText("Aucune demande portail.")).toBeTruthy());
+  fireEvent.click(view.getByRole("button", { name: "Demandes Client" }));
+  await waitFor(() => expect(view.getByText("Aucune demande pour ce filtre.")).toBeTruthy());
   expect(view.queryByText("Demandes totales")).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Statistiques" }));
   expect(view.getByText("Demandes totales").parentElement?.textContent).toContain("1");
@@ -52,6 +52,6 @@ it("garde les KPI de démonstration distincts de la liste API", async () => {
 it("ne propose pas l'onglet API dans l'espace client du prototype", () => {
   const view = render(<SavDashboard onOpenManualSav={() => {}} />);
   expect(view.queryByRole("button", { name: "Dossiers SAV enregistrés" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Demandes Portail" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Demandes Client" })).toBeNull();
   expect(requests).toBe(0);
 });

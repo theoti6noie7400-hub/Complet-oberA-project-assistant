@@ -7,11 +7,12 @@ import { DIAGNOSTIC_NODES, PRODUCTS, getDiagnosticStartNode, resolveDynamicNext 
 type View = "home" | "device" | "diagnostic" | "request";
 type Device = { id: string; model: string; serial: string };
 type PublicRequest = { id: string; request_type: string; device_id: string | null;
-  subject: string; message: string; public_status: string; created_at: string };
+  device_ids?: string[]; subject: string; message: string; public_status: string; created_at: string };
 type Document = { id: string; title: string; created_at: string };
 const publicStatusLabel = (status: string) => ({ received: "Reçue", in_progress: "En cours",
   closed: "Terminée", unavailable: "Indisponible" }[status] ?? "Indisponible");
 const requestTypeLabel = (type: string) => ({ sav: "SAV", consumables: "Consommables",
+  maintenance_quote: "Contrat de maintenance / demande de devis",
   general: "Autre demande" }[type] ?? "Demande");
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -76,10 +77,12 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
   const [selectedRequest, setSelectedRequest] = useState<PublicRequest | null>(null);
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
-  const [requestType, setRequestType] = useState<"sav" | "consumables" | "general">(
+  const [requestType, setRequestType] = useState<"sav" | "consumables" | "maintenance_quote" | "general">(
+    role === "client" && params.get("type") === "maintenance_quote" ? "maintenance_quote" :
     role === "client" && params.get("type") !== "consumables" ? "sav" :
     params.get("type") === "consumables" ? "consumables" : "general");
   const [deviceId, setDeviceId] = useState(params.get("device") ?? "");
+  const [maintenanceDeviceIds, setMaintenanceDeviceIds] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [creationError, setCreationError] = useState("");
@@ -132,7 +135,8 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
       const result = await api<PublicRequest>(`${apiBase}/requests`, { method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submissionKey: key, requestType,
-          ...(role === "client" && deviceId ? { deviceId } : {}), subject, message }) });
+          ...(role === "client" && requestType === "maintenance_quote" ? { deviceIds: maintenanceDeviceIds } :
+            role === "client" && deviceId ? { deviceId } : {}), subject, message }) });
       setSaved(result); setSubmissionKey(""); setSubject(""); setMessage(""); setReload(value => value + 1);
     } catch (failure) { setCreationError((failure as Error).message); }
     finally { setBusy(false); }
@@ -184,6 +188,11 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         <p>Statut : {publicStatusLabel(selectedRequest.public_status)}</p><p>Type : {requestTypeLabel(selectedRequest.request_type)}</p>
         {selectedRequest.device_id && devices.find(device => device.id === selectedRequest.device_id) &&
           <p>Appareil : {devices.find(device => device.id === selectedRequest.device_id)?.model} — {devices.find(device => device.id === selectedRequest.device_id)?.serial}</p>}
+        {selectedRequest.request_type === "maintenance_quote" && <p>Appareils :
+          {selectedRequest.device_ids?.length ? selectedRequest.device_ids.map(selected => {
+            const device = devices.find(item => item.id === selected);
+            return device ? `${device.model} — ${device.serial}` : "Appareil indisponible";
+          }).join(", ") : " Aucun appareil sélectionné"}</p>}
         <p>{selectedRequest.message}</p><p>Créée le {new Date(selectedRequest.created_at).toLocaleDateString("fr-FR")}</p>
       </section>}
       {view === "home" && <>
@@ -195,17 +204,30 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Nouvelle demande</h2>
           <form onSubmit={create} className="space-y-3 max-w-xl">
             <label className="block">Type de demande<select className="w-full p-2 border rounded" value={requestType}
-              onChange={event => { setRequestType(event.target.value as typeof requestType); setSubmissionKey(""); }}>
-              {role === "client" && <option value="sav">Demande SAV</option>}
-              <option value="consumables">Demande de consommables</option>
+              onChange={event => { setRequestType(event.target.value as typeof requestType); setDeviceId("");
+                setMaintenanceDeviceIds([]); setSubmissionKey(""); }}>
+              {role === "client" && <option value="sav">Problème / SAV</option>}
+              <option value="consumables">Consommables</option>
+              {role === "client" && <option value="maintenance_quote">Contrat de maintenance / demande de devis</option>}
               {role === "reseller" && <option value="general">Autre demande</option>}
             </select></label>
-            {role === "client" && <label className="block">Appareil{requestType === "sav" ? " concerné" : " (facultatif)"}
+            {role === "client" && requestType !== "maintenance_quote" && <label className="block">Appareil{requestType === "sav" ? " concerné" : " (facultatif)"}
               <select className="w-full p-2 border rounded" value={deviceId} required={requestType === "sav"}
                 onChange={event => { setDeviceId(event.target.value); setSubmissionKey(""); }}>
                 <option value="">Sélectionnez un appareil</option>
                 {devices.map(device => <option key={device.id} value={device.id}>{device.model} — {device.serial}</option>)}
               </select></label>}
+            {role === "client" && requestType === "maintenance_quote" && <fieldset className="space-y-2">
+              <legend>Appareils concernés (facultatif, choix multiple)</legend>
+              {devices.length === 0 ? <p>Aucun appareil enregistré. Vous pouvez envoyer une demande générale.</p> :
+                devices.map(device => <label key={device.id} className="flex gap-2 items-center">
+                  <input type="checkbox" checked={maintenanceDeviceIds.includes(device.id)}
+                    onChange={event => { setMaintenanceDeviceIds(value => event.target.checked ? [...value, device.id] :
+                      value.filter(item => item !== device.id)); setSubmissionKey(""); }} />
+                  {device.model} — {device.serial}
+                </label>)}
+              {devices.length === 100 && <p>Affichage limité aux 100 premiers appareils.</p>}
+            </fieldset>}
             <label className="block">Objet<input className="w-full p-2 border rounded" value={subject} required maxLength={200}
               onChange={event => { setSubject(event.target.value); setSubmissionKey(""); }} /></label>
             <label className="block">Votre message<textarea className="w-full p-2 border rounded" value={message} required maxLength={5000}
@@ -217,7 +239,8 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         </section>
         <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Historique de mes demandes</h2>
           {requests.length === 0 ? <p>Aucune demande.</p> : <ul className="space-y-2">{requests.map(item =>
-            <li key={item.id}><Link className="underline" to={`${base}/requests/${item.id}`}>{item.subject}</Link> — {publicStatusLabel(item.public_status)}</li>)}</ul>}
+            <li key={item.id}><span>{requestTypeLabel(item.request_type)} — </span>
+              <Link className="underline" to={`${base}/requests/${item.id}`}>{item.subject}</Link> — {publicStatusLabel(item.public_status)}</li>)}</ul>}
           {requests.length === 100 && <p>Affichage limité aux 100 dernières demandes.</p>}
         </section>
         <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Documents partagés</h2>

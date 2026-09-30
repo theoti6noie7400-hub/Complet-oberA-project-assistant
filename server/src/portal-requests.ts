@@ -9,7 +9,11 @@ const fields = `p.id, p.kind, p.request_type, p.subject, p.message, p.public_sta
   p.created_at, p.device_id, p.linked_sav_case_id,
   o.name AS organization_name, u.identity_subject AS author_identifier,
   d.model AS device_model, d.serial AS device_serial,
-  s.sav_reference AS linked_sav_reference`;
+  s.sav_reference AS linked_sav_reference,
+  COALESCE((SELECT json_agg(json_build_object('model', selected.model, 'serial', selected.serial)
+    ORDER BY selected.model, selected.serial)
+    FROM portal_request_devices prd JOIN devices selected ON selected.id = prd.device_id
+    WHERE prd.request_id = p.id), '[]'::json) AS maintenance_devices`;
 const joins = `FROM portal_requests p
   JOIN organizations o ON o.id = p.organization_id
   JOIN users u ON u.id = p.created_by
@@ -26,10 +30,14 @@ export function registerPortalRequestRoutes(app: FastifyInstance, db: Database, 
     return principal;
   }
 
-  app.get("/api/portal/requests", async (request, reply) => {
+  app.get("/api/portal/requests", { schema: { querystring: { type: "object", additionalProperties: false,
+    properties: { requestType: { type: "string", enum: ["sav", "consumables", "maintenance_quote"] } }
+  } } }, async (request, reply) => {
     if (!await staff(request, reply)) return reply;
     const result = await db.query(`SELECT ${fields} ${joins}
-      ORDER BY p.created_at DESC, p.id DESC LIMIT 101`);
+      WHERE ($1::text IS NULL OR p.request_type = $1)
+      ORDER BY p.created_at DESC, p.id DESC LIMIT 101`,
+      [(request.query as { requestType?: string }).requestType ?? null]);
     return { requests: result.rows.slice(0, 100), has_more: result.rows.length > 100 };
   });
 

@@ -80,7 +80,7 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
       properties: {
         submissionKey: uuid,
         requestType: { type: "string", enum: role === "client" ? ["sav", "consumables", "maintenance_quote"] : ["general", "consumables"] },
-        ...(role === "client" ? { deviceId: uuid, deviceIds: { type: "array", items: uuid, maxItems: 50, uniqueItems: true } } : {}),
+        ...(role === "client" ? { deviceId: uuid, deviceIds: { type: "array", items: uuid, maxItems: 100, uniqueItems: true } } : {}),
         subject: { type: "string", minLength: 1, maxLength: 200, pattern: "\\S" },
         message: { type: "string", minLength: 1, maxLength: 5000, pattern: "\\S" }
       }

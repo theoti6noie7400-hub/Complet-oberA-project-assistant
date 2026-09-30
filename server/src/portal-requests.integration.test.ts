@@ -74,6 +74,22 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
       assert.equal(detail.message, "DEMO message client");
       assert.equal(detail.organization_name.includes("DEMO"), true);
     }
+    const quote = await send("POST", "/api/client/requests", a, {
+      submissionKey: randomUUID(), requestType: "maintenance_quote", deviceIds: [deviceA],
+      subject: "DEMO maintenance", message: "DEMO étude du parc"
+    });
+    assert.equal(quote.statusCode, 201);
+    const quoteId = quote.json().id as string;
+    const filtered = await send("GET", `${base}?requestType=maintenance_quote`, staff);
+    assert.equal(filtered.statusCode, 200);
+    assert.equal(filtered.json().requests.some((r: { id: string }) => r.id === quoteId), true);
+    assert.equal(filtered.json().requests.some((r: { id: string }) => r.id === id), false);
+    assert.equal((await send("GET", `${base}?requestType=unknown`, staff)).statusCode, 400);
+    const quoteDetail = (await send("GET", `${base}/${quoteId}`, staff)).json();
+    assert.deepEqual(quoteDetail.maintenance_devices, [{ model: "IC 12", serial: "DEMO-SN-A-001" }]);
+    assert.deepEqual((await send("GET", `${base}/${quoteId}/compatible-cases`, staff)).json().cases, []);
+    assert.equal((await send("POST", `${base}/${quoteId}/sav-case`, staff,
+      { savCaseId: randomUUID() })).statusCode, 409);
     assert.equal((await send("GET", `${base}/${randomUUID()}`, staff)).statusCode, 404);
     assert.equal((await send("GET", `${base}/${id}`, a)).statusCode, 403);
     assert.equal((await send("GET", `${base}/${resellerId}`)).statusCode, 401);
@@ -120,7 +136,7 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
     const publicDetail = (await send("GET", `/api/client/requests/${id}`, a)).json();
     assert.equal(publicDetail.public_status, "closed");
     assert.deepEqual(Object.keys(publicDetail).sort(),
-      ["created_at", "device_id", "id", "message", "public_status", "request_type", "subject"]);
+      ["created_at", "device_id", "device_ids", "id", "message", "public_status", "request_type", "subject"]);
     assert.equal((await send("GET", `${base}/${id}`, staff)).json().linked_sav_case_id, ownCase);
     const audits = (await db.query(`SELECT action FROM audit_events WHERE resource_kind = 'portal_request'
       AND resource_id = $1 ORDER BY id`, [id])).rows.map(row => row.action);

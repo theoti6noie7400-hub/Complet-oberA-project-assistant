@@ -94,3 +94,58 @@ it("connecte Revendeur sans accès appareil et présente ses demandes et documen
   expect(view.queryByText("Mes appareils")).toBeNull();
   expect(view.getByText("DOCUMENT REVENDEUR DEMO")).toBeTruthy();
 });
+
+it("sépare les trois motifs Client et permet zéro, un ou plusieurs appareils pour la maintenance", async () => {
+  const second = "e1000000-0000-4000-8000-000000000002";
+  const submitted: Record<string, unknown>[] = [];
+  vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+    if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });
+    if (url === "/api/client/me") return result({ organization: { name: "CLIENT DEMO ALPHA" }, role: "client" });
+    if (url === "/api/client/devices") return result({ devices: [
+      { id: deviceId, model: "IC 12", serial: "DEMO-SN-A" },
+      { id: second, model: "DUSTOMAT 4-24", serial: "DEMO-SN-B" }
+    ] });
+    if (url === "/api/client/documents") return result({ documents: [] });
+    if (url === "/api/client/requests" && init?.method === "POST") {
+      const payload = JSON.parse(init.body as string);
+      submitted.push(payload);
+      return result({ id: crypto.randomUUID(), request_type: payload.requestType,
+        device_id: payload.deviceId ?? null, device_ids: payload.deviceIds ?? [],
+        subject: payload.subject, message: payload.message, public_status: "received",
+        created_at: "2026-09-30T00:00:00Z" }, 201);
+    }
+    if (url === "/api/client/requests") return result({ requests: [] });
+    throw new Error(`Unexpected ${url}`);
+  }));
+  const view = appAt("/client-space");
+  await view.findByText("Bienvenue, CLIENT DEMO ALPHA");
+  const type = view.getByLabelText("Type de demande");
+  fireEvent.change(type, { target: { value: "consumables" } });
+  expect(view.getByLabelText("Appareil (facultatif)")).toBeTruthy();
+  fireEvent.change(view.getByLabelText("Objet"), { target: { value: "DEMO filtres" } });
+  fireEvent.change(view.getByLabelText("Votre message"), { target: { value: "DEMO besoin" } });
+  fireEvent.click(view.getByRole("button", { name: "Envoyer la demande" }));
+  await waitFor(() => expect(submitted).toHaveLength(1));
+  expect(submitted[0]).not.toHaveProperty("deviceId");
+  expect(submitted[0]).not.toHaveProperty("deviceIds");
+  fireEvent.change(type, { target: { value: "maintenance_quote" } });
+  expect(view.queryByLabelText("Appareil (facultatif)")).toBeNull();
+  const saveQuote = async () => {
+    const previous = submitted.length;
+    fireEvent.change(view.getByLabelText("Objet"), { target: { value: "DEMO devis maintenance" } });
+    fireEvent.change(view.getByLabelText("Votre message"), { target: { value: "DEMO étude" } });
+    fireEvent.click(view.getByRole("button", { name: "Envoyer la demande" }));
+    await waitFor(() => expect(submitted).toHaveLength(previous + 1));
+    await waitFor(() => expect(view.getByRole("button", { name: "Envoyer la demande" }).hasAttribute("disabled")).toBe(false));
+  };
+  await saveQuote();
+  expect(submitted[submitted.length - 1]?.deviceIds).toEqual([]);
+  fireEvent.click(view.getByRole("checkbox", { name: "IC 12 — DEMO-SN-A" }));
+  await saveQuote();
+  expect(submitted[submitted.length - 1]?.deviceIds).toEqual([deviceId]);
+  fireEvent.click(view.getByRole("checkbox", { name: "DUSTOMAT 4-24 — DEMO-SN-B" }));
+  await saveQuote();
+  expect(submitted[submitted.length - 1]?.deviceIds).toEqual([deviceId, second]);
+  fireEvent.change(type, { target: { value: "sav" } });
+  expect(view.getByLabelText("Appareil concerné")).toBeTruthy();
+});

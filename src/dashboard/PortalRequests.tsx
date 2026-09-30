@@ -2,15 +2,18 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 type PortalRequest = {
-  id: string; kind: "client" | "reseller"; request_type: "sav" | "consumables" | "general";
+  id: string; kind: "client" | "reseller"; request_type: "sav" | "consumables" | "maintenance_quote" | "general";
   organization_name: string; author_identifier: string; subject: string; message: string;
   public_status: "received" | "in_progress" | "closed"; created_at: string;
   device_model: string | null; device_serial: string | null;
+  maintenance_devices?: { model: string; serial: string }[];
   linked_sav_case_id: string | null; linked_sav_reference: string | null;
 };
 type CompatibleCase = { id: string; sav_reference: string };
 const statuses = { received: "Reçue", in_progress: "En cours", closed: "Terminée" };
-const types = { sav: "SAV", consumables: "Consommables", general: "Générale" };
+const types = { sav: "SAV", consumables: "Consommables", maintenance_quote: "Contrat de maintenance / demande de devis", general: "Générale (archive)" };
+const devicesFor = (item: PortalRequest) => item.maintenance_devices?.length ?
+  item.maintenance_devices.map(device => `${device.model} — ${device.serial}`).join(", ") : item.device_model ?? "—";
 
 class ApiError extends Error {
   constructor(readonly status: number) { super(`HTTP ${status}`); }
@@ -42,17 +45,20 @@ export default function PortalRequests() {
   const [error, setError] = useState("");
   const [detailError, setDetailError] = useState("");
   const [hasMore, setHasMore] = useState(false);
+  const [filter, setFilter] = useState("all");
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError(""); setItems([]);
-    api<{ requests: PortalRequest[]; has_more: boolean }>("/api/portal/requests", { signal: controller.signal })
+    const url = filter === "all" ? "/api/portal/requests" :
+      `/api/portal/requests?requestType=${encodeURIComponent(filter)}`;
+    api<{ requests: PortalRequest[]; has_more: boolean }>(url, { signal: controller.signal })
       .then(data => { if (!controller.signal.aborted) { setItems(data.requests); setHasMore(data.has_more); } })
       .catch(err => { if (!controller.signal.aborted) setError(explain(err)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [refresh]);
+  }, [refresh, filter]);
 
   useEffect(() => {
     if (!selectedId) { setDetail(null); setCompatible([]); return; }
@@ -84,14 +90,21 @@ export default function PortalRequests() {
 
   return <section className="obera-panel p-4 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h3 className="font-medium">Demandes Portail</h3>
+      <div><h3 className="font-medium">Demandes Client</h3>
         <p className="text-sm text-stone-500">Demandes enregistrées dans PostgreSQL, séparées des statistiques de démonstration.</p></div>
       <button className="obera-tab" type="button" onClick={() => setRefresh(value => value + 1)}>Actualiser</button>
     </div>
+    <label className="block max-w-sm">Filtrer par motif
+      <select className="block w-full border rounded p-2" value={filter} onChange={event => { setFilter(event.target.value); setSelectedId(null); }}>
+        <option value="all">Toutes les demandes (archives incluses)</option>
+        <option value="sav">SAV</option><option value="consumables">Consommables</option>
+        <option value="maintenance_quote">Contrat de maintenance / demande de devis</option>
+      </select>
+    </label>
     {loading && <p role="status">Chargement des demandes…</p>}
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {error.includes("Session expirée") && <Link to="/admin-login?next=%2Fsav-maintenance" className="underline">Se reconnecter</Link>}
-    {!loading && !error && !items.length && <p>Aucune demande portail.</p>}
+    {!loading && !error && !items.length && <p>Aucune demande pour ce filtre.</p>}
     {!loading && !error && items.length > 0 && <div className="overflow-x-auto"><table className="obera-table">
       <thead><tr>{["Origine", "Organisation", "Type", "Objet", "Date", "Statut", "Appareil"].map(label =>
         <th className="py-2 text-left" key={label}>{label}</th>)}</tr></thead>
@@ -102,7 +115,7 @@ export default function PortalRequests() {
           onClick={() => setSelectedId(item.id)}>{item.subject}</button></td>
         <td className="py-2">{new Date(item.created_at).toLocaleString("fr-FR")}</td>
         <td className="py-2">{statuses[item.public_status]}</td>
-        <td className="py-2">{item.device_model ?? "—"}</td>
+        <td className="py-2">{devicesFor(item)}</td>
       </tr>)}</tbody></table></div>}
     {hasMore && <p role="status">Les 100 demandes les plus récentes sont affichées. D’autres demandes existent.</p>}
     {selectedId && <div role="dialog" aria-label="Détail de la demande portail" aria-modal="true"
@@ -119,7 +132,7 @@ export default function PortalRequests() {
             ["Type", types[detail.request_type]], ["Objet", detail.subject], ["Message", detail.message],
             ["Date", new Date(detail.created_at).toLocaleString("fr-FR")],
             ["Statut public", statuses[detail.public_status]],
-            ["Appareil", detail.device_model ?? "—"], ["Numéro de série", detail.device_serial ?? "—"],
+            ["Appareil(s)", devicesFor(detail)], ["Numéro de série", detail.device_serial ?? "—"],
             ["Dossier SAV lié", detail.linked_sav_reference || (detail.linked_sav_case_id ? "Référence non renseignée" : "Aucun")]
           ] as const).map(([name, value]) => <div key={name}><dt className="text-stone-500">{name}</dt>
             <dd className="whitespace-pre-wrap">{value}</dd></div>)}</dl>
