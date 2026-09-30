@@ -8,6 +8,13 @@ type PortalRequest = {
   device_model: string | null; device_serial: string | null;
   maintenance_devices?: { model: string; serial: string }[];
   linked_sav_case_id: string | null; linked_sav_reference: string | null;
+  diagnostic_context?: {
+    version: number; graphFingerprint: string; productId: string;
+    device: { id: string; model: string; serial: string }; symptom: string;
+    steps: { nodeId: string; title: string; answer?: string; actionProposed?: string;
+      clientConfirmed?: boolean }[];
+    result: "unresolved"; comment: string;
+  } | null;
 };
 type CompatibleCase = { id: string; sav_reference: string };
 const statuses = { received: "Reçue", in_progress: "En cours", closed: "Terminée" };
@@ -136,6 +143,19 @@ export default function PortalRequests() {
             ["Dossier SAV lié", detail.linked_sav_reference || (detail.linked_sav_case_id ? "Référence non renseignée" : "Aucun")]
           ] as const).map(([name, value]) => <div key={name}><dt className="text-stone-500">{name}</dt>
             <dd className="whitespace-pre-wrap">{value}</dd></div>)}</dl>
+          {detail.diagnostic_context && <section className="border-t pt-3 space-y-2" aria-label="Parcours diagnostic Client">
+            <h4 className="font-medium">Parcours diagnostic transmis par le Client</h4>
+            <p className="text-sm">Appareil : {detail.diagnostic_context.device.model} — {detail.diagnostic_context.device.serial}</p>
+            <p className="text-sm">Symptôme déclaré : {detail.diagnostic_context.symptom}</p>
+            <ol className="list-decimal pl-5 space-y-2 text-sm">{detail.diagnostic_context.steps.map((step, index) =>
+              <li key={`${step.nodeId}-${index}`}>{step.title}
+                {step.answer && <span> — Réponse : {step.answer}</span>}
+                {step.actionProposed && <div>Contrôle/action présenté : {step.actionProposed}
+                  {step.clientConfirmed === true ? " — effectué selon le Client" :
+                    " — réalisation non confirmée"}</div>}
+              </li>)}</ol>
+            <p className="text-sm">Résultat déclaré : problème persistant. Ce parcours ne constitue pas un diagnostic technique définitif.</p>
+          </section>}
           {detail.kind === "client" && detail.public_status !== "closed" && <button type="button" disabled={busy}
             className="obera-btn-primary" onClick={() => change("status", {
               status: detail.public_status === "received" ? "in_progress" : "closed"

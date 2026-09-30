@@ -4,6 +4,8 @@ COPY server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev
 COPY server/src ./src
 COPY server/migrations ./migrations
+COPY src/lib/assistantData.ts src/lib/diagnosticContext.ts /app/src/lib/
+COPY src/assets/oberaProductImages.ts /app/src/assets/
 USER node
 EXPOSE 3000
 CMD ["npm", "start"]

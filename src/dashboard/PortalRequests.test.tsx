@@ -110,3 +110,21 @@ it("filtre au serveur les motifs et montre les appareils d'une demande maintenan
   expect(within(dialog).queryByRole("button", { name: "Rattacher le dossier SAV" })).toBeNull();
   expect(paths).not.toContain(`/api/portal/requests/${maintenance.id}/compatible-cases`);
 });
+
+it("affiche le parcours Client déclaré au SAV sans le transformer en cause technique", async () => {
+  items = [{ ...record, diagnostic_context: {
+    version: 1, graphFingerprint: "DEMO-FINGERPRINT", productId: "ic12",
+    device: { id: record.device_id, model: "IC 12", serial: "DEMO-SN-A-001" },
+    symptom: "L'appareil ne s'allume pas", steps: [
+      { nodeId: "start", title: "Quel est le problème principal ?", answer: "L'appareil ne s'allume pas" },
+      { nodeId: "power-check-advice", title: "Vérification alimentation",
+        actionProposed: "DEMO contrôle proposé", clientConfirmed: false }
+    ], result: "unresolved", comment: "DEMO commentaire" } } as typeof record];
+  const view = render(<MemoryRouter><PortalRequests /></MemoryRouter>);
+  fireEvent.click(await view.findByRole("button", { name: "DEMO assistance" }));
+  const dialog = await view.findByRole("dialog", { name: "Détail de la demande portail" });
+  await waitFor(() => expect(within(dialog).getByText("Parcours diagnostic transmis par le Client")).toBeTruthy());
+  expect(dialog.textContent).toContain("réalisation non confirmée");
+  expect(dialog.textContent).toContain("problème persistant");
+  expect(dialog.textContent).not.toContain("Cause interne");
+});

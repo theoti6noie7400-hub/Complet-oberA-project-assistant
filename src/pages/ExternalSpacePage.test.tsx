@@ -22,7 +22,7 @@ function appAt(path: string) {
   </Routes></AdminAuthProvider></MemoryRouter>);
 }
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 it("connecte Client, montre son appareil, le diagnostic et enregistre puis relit sa demande", async () => {
   let active: "client" | null = null;
@@ -148,4 +148,47 @@ it("sépare les trois motifs Client et permet zéro, un ou plusieurs appareils p
   expect(submitted[submitted.length - 1]?.deviceIds).toEqual([deviceId, second]);
   fireEvent.change(type, { target: { value: "sav" } });
   expect(view.getByLabelText("Appareil concerné")).toBeTruthy();
+});
+
+it("transmet les réponses et confirmations du diagnostic au formulaire SAV, même après actualisation", async () => {
+  const submissions: Record<string, unknown>[] = [];
+  vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+    if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });
+    if (url === "/api/client/me") return result({ organization: { name: "CLIENT DEMO ALPHA" } });
+    if (url === "/api/client/devices") return result({ devices: [{ id: deviceId, model: "IC 12", serial: "DEMO-SN-A" }] });
+    if (url === `/api/client/devices/${deviceId}`) return result({ id: deviceId, model: "IC 12", serial: "DEMO-SN-A" });
+    if (url === "/api/client/documents") return result({ documents: [] });
+    if (url === "/api/client/requests" && init?.method === "POST") {
+      submissions.push(JSON.parse(init.body as string));
+      return result({ id: requestId, request_type: "sav", subject: "DEMO", public_status: "received" }, 201);
+    }
+    if (url === "/api/client/requests") return result({ requests: [] });
+    throw new Error(`Unexpected ${url}`);
+  }));
+  const view = appAt(`/client-space/diagnostic/${deviceId}`);
+  await view.findByText("Quel est le problème principal ?");
+  fireEvent.click(view.getByRole("button", { name: "L'appareil ne s'allume pas" }));
+  await view.findByText("Alimentation externe verifiee (prise/disjoncteur/cable) ?");
+  fireEvent.click(view.getByRole("button", { name: "Non" }));
+  await view.findByText("Verification alimentation");
+  fireEvent.click(view.getByRole("checkbox", { name: /Je confirme avoir effectué/ }));
+  fireEvent.click(view.getByRole("link", { name: "Contacter le SAV / créer une demande" }));
+  await view.findByText(/Le parcours de diagnostic sera transmis/);
+  expect((view.getByLabelText("Objet") as HTMLInputElement).value).toBe("Diagnostic : L'appareil ne s'allume pas");
+  view.unmount();
+  const resumed = appAt(`/client-space?type=sav&device=${deviceId}&diagnostic=1`);
+  await resumed.findByText(/Le parcours de diagnostic sera transmis/);
+  fireEvent.click(resumed.getByRole("button", { name: "Envoyer la demande" }));
+  await waitFor(() => expect(submissions).toHaveLength(1));
+  expect(submissions[0].deviceId).toBe(deviceId);
+  expect(submissions[0].message).toBe("Diagnostic transmis sans commentaire supplémentaire.");
+  expect(submissions[0].diagnosticContext).toEqual({ version: 1, productId: "ic12", result: "unresolved",
+    steps: [{ nodeId: "start", optionIndex: 1 }, { nodeId: "no-power", optionIndex: 1 },
+      { nodeId: "power-check-advice", confirmed: true }] });
+  expect(sessionStorage.length).toBe(0);
+  resumed.unmount();
+  const direct = appAt(`/client-space?type=sav&device=${deviceId}`);
+  await direct.findByText("Bienvenue, CLIENT DEMO ALPHA");
+  expect((direct.getByLabelText("Appareil concerné") as HTMLSelectElement).value).toBe(deviceId);
+  expect(direct.queryByText(/Le parcours de diagnostic sera transmis/)).toBeNull();
 });

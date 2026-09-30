@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
 import { useAdminAuth, type ExternalRole } from "../auth/adminAuth";
 import { DIAGNOSTIC_NODES, PRODUCTS, getDiagnosticStartNode, resolveDynamicNext } from "../lib/assistantData";
+import { resolveDiagnosticPath, type DiagnosticChoice, type DiagnosticPath } from "../lib/diagnosticContext";
 
 type View = "home" | "device" | "diagnostic" | "request";
 type Device = { id: string; model: string; serial: string };
@@ -23,11 +24,20 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function ExternalDiagnostic({ device, base }: { device: Device; base: string }) {
+const pendingDiagnosticKey = (organizationId: string, deviceId: string) =>
+  `obera:pending-diagnostic:${organizationId}:${deviceId}`;
+
+function ExternalDiagnostic({ device, base, organizationId }: { device: Device; base: string; organizationId: string }) {
   const product = PRODUCTS.find(item => item.name.toLocaleLowerCase("fr") === device.model.toLocaleLowerCase("fr"));
-  const [history, setHistory] = useState<string[]>([]);
-  useEffect(() => { setHistory(product ? [getDiagnosticStartNode(product.id)] : []); }, [device.id, product?.id]);
-  const node = history.length ? DIAGNOSTIC_NODES[history[history.length - 1]] : null;
+  const [history, setHistory] = useState<DiagnosticChoice[]>([]);
+  useEffect(() => { setHistory(product ? [{ nodeId: getDiagnosticStartNode(product.id) }] : []); }, [device.id, product?.id]);
+  const node = history.length ? DIAGNOSTIC_NODES[history[history.length - 1].nodeId] : null;
+  function savePath() {
+    if (!product || !node || node.type !== "text" || node.next) return;
+    const path: DiagnosticPath = { version: 1, productId: product.id, steps: history, result: "unresolved" };
+    if (resolveDiagnosticPath(path, device.model))
+      sessionStorage.setItem(pendingDiagnosticKey(organizationId, device.id), JSON.stringify(path));
+  }
   return <section className="obera-panel p-5 space-y-4">
     <h2 className="text-xl font-semibold">Diagnostic : {device.model}</h2>
     <p>Appareil : {device.serial}</p>
@@ -36,23 +46,39 @@ function ExternalDiagnostic({ device, base }: { device: Device; base: string }) 
     {node && <>
       <h3 className="font-semibold">{node.title}</h3>
       {node.type === "question" ? <div className="flex flex-wrap gap-2">
-        {node.options.map(option => <button className="obera-btn-outline" type="button" key={option.label}
-          onClick={() => setHistory(value => [...value, resolveDynamicNext(option.next, product!.id)])}>
+        {node.options.map((option, index) => <button className="obera-btn-outline" type="button" key={option.label}
+          onClick={() => setHistory(value => [...value.slice(0, -1),
+            { ...value[value.length - 1], optionIndex: index },
+            { nodeId: resolveDynamicNext(option.next, product!.id) }])}>
           {option.label}
         </button>)}
       </div> : <>
         <p>{node.body}</p>
+        <label className="flex gap-2 items-center text-sm"><input type="checkbox"
+          checked={history[history.length - 1].confirmed === true}
+          onChange={event => setHistory(value => [...value.slice(0, -1),
+            { ...value[value.length - 1], confirmed: event.target.checked }])} />
+          Je confirme avoir effectué le contrôle proposé, s'il s'applique à cette étape.
+        </label>
         {node.next && <button className="obera-btn-outline" type="button"
-          onClick={() => setHistory(value => [...value, resolveDynamicNext(node.next!, product!.id)])}>
+          onClick={() => setHistory(value => [...value.slice(0, -1),
+            { ...value[value.length - 1], continued: true },
+            { nodeId: resolveDynamicNext(node.next!, product!.id) }])}>
           Continuer
         </button>}
         {node.target === "filter" && <Link className="obera-btn-primary inline-flex" to={`${base}?type=consumables&device=${device.id}`}>Demander des consommables</Link>}
-        {(node.target === "sav" || node.target === "sav-pump") &&
-          <Link className="obera-btn-primary inline-flex" to={`${base}?type=sav&device=${device.id}`}>Créer une demande SAV</Link>}
+        {!node.next && <Link className="obera-btn-primary inline-flex"
+          onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
+          Contacter le SAV / créer une demande</Link>}
       </>}
     </>}
     {history.length > 1 && <button className="obera-btn-outline" type="button"
-      onClick={() => setHistory(value => value.slice(0, -1))}>Étape précédente</button>}
+      onClick={() => setHistory(value => {
+        const previous = value.slice(0, -1);
+        return [...previous.slice(0, -1), { nodeId: previous[previous.length - 1].nodeId,
+          ...(previous[previous.length - 1].confirmed === undefined ? {} :
+            { confirmed: previous[previous.length - 1].confirmed }) }];
+      })}>Étape précédente</button>}
     <Link className="block underline" to={`${base}/devices/${device.id}`}>Retour à l'appareil</Link>
   </section>;
 }
@@ -62,6 +88,7 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
   const apiBase = `/api/${role}`;
   const title = role === "client" ? "Espace Client" : "Espace Revendeur";
   const { id } = useParams();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const { isLoading, externalRole, externalOrganizationId, loginExternal, logout } = useAdminAuth();
   const [identifier, setIdentifier] = useState("");
@@ -88,6 +115,32 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
   const [creationError, setCreationError] = useState("");
   const [saved, setSaved] = useState<PublicRequest | null>(null);
   const [submissionKey, setSubmissionKey] = useState("");
+  const [pendingDiagnostic, setPendingDiagnostic] = useState<DiagnosticPath | null>(null);
+
+  useEffect(() => {
+    if (role === "client" && view === "home" && params.get("device"))
+      setDeviceId(params.get("device")!);
+  }, [role, view, params]);
+
+  useEffect(() => {
+    if (role !== "client" || view !== "home" || !externalOrganizationId || params.get("diagnostic") !== "1") {
+      setPendingDiagnostic(null); return;
+    }
+    const selected = params.get("device");
+    if (!selected) { setPendingDiagnostic(null); return; }
+    try {
+      const raw = sessionStorage.getItem(pendingDiagnosticKey(externalOrganizationId, selected));
+      const path = raw ? JSON.parse(raw) as DiagnosticPath : null;
+      setPendingDiagnostic(path);
+    } catch { setPendingDiagnostic(null); }
+  }, [role, view, externalOrganizationId, params]);
+
+  useEffect(() => {
+    if (!pendingDiagnostic || !devices.length) return;
+    const selected = devices.find(item => item.id === deviceId);
+    const summary = selected && resolveDiagnosticPath(pendingDiagnostic, selected.model);
+    if (summary) setSubject(previous => previous || `Diagnostic : ${summary.symptom}`);
+  }, [pendingDiagnostic, devices, deviceId]);
 
   useEffect(() => {
     if (externalRole !== role || !externalOrganizationId) {
@@ -136,8 +189,16 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submissionKey: key, requestType,
           ...(role === "client" && requestType === "maintenance_quote" ? { deviceIds: maintenanceDeviceIds } :
-            role === "client" && deviceId ? { deviceId } : {}), subject, message }) });
+            role === "client" && deviceId ? { deviceId } : {}), subject,
+          message: pendingDiagnostic && requestType === "sav" && !message.trim() ?
+            "Diagnostic transmis sans commentaire supplémentaire." : message,
+          ...(role === "client" && requestType === "sav" && pendingDiagnostic &&
+            deviceId === params.get("device") ? { diagnosticContext: pendingDiagnostic } : {}) }) });
+      if (pendingDiagnostic && externalOrganizationId)
+        sessionStorage.removeItem(pendingDiagnosticKey(externalOrganizationId, deviceId));
+      setPendingDiagnostic(null);
       setSaved(result); setSubmissionKey(""); setSubject(""); setMessage(""); setReload(value => value + 1);
+      if (params.get("diagnostic") === "1") navigate(base, { replace: true });
     } catch (failure) { setCreationError((failure as Error).message); }
     finally { setBusy(false); }
   }
@@ -171,7 +232,9 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         <div><h1 className="text-2xl font-semibold">{title}</h1>
           <p>{organization ? `Bienvenue, ${organization}` : "Chargement de votre organisation…"}</p></div>
         <button type="button" className="obera-btn-outline" onClick={async () => {
-          if (await logout()) { setSaved(null); setSubmissionKey(""); }
+          if (await logout()) { setSaved(null); setSubmissionKey(""); setPendingDiagnostic(null);
+            if (externalOrganizationId && params.get("device"))
+              sessionStorage.removeItem(pendingDiagnosticKey(externalOrganizationId, params.get("device")!)); }
           else setError("Déconnexion impossible. Réessayez.");
         }}>Déconnexion</button>
       </section>
@@ -182,7 +245,8 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         <Link className="obera-btn-primary inline-flex" to={`${base}/diagnostic/${selectedDevice.id}`}>Démarrer le diagnostic</Link>{" "}
         <Link className="obera-btn-outline inline-flex" to={`${base}?type=sav&device=${selectedDevice.id}`}>Créer une demande SAV</Link>
       </section>}
-      {view === "diagnostic" && selectedDevice && <ExternalDiagnostic device={selectedDevice} base={base} />}
+      {view === "diagnostic" && selectedDevice && externalOrganizationId &&
+        <ExternalDiagnostic device={selectedDevice} base={base} organizationId={externalOrganizationId} />}
       {view === "request" && selectedRequest && <section className="obera-panel p-5 space-y-2">
         <h2 className="text-xl font-semibold">{selectedRequest.subject}</h2>
         <p>Statut : {publicStatusLabel(selectedRequest.public_status)}</p><p>Type : {requestTypeLabel(selectedRequest.request_type)}</p>
@@ -203,9 +267,13 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         </section>}
         <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Nouvelle demande</h2>
           <form onSubmit={create} className="space-y-3 max-w-xl">
+            {params.get("diagnostic") === "1" && requestType === "sav" && !pendingDiagnostic && !saved &&
+              <p role="alert">Résumé du diagnostic indisponible. Relancez le diagnostic depuis la fiche de l'appareil si vous souhaitez le transmettre.</p>}
+            {pendingDiagnostic && requestType === "sav" && devices.find(item => item.id === deviceId) &&
+              <p role="status">Le parcours de diagnostic sera transmis au SAV avec cette demande. Vous pouvez ajouter un commentaire.</p>}
             <label className="block">Type de demande<select className="w-full p-2 border rounded" value={requestType}
               onChange={event => { setRequestType(event.target.value as typeof requestType); setDeviceId("");
-                setMaintenanceDeviceIds([]); setSubmissionKey(""); }}>
+                setPendingDiagnostic(null); setMaintenanceDeviceIds([]); setSubmissionKey(""); }}>
               {role === "client" && <option value="sav">Problème / SAV</option>}
               <option value="consumables">Consommables</option>
               {role === "client" && <option value="maintenance_quote">Contrat de maintenance / demande de devis</option>}
@@ -213,7 +281,7 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
             </select></label>
             {role === "client" && requestType !== "maintenance_quote" && <label className="block">Appareil{requestType === "sav" ? " concerné" : " (facultatif)"}
               <select className="w-full p-2 border rounded" value={deviceId} required={requestType === "sav"}
-                onChange={event => { setDeviceId(event.target.value); setSubmissionKey(""); }}>
+                onChange={event => { setDeviceId(event.target.value); setPendingDiagnostic(null); setSubmissionKey(""); }}>
                 <option value="">Sélectionnez un appareil</option>
                 {devices.map(device => <option key={device.id} value={device.id}>{device.model} — {device.serial}</option>)}
               </select></label>}
@@ -230,7 +298,8 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
             </fieldset>}
             <label className="block">Objet<input className="w-full p-2 border rounded" value={subject} required maxLength={200}
               onChange={event => { setSubject(event.target.value); setSubmissionKey(""); }} /></label>
-            <label className="block">Votre message<textarea className="w-full p-2 border rounded" value={message} required maxLength={5000}
+            <label className="block">Votre message{pendingDiagnostic && requestType === "sav" ? " (facultatif)" : ""}<textarea className="w-full p-2 border rounded" value={message}
+              required={!(pendingDiagnostic && requestType === "sav")} maxLength={5000}
               onChange={event => { setMessage(event.target.value); setSubmissionKey(""); }} /></label>
             {creationError && <p role="alert">{creationError}</p>}
             {saved && <p role="status">Demande enregistrée. <Link className="underline" to={`${base}/requests/${saved.id}`}>Voir le détail</Link></p>}

@@ -1,4 +1,4 @@
-import { OBERA_PRODUCT_IMAGES } from "../assets/oberaProductImages";
+import { OBERA_PRODUCT_IMAGES } from "../assets/oberaProductImages.ts";
 
 export type CategoryId =
   | "rafraichisseurs"

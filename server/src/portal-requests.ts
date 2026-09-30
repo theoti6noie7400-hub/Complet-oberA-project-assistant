@@ -6,7 +6,7 @@ const uuid = { type: "string", format: "uuid" } as const;
 const params = { type: "object", required: ["id"], additionalProperties: false,
   properties: { id: uuid } } as const;
 const fields = `p.id, p.kind, p.request_type, p.subject, p.message, p.public_status,
-  p.created_at, p.device_id, p.linked_sav_case_id,
+  p.created_at, p.device_id, p.linked_sav_case_id, p.diagnostic_context,
   o.name AS organization_name, u.identity_subject AS author_identifier,
   d.model AS device_model, d.serial AS device_serial,
   s.sav_reference AS linked_sav_reference,

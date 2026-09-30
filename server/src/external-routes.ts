@@ -5,6 +5,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Database } from "./db.ts";
 import { findPrincipal } from "./session.ts";
 import type { ExternalRole } from "./external-auth.ts";
+import { DIAGNOSTIC_NODES } from "../../src/lib/assistantData.ts";
+import { resolveDiagnosticPath, type DiagnosticPath } from "../../src/lib/diagnosticContext.ts";
 
 const uuid = { type: "string", format: "uuid" } as const;
 const idParams = { params: { type: "object", required: ["id"], properties: { id: uuid } } } as const;
@@ -16,7 +18,9 @@ const publicReadFields = `${publicRequestFields}, COALESCE((
   FROM portal_request_devices d WHERE d.request_id = portal_requests.id
 ), '[]'::json) AS device_ids`;
 type RequestInput = { submissionKey: string; requestType: "sav" | "consumables" | "maintenance_quote" | "general";
-  deviceId?: string; deviceIds?: string[]; subject: string; message: string };
+  deviceId?: string; deviceIds?: string[]; subject: string; message: string;
+  diagnosticContext?: DiagnosticPath };
+const diagnosticGraphFingerprint = createHash("sha256").update(JSON.stringify(DIAGNOSTIC_NODES)).digest("hex");
 
 export function registerExternalRoutes(app: FastifyInstance, db: Database, publicOrigin: string) {
   async function scope(request: FastifyRequest, reply: FastifyReply, role: ExternalRole) {
@@ -80,7 +84,21 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
       properties: {
         submissionKey: uuid,
         requestType: { type: "string", enum: role === "client" ? ["sav", "consumables", "maintenance_quote"] : ["general", "consumables"] },
-        ...(role === "client" ? { deviceId: uuid, deviceIds: { type: "array", items: uuid, maxItems: 100, uniqueItems: true } } : {}),
+        ...(role === "client" ? { deviceId: uuid, deviceIds: { type: "array", items: uuid, maxItems: 100, uniqueItems: true },
+          diagnosticContext: { type: "object", additionalProperties: false,
+            required: ["version", "productId", "steps", "result"],
+            properties: {
+              version: { type: "integer", enum: [1] },
+              productId: { type: "string", minLength: 1, maxLength: 80 },
+              result: { type: "string", enum: ["unresolved"] },
+              steps: { type: "array", minItems: 1, maxItems: 30, items: {
+                type: "object", additionalProperties: false, required: ["nodeId"],
+                properties: { nodeId: { type: "string", minLength: 1, maxLength: 80 },
+                  optionIndex: { type: "integer", minimum: 0, maximum: 30 },
+                  continued: { type: "boolean", enum: [true] }, confirmed: { type: "boolean" } }
+              } }
+            }
+          } } : {}),
         subject: { type: "string", minLength: 1, maxLength: 200, pattern: "\\S" },
         message: { type: "string", minLength: 1, maxLength: 5000, pattern: "\\S" }
       }
@@ -94,19 +112,33 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
       if ((input.requestType === "maintenance_quote" && input.deviceId) ||
           (input.requestType !== "maintenance_quote" && input.deviceIds !== undefined))
         return reply.code(400).send({ error: "invalid_device_selection" });
+      if (input.diagnosticContext && input.requestType !== "sav")
+        return reply.code(400).send({ error: "invalid_diagnostic_context" });
       const deviceId = role === "client" ? input.deviceId ?? null : null;
       const deviceIds = input.requestType === "maintenance_quote" ? [...(input.deviceIds ?? [])].sort() : [];
       // Preserve hashes of pre-migration submissions, including their retry semantics.
       const identity = [role, owner.organizationId, input.requestType, deviceId,
-        ...(input.requestType === "maintenance_quote" ? [deviceIds] : []), input.subject, input.message];
+        ...(input.requestType === "maintenance_quote" ? [deviceIds] : []), input.subject, input.message,
+        ...(input.diagnosticContext ? [input.diagnosticContext] : [])];
       const hash = createHash("sha256").update(JSON.stringify(identity)).digest("hex");
       const client = await db.connect();
       try {
         await client.query("BEGIN");
+        let diagnosticSnapshot: object | null = null;
         if (deviceId) {
-          const device = await client.query(`SELECT id FROM devices
+          const device = await client.query(`SELECT id, model, serial FROM devices
             WHERE id = $1 AND client_organization_id = $2`, [deviceId, owner.organizationId]);
           if (!device.rows.length) { await client.query("ROLLBACK"); return reply.code(404).send({ error: "not_found" }); }
+          if (input.diagnosticContext) {
+            const path = resolveDiagnosticPath(input.diagnosticContext, device.rows[0].model);
+            if (!path || JSON.stringify(input.diagnosticContext).length > 12000) {
+              await client.query("ROLLBACK"); return reply.code(400).send({ error: "invalid_diagnostic_context" });
+            }
+            diagnosticSnapshot = { version: 1, graphFingerprint: diagnosticGraphFingerprint,
+              productId: input.diagnosticContext.productId,
+              device: { id: deviceId, model: device.rows[0].model, serial: device.rows[0].serial },
+              symptom: path.symptom, steps: path.steps, result: "unresolved", comment: input.message };
+          }
         }
         if (deviceIds.length) {
           const selected = await client.query(`SELECT id FROM devices
@@ -117,11 +149,12 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
         }
         const id = randomUUID();
         const result = await client.query(`INSERT INTO portal_requests
-          (id, kind, organization_id, created_by, request_type, device_id, subject, message, submission_key, request_hash)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          (id, kind, organization_id, created_by, request_type, device_id, subject, message, submission_key, request_hash, diagnostic_context)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
           ON CONFLICT (created_by, submission_key) DO NOTHING RETURNING id`,
         [id, role, owner.organizationId, owner.userId, input.requestType, deviceId,
-          input.subject, input.message, input.submissionKey, hash]);
+          input.subject, input.message, input.submissionKey, hash,
+          diagnosticSnapshot === null ? null : JSON.stringify(diagnosticSnapshot)]);
         if (!result.rows.length) {
           const prior = await client.query(`SELECT request_hash FROM portal_requests
             WHERE created_by = $1 AND submission_key = $2`, [owner.userId, input.submissionKey]);

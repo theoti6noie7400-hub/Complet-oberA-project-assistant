@@ -102,12 +102,40 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const createdId = created.json().id;
     assert.equal((await send("GET", `/api/client/requests/${createdId}`, a2)).statusCode, 200);
     assert.equal((await send("GET", `/api/client/requests/${createdId}`, b)).statusCode, 404);
+    const diagnosticPayload = { submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA,
+      subject: "DEMO diagnostic transmis", message: "DEMO commentaire final",
+      diagnosticContext: { version: 1, productId: "ic12", result: "unresolved", steps: [
+        { nodeId: "start", optionIndex: 1 }, { nodeId: "no-power", optionIndex: 1 },
+        { nodeId: "power-check-advice", confirmed: true }
+      ] } };
+    const diagnosticRequest = await send("POST", "/api/client/requests", a, diagnosticPayload);
+    assert.equal(diagnosticRequest.statusCode, 201, diagnosticRequest.body);
+    const diagnosticId = diagnosticRequest.json().id as string;
+    assert.equal((await send("POST", "/api/client/requests", a, diagnosticPayload)).statusCode, 200);
+    assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, b)).statusCode, 404);
+    const staffDiagnostic = (await send("GET", `/api/portal/requests/${diagnosticId}`, staff)).json();
+    assert.equal(staffDiagnostic.diagnostic_context.device.serial, "DEMO-SN-A-001");
+    assert.equal(staffDiagnostic.diagnostic_context.symptom, "L'appareil ne s'allume pas");
+    assert.equal(staffDiagnostic.diagnostic_context.steps[2].clientConfirmed, true);
+    assert.equal(staffDiagnostic.diagnostic_context.result, "unresolved");
+    assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, a2)).json().diagnostic_context, undefined);
+    assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
+      submissionKey: randomUUID(), diagnosticContext: { ...diagnosticPayload.diagnosticContext,
+        steps: [{ nodeId: "start", optionIndex: 1 }, { nodeId: "contact-sav-general" }] }
+    })).statusCode, 400);
+    assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
+      submissionKey: randomUUID(), deviceId: deviceB })).statusCode, 404);
+    assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
+      submissionKey: randomUUID(), requestType: "consumables" })).statusCode, 400);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request' AND resource_id=$1",
+      [diagnosticId])).rows[0].n, 1);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM portal_requests WHERE id=$1", [diagnosticId])).rows[0].n, 1);
     assert.equal((await send("POST", "/api/client/requests", a,
       { ...payload, submissionKey: randomUUID(), deviceId: deviceB })).statusCode, 404);
     const rejectedOrigin = await app.inject({ method: "POST", url: "/api/client/requests",
       headers: { cookie: a, origin: "https://other.example.invalid" }, payload: { ...payload, submissionKey: randomUUID() } });
     assert.equal(rejectedOrigin.statusCode, 403);
-    assert.equal(Number((await db.query("SELECT count(*) AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n),auditBefore+1);
+    assert.equal(Number((await db.query("SELECT count(*) AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n),auditBefore+2);
     const clientConsumables = await send("POST", "/api/client/requests", a,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO sacs", message: "DEMO quantité" });
     assert.equal(clientConsumables.statusCode, 201);
