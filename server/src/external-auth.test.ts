@@ -10,13 +10,15 @@ const definitions = [
 
 test("external configuration accepts only scoped identities and hashes PINs", () => {
   const accounts = loadExternalAccounts(JSON.stringify(definitions));
-  assert.equal(accounts.length, 2);
+  assert.equal(accounts.length, 1);
   assert.equal(JSON.stringify(accounts).includes("8211"), false);
   assert.equal(verifyExternalAccount(accounts, "demo-client-a", "8211", "client")?.organizationId, org);
   assert.equal(verifyExternalAccount(accounts, "DEMO-CLIENT-A", "8211", "reseller"), null);
+  assert.equal(verifyExternalAccount(accounts, "DEMO-RESELLER-A", "8322", "reseller"), null);
   assert.equal(verifyExternalAccount(accounts, "DEMO-CLIENT-A", "0000", "client"), null);
   assert.throws(() => loadExternalAccounts(undefined));
   assert.throws(() => loadExternalAccounts(JSON.stringify([...definitions, definitions[0]])));
   assert.throws(() => loadExternalAccounts(JSON.stringify([{ ...definitions[0], role: "global_admin" }])));
   assert.throws(() => loadExternalAccounts(JSON.stringify([{ ...definitions[0], organizationId: "" }])));
+  assert.throws(() => loadExternalAccounts(JSON.stringify([definitions[1]])));
 });

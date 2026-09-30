@@ -4,6 +4,7 @@ import type { Principal, Role } from "./access.ts";
 
 export const sessionCookie = "obera_session";
 export const sessionLifetimeMs = 8 * 60 * 60 * 1000;
+const activeRoles: Role[] = ["global_admin", "sav_manager", "sav_technician", "client"];
 
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -25,11 +26,17 @@ export async function findPrincipal(db: Database, cookieHeader: string | undefin
   `, [tokenHash(token)]);
   if (!result.rows.length) return null;
   const user = result.rows[0];
+  if (!activeRoles.includes(user.role as Role)) return null;
   const external = user.role === "client" || user.role === "reseller";
   if (external && (result.rows.length !== 1 || user.organization_id === null ||
     user.organization_kind !== user.role)) return null;
   return { userId: user.id, role: user.role as Role,
     organizationIds: external ? result.rows.map(row => row.organization_id as string) : [] };
+}
+
+export async function revokeLegacySessions(db: Database): Promise<void> {
+  await db.query(`DELETE FROM sessions s USING users u WHERE s.user_id = u.id
+    AND u.role NOT IN ('global_admin', 'sav_manager', 'sav_technician', 'client')`);
 }
 
 // Only the future verified OIDC callback may call this function; it is not an HTTP endpoint.

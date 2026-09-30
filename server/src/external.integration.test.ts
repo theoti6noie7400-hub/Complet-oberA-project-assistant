@@ -39,7 +39,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
   ])), accounts);
   const send = (method: "GET" | "POST", url: string, cookie?: string, payload?: object) =>
     app.inject({ method, url, headers: { ...(cookie ? { cookie } : {}), ...(method === "POST" ? { origin } : {}) }, payload });
-  const login = async (realm: "client" | "reseller" | "", identifier: string, pin: string) => {
+  const login = async (realm: "client" | "", identifier: string, pin: string) => {
     const url = realm ? `/api/${realm}/login` : "/api/login";
     const response = await send("POST", url, undefined, { identifier, pin });
     assert.equal(response.statusCode, 200, identifier);
@@ -61,13 +61,13 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const a = await login("client", "DEMO-CLIENT-A", "8011");
     const b = await login("client", "DEMO-CLIENT-B", "8022");
     const a2 = await login("client", "DEMO-CLIENT-A2", "8033");
-    const ra = await login("reseller", "DEMO-RESELLER-A", "8044");
-    const rb = await login("reseller", "DEMO-RESELLER-B", "8055");
+    assert.equal((await send("POST", "/api/reseller/login", undefined,
+      { identifier: "DEMO-RESELLER-A", pin: "8044" })).statusCode, 410);
+    assert.equal((await send("GET", "/api/reseller/requests")).statusCode, 401);
     const staff = await login("", "DEMO-STAFF", "8088");
     assert.equal((await send("GET", "/api/sav/cases", a)).statusCode, 403);
-    assert.equal((await send("GET", "/api/sav/contracts", ra)).statusCode, 403);
+    assert.equal((await send("GET", "/api/sav/contracts", a)).statusCode, 403);
     assert.equal((await send("GET", "/api/client/devices", staff)).statusCode, 403);
-    assert.equal((await send("GET", "/api/client/devices", ra)).statusCode, 403);
     assert.equal((await send("GET", "/api/reseller/requests", a)).statusCode, 403);
     const ownDevices = await send("GET", "/api/client/devices", a);
     assert.equal(ownDevices.statusCode, 200);
@@ -76,10 +76,10 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.deepEqual(Object.keys(ownDevices.json().devices[0]).sort(), ["id","model","serial"]);
     assert.equal((await send("GET", `/api/client/devices/${deviceB}`, a)).statusCode, 404);
     assert.equal((await send("GET", `/api/client/requests/${requestB}`, a)).statusCode, 404);
-    assert.equal((await send("GET", `/api/reseller/requests/${requestResellerB}`, ra)).statusCode, 404);
+    assert.equal((await send("GET", `/api/reseller/requests/${requestResellerB}`)).statusCode, 401);
     assert.equal((await send("GET", `/api/client/documents/${documentB}/content`, a)).statusCode, 404);
-    assert.equal((await send("GET", `/api/reseller/documents/${documentResellerB}/content`, ra)).statusCode, 404);
-    assert.equal((await send("GET", "/api/reseller/documents/b2000000-0000-4000-8000-000000000001/content", ra)).statusCode, 200);
+    assert.equal((await send("GET", `/api/reseller/documents/${documentResellerB}/content`)).statusCode, 401);
+    assert.equal(Number((await db.query("SELECT count(*) AS n FROM documents WHERE audience='reseller'")).rows[0].n) >= 2, true);
     assert.equal((await send("GET", "/api/client/documents/a2000000-0000-4000-8000-000000000003/content", a)).statusCode, 404);
     assert.equal((await send("GET", "/api/client/devices/00000000-0000-4000-8000-000000000000", a)).statusCode, 404);
     const docs = await send("GET", "/api/client/documents", a);
@@ -110,12 +110,10 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const clientConsumables = await send("POST", "/api/client/requests", a,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO sacs", message: "DEMO quantité" });
     assert.equal(clientConsumables.statusCode, 201);
-    const resellerCreated = await send("POST", "/api/reseller/requests", ra,
+    const resellerCreated = await send("POST", "/api/reseller/requests", undefined,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO filtre", message: "DEMO quantité" });
-    assert.equal(resellerCreated.statusCode, 201);
-    assert.equal((await send("GET", `/api/reseller/requests/${resellerCreated.json().id}`, rb)).statusCode, 404);
-    assert.equal((await send("POST", "/api/reseller/requests", ra,
-      { submissionKey: randomUUID(), requestType: "sav", subject: "DEMO", message: "DEMO" })).statusCode, 400);
+    assert.equal(resellerCreated.statusCode, 401);
+    assert.equal(Number((await db.query("SELECT count(*) AS n FROM portal_requests WHERE kind='reseller'")).rows[0].n) >= 2, true);
     const tokenHash = createHash("sha256").update(a.split("=")[1]).digest("hex");
     await db.query("UPDATE sessions SET expires_at = now() - interval '1 second' WHERE token_hash = $1", [tokenHash]);
     assert.equal((await send("GET", "/api/client/requests", a)).statusCode, 401);

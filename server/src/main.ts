@@ -2,6 +2,7 @@ import { createApp } from "./app.ts";
 import { loadBetaAccounts } from "./beta-auth.ts";
 import { loadExternalAccounts } from "./external-auth.ts";
 import { openDatabase } from "./db.ts";
+import { revokeLegacySessions } from "./session.ts";
 
 const origin = process.env.PUBLIC_ORIGIN;
 const recipeMode = process.env.RECIPE_MODE === "1";
@@ -18,6 +19,7 @@ if (recipeMode) {
 const db = openDatabase();
 const app = createApp(db, origin!, accounts, externalAccounts);
 try {
+  await revokeLegacySessions(db);
   await app.listen({ port: Number(process.env.PORT || "3000"), host: process.env.BIND_HOST || "127.0.0.1" });
 } catch (error) {
   await db.end();

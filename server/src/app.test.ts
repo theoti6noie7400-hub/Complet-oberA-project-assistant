@@ -36,8 +36,8 @@ test("API denies unauthenticated, marketing and client requests to internal SAV"
   const app = createApp(db, origin);
   try {
     assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases" })).statusCode, 401);
-    assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie } })).statusCode, 403);
-    assert.equal((await app.inject({ method: "GET", url: `/api/sav/cases/${caseId}`, headers: { cookie } })).statusCode, 403);
+    assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie } })).statusCode, 401);
+    assert.equal((await app.inject({ method: "GET", url: `/api/sav/cases/${caseId}`, headers: { cookie } })).statusCode, 401);
     assert.equal(statements.some(s => s.sql.includes("FROM sav_cases")), false);
   } finally { await app.close(); }
   const client = createApp(fakeDatabase("client").db, origin);

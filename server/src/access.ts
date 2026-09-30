@@ -28,6 +28,7 @@ const savRoles: Role[] = ["global_admin", "sav_manager", "sav_technician"];
 
 export function can(principal: Principal, action: Action, resource: Resource): boolean {
   if (!principal.userId) return false;
+  if (!["global_admin", "sav_manager", "sav_technician", "client"].includes(principal.role)) return false;
   if (principal.role === "global_admin") return true;
 
   if (resource.kind === "sav_case") {
@@ -58,12 +59,6 @@ export function can(principal: Principal, action: Action, resource: Resource): b
 }
 
 export function canEnterService(principal: Principal, serviceKey: string): boolean {
-  if (principal.role === "global_admin") return true;
-  const serviceRoles: Record<string, Role> = {
-    "sav-maintenance": "sav_manager",
-    marketing: "marketing", commercial: "sales", adv: "adv", logistique: "logistics"
-  };
-  return serviceKey === "sav-maintenance"
-    ? principal.role === "sav_manager" || principal.role === "sav_technician"
-    : serviceRoles[serviceKey] === principal.role;
+  return serviceKey === "sav-maintenance" &&
+    ["global_admin", "sav_manager", "sav_technician"].includes(principal.role);
 }

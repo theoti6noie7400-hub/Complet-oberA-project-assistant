@@ -1,12 +1,27 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Database } from "./db.ts";
-import { findPrincipal, readSessionToken, sessionSetCookie, sessionClearCookie } from "./session.ts";
+import { findPrincipal, readSessionToken, sessionSetCookie, sessionClearCookie, revokeLegacySessions } from "./session.ts";
 
 test("session cookies reject malformed tokens", () => {
   assert.equal(readSessionToken(undefined), null);
   assert.equal(readSessionToken("obera_session=demo"), null);
   assert.equal(readSessionToken(`other=1; obera_session=${"a".repeat(64)}`), "a".repeat(64));
+});
+
+test("retired sessions have no principal and startup revokes only their tokens", async () => {
+  const rows = [{ id: "legacy", role: "reseller", organization_id: "reseller-a", organization_kind: "reseller" }];
+  const queries: string[] = [];
+  const db = { query: async (sql: string) => { queries.push(sql); return { rows }; } } as unknown as Database;
+  assert.equal(await findPrincipal(db, `obera_session=${"a".repeat(64)}`), null);
+  for (const retired of ["marketing", "sales", "adv", "logistics"] as const) {
+    rows[0].role = retired;
+    assert.equal(await findPrincipal(db, `obera_session=${"a".repeat(64)}`), null);
+  }
+  await revokeLegacySessions(db);
+  assert.match(queries.at(-1)!, /DELETE FROM sessions s USING users u/);
+  assert.match(queries.at(-1)!, /u\.role NOT IN/);
+  assert.doesNotMatch(queries.at(-1)!, /DELETE FROM users|DELETE FROM portal_requests|DELETE FROM documents/);
 });
 
 test("session cookie is inaccessible to browser scripts and scoped to HTTPS", () => {

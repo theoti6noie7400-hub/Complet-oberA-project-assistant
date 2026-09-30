@@ -123,7 +123,7 @@ export default function PortalRequests() {
             ["Dossier SAV lié", detail.linked_sav_reference || (detail.linked_sav_case_id ? "Référence non renseignée" : "Aucun")]
           ] as const).map(([name, value]) => <div key={name}><dt className="text-stone-500">{name}</dt>
             <dd className="whitespace-pre-wrap">{value}</dd></div>)}</dl>
-          {detail.public_status !== "closed" && <button type="button" disabled={busy}
+          {detail.kind === "client" && detail.public_status !== "closed" && <button type="button" disabled={busy}
             className="obera-btn-primary" onClick={() => change("status", {
               status: detail.public_status === "received" ? "in_progress" : "closed"
             })}>{detail.public_status === "received" ? "Passer en cours" : "Terminer"}</button>}

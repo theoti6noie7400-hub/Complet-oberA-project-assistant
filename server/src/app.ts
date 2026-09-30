@@ -76,7 +76,7 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
 
     const account = realm === "internal" ? verifyBetaAccount(betaAccounts, identifier, pin)
       : verifyExternalAccount(externalAccounts, identifier, pin, realm);
-    if (!account) {
+    if (!account || !["global_admin", "sav_manager", "sav_technician", "client"].includes(account.role)) {
       for (const key of keys) {
         const previous = failedLogins.get(key);
         failedLogins.set(key, { count: previous && previous.resetAt > now ? previous.count + 1 : 1,
@@ -96,7 +96,8 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
 
   app.post("/api/login", { schema: loginSchema }, (request, reply) => login(request, reply, "internal"));
   app.post("/api/client/login", { schema: loginSchema }, (request, reply) => login(request, reply, "client"));
-  app.post("/api/reseller/login", { schema: loginSchema }, (request, reply) => login(request, reply, "reseller"));
+  app.post("/api/reseller/login", async (_request, reply) =>
+    reply.code(410).send({ error: "reseller_access_closed" }));
 
   app.post("/api/logout", async (request, reply) => {
     if (!sameOrigin(request.headers.origin)) return reply.code(403).send({ error: "origin_denied" });

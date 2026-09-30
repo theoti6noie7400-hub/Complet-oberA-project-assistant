@@ -75,11 +75,11 @@ test("unknown identifier, wrong PIN and cross-origin requests never issue a sess
   } finally { await app.close(); }
 });
 
-test("seven server-issued roles have their own SAV and service permissions", async () => {
+test("only three SAV roles obtain new sessions; retired roles remain refused", async () => {
   const { db } = fakeDatabase();
   const app = createApp(db, origin, loadBetaAccounts(JSON.stringify(accountDefinitions)));
   try {
-    for (const account of accountDefinitions) {
+    for (const account of accountDefinitions.slice(0, 3)) {
       const response = await login(app, account.identifier, account.pin);
       assert.equal(response.statusCode, 200);
       const cookie = header(response.headers["set-cookie"] as string);
@@ -88,20 +88,12 @@ test("seven server-issued roles have their own SAV and service permissions", asy
       const list = await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie } });
       const detail = await app.inject({ method: "GET", url: "/api/sav/cases/20000000-0000-4000-8000-000000000002", headers: { cookie } });
       const contract = await app.inject({ method: "GET", url: "/api/sav/contracts", headers: { cookie } });
-      const savAllowed = ["global_admin", "sav_manager", "sav_technician"].includes(account.role);
-      assert.equal(list.statusCode, savAllowed ? 200 : 403);
-      assert.equal(detail.statusCode, savAllowed ? 200 : 403);
-      assert.equal(contract.statusCode, ["global_admin", "sav_manager", "sav_technician"].includes(account.role) ? 200 : 403);
-      if (!savAllowed) {
-        const creation = await app.inject({ method: "POST", url: "/api/sav/cases", headers: { cookie, origin }, payload: {
-          submissionKey: "40000000-0000-4000-8000-000000000004", savReference: "DEMO-REF",
-          serialNumber: "DEMO-SN", clientName: "CLIENT DEMO", clientNumber: "DEMO-CL",
-          model: "DEMO", site: "SITE DEMO", problem: "Test fictif", cause: "Cause fictive",
-          savAction: "Action fictive", savType: "technique"
-        } });
-        assert.equal(creation.statusCode, 403);
-      }
+      assert.equal(list.statusCode, 200);
+      assert.equal(detail.statusCode, 200);
+      assert.equal(contract.statusCode, 200);
     }
+    for (const account of accountDefinitions.slice(3))
+      assert.equal((await login(app, account.identifier, account.pin)).statusCode, 401);
   } finally { await app.close(); }
 });
 
@@ -113,18 +105,18 @@ test("logout revokes the PostgreSQL token, account switch revokes the old cookie
     const second = header((await login(app, "DEMO-TECH", "3333")).headers["set-cookie"] as string);
     assert.notEqual(first, second);
     assert.equal(sessions.size, 2);
-    const switched = await login(app, "DEMO-MARKETING", "4444", first);
-    const marketing = header(switched.headers["set-cookie"] as string);
+    const switched = await login(app, "DEMO-MANAGER", "2222", first);
+    const manager = header(switched.headers["set-cookie"] as string);
     assert.equal((await app.inject({ method: "GET", url: "/api/session", headers: { cookie: first } })).statusCode, 401);
-    assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie: marketing } })).statusCode, 403);
+    assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie: manager } })).statusCode, 200);
     assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie: second } })).statusCode, 200);
     const logout = await app.inject({ method: "POST", url: "/api/logout", headers: { origin, cookie: second } });
     assert.equal(logout.statusCode, 204);
     assert.match(logout.headers["set-cookie"] as string, /Max-Age=0/);
     assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie: second } })).statusCode, 401);
     assert.equal(sessions.size, 1);
-    sessions.get(hash(marketing))!.expiresAt = new Date(0);
-    assert.equal((await app.inject({ method: "GET", url: "/api/session", headers: { cookie: marketing } })).statusCode, 401);
+    sessions.get(hash(manager))!.expiresAt = new Date(0);
+    assert.equal((await app.inject({ method: "GET", url: "/api/session", headers: { cookie: manager } })).statusCode, 401);
   } finally { await app.close(); }
 });
 
@@ -149,4 +141,6 @@ test("beta config rejects missing, duplicate or external roles", () => {
   assert.throws(() => loadBetaAccounts(undefined));
   assert.throws(() => loadBetaAccounts(JSON.stringify([...accountDefinitions, accountDefinitions[0]])));
   assert.throws(() => loadBetaAccounts(JSON.stringify([{ identifier: "CLIENT", pin: "1234", role: "client" }])));
+  assert.equal(loadBetaAccounts(JSON.stringify(accountDefinitions)).length, 3);
+  assert.throws(() => loadBetaAccounts(JSON.stringify(accountDefinitions.slice(3))));
 });

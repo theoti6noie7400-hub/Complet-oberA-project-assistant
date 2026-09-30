@@ -19,7 +19,7 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
   assert.equal(new URL(process.env.EXTERNAL_TEST_DATABASE_URL!).pathname, "/obera_beta_demo");
   process.env.DATABASE_URL = process.env.EXTERNAL_TEST_DATABASE_URL;
   const db = openDatabase();
-  const roles = ["global_admin", "sav_manager", "sav_technician", "marketing", "sales", "adv", "logistics"] as const;
+  const roles = ["global_admin", "sav_manager", "sav_technician"] as const;
   const accounts = loadBetaAccounts(JSON.stringify(roles.map((role, i) => ({
     identifier: `DEMO-INTERNAL-${role.toUpperCase()}`, pin: `90${String(i).padStart(2, "0")}`, role
   }))));
@@ -44,28 +44,25 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
       await login("/api", `DEMO-INTERNAL-${role.toUpperCase()}`, `90${String(i).padStart(2, "0")}`));
     const a = await login("/api/client", "DEMO-PORTAL-CLIENT-A", "8101");
     const b = await login("/api/client", "DEMO-PORTAL-CLIENT-B", "8102");
-    const ra = await login("/api/reseller", "DEMO-PORTAL-RESELLER-A", "8103");
-    const rb = await login("/api/reseller", "DEMO-PORTAL-RESELLER-B", "8104");
+    assert.equal((await send("POST", "/api/reseller/login", undefined,
+      { identifier: "DEMO-PORTAL-RESELLER-A", pin: "8103" })).statusCode, 410);
     const staff = cookies.get("sav_technician")!;
     const base = "/api/portal/requests";
     assert.equal((await send("GET", base)).statusCode, 401);
-    for (const role of ["marketing", "sales", "adv", "logistics"]) {
-      assert.equal((await send("GET", base, cookies.get(role))).statusCode, 403, role);
-    }
-    for (const externalCookie of [a, b, ra, rb]) {
+    for (const externalCookie of [a, b]) {
       assert.equal((await send("GET", base, externalCookie)).statusCode, 403);
     }
     const createdClient = await send("POST", "/api/client/requests", a, {
       submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA,
       subject: "DEMO besoin assistance", message: "DEMO message client"
     });
-    const createdReseller = await send("POST", "/api/reseller/requests", ra, {
+    const createdReseller = await send("POST", "/api/reseller/requests", undefined, {
       submissionKey: randomUUID(), requestType: "consumables",
       subject: "DEMO consommables", message: "DEMO message revendeur"
     });
-    assert.equal(createdClient.statusCode, 201); assert.equal(createdReseller.statusCode, 201);
+    assert.equal(createdClient.statusCode, 201); assert.equal(createdReseller.statusCode, 401);
     const id = createdClient.json().id as string;
-    const resellerId = createdReseller.json().id as string;
+    const resellerId = "f1000000-0000-4000-8000-000000000003"; // Historical DEMO archive.
     for (const role of roles.slice(0, 3)) {
       const cookie = cookies.get(role)!;
       const list = await send("GET", base, cookie);
@@ -79,26 +76,19 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
     }
     assert.equal((await send("GET", `${base}/${randomUUID()}`, staff)).statusCode, 404);
     assert.equal((await send("GET", `${base}/${id}`, a)).statusCode, 403);
-    assert.equal((await send("GET", `${base}/${resellerId}`, ra)).statusCode, 403);
-    for (const role of ["marketing", "sales", "adv", "logistics"]) {
-      assert.equal((await send("POST", `${base}/${id}/status`, cookies.get(role),
-        { status: "in_progress" })).statusCode, 403);
-      assert.equal((await send("POST", `${base}/${id}/sav-case`, cookies.get(role),
-        { savCaseId: randomUUID() })).statusCode, 403);
-    }
+    assert.equal((await send("GET", `${base}/${resellerId}`)).statusCode, 401);
     assert.equal((await send("POST", `${base}/${id}/status`, a,
       { status: "in_progress" })).statusCode, 403);
-    assert.equal((await send("POST", `${base}/${id}/sav-case`, ra,
-      { savCaseId: randomUUID() })).statusCode, 403);
+    assert.equal((await send("POST", `${base}/${id}/sav-case`, undefined,
+      { savCaseId: randomUUID() })).statusCode, 401);
     assert.equal((await send("POST", `${base}/${id}/status`, staff, { status: "closed" })).statusCode, 409);
     assert.equal((await send("POST", `${base}/${id}/status`, staff, { status: "unknown" })).statusCode, 400);
     assert.equal((await send("POST", `${base}/${id}/status`, staff, { status: "in_progress" })).statusCode, 200);
     assert.equal((await send("GET", `/api/client/requests/${id}`, a)).json().public_status, "in_progress");
     assert.equal((await send("GET", `/api/client/requests/${id}`, b)).statusCode, 404);
     assert.equal((await send("POST", `${base}/${resellerId}/status`, staff,
-      { status: "in_progress" })).statusCode, 200);
-    assert.equal((await send("GET", `/api/reseller/requests/${resellerId}`, ra)).json().public_status, "in_progress");
-    assert.equal((await send("GET", `/api/reseller/requests/${resellerId}`, rb)).statusCode, 404);
+      { status: "in_progress" })).statusCode, 409);
+    assert.equal((await send("GET", `${base}/${resellerId}`, staff)).json().public_status, "received");
 
     const actor = (await db.query("SELECT id FROM users WHERE identity_subject = $1",
       ["DEMO-INTERNAL-SAV_TECHNICIAN"])).rows[0].id as string;

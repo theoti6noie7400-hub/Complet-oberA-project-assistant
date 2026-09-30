@@ -67,8 +67,11 @@ export function registerPortalRequestRoutes(app: FastifyInstance, db: Database, 
     const client = await db.connect();
     try {
       await client.query("BEGIN");
-      const found = await client.query("SELECT public_status FROM portal_requests WHERE id = $1 FOR UPDATE", [id]);
+      const found = await client.query("SELECT kind, public_status FROM portal_requests WHERE id = $1 FOR UPDATE", [id]);
       if (!found.rows.length) { await client.query("ROLLBACK"); return reply.code(404).send({ error: "not_found" }); }
+      if (found.rows[0].kind !== "client") {
+        await client.query("ROLLBACK"); return reply.code(409).send({ error: "archived_request" });
+      }
       const previous = found.rows[0].public_status;
       if (!((previous === "received" && status === "in_progress") ||
         (previous === "in_progress" && status === "closed"))) {

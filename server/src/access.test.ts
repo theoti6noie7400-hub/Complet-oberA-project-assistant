@@ -26,7 +26,7 @@ test("client and reseller requests are isolated by organization and type", () =>
   assert.equal(can(person("client", "client-b"), "read", clientRequest), false);
   assert.equal(can(person("client", "client-a", "client-b"), "read", clientRequest), true);
   assert.equal(can(person("client", "reseller-a"), "read", resellerRequest), false);
-  assert.equal(can(person("reseller", "reseller-a"), "read", resellerRequest), true);
+  assert.equal(can(person("reseller", "reseller-a"), "read", resellerRequest), false);
   assert.equal(can(person("reseller", "reseller-b"), "read", resellerRequest), false);
   assert.equal(can(person("reseller", "client-a"), "read", clientRequest), false);
 });
@@ -44,8 +44,8 @@ test("documents require explicit audience and the matching organization", () => 
 test("service hubs are scoped; unknown hubs are denied", () => {
   assert.equal(canEnterService(person("sav_technician"), "sav-maintenance"), true);
   assert.equal(canEnterService(person("marketing"), "sav-maintenance"), false);
-  assert.equal(canEnterService(person("marketing"), "marketing"), true);
-  assert.equal(canEnterService(person("sales"), "commercial"), true);
+  assert.equal(canEnterService(person("marketing"), "marketing"), false);
+  assert.equal(canEnterService(person("sales"), "commercial"), false);
   assert.equal(canEnterService(person("sales"), "marketing"), false);
   assert.equal(canEnterService(person("client"), "unknown"), false);
 });

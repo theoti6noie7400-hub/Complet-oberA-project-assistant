@@ -13,7 +13,7 @@ export function loadExternalAccounts(value: string | undefined): ExternalAccount
   const raw: unknown = JSON.parse(value);
   if (!Array.isArray(raw) || raw.length === 0) throw new Error("At least one external beta account is required");
   const seen = new Set<string>();
-  return raw.map((entry: unknown) => {
+  const accounts = raw.flatMap((entry: unknown) => {
     if (!entry || typeof entry !== "object") throw new Error("Invalid external beta account");
     const item = entry as Record<string, unknown>;
     const identifier = typeof item.identifier === "string" ? item.identifier.trim().toUpperCase() : "";
@@ -23,10 +23,14 @@ export function loadExternalAccounts(value: string | undefined): ExternalAccount
       typeof item.organizationId !== "string" || !uuidPattern.test(item.organizationId))
       throw new Error("Invalid or duplicate external beta account");
     seen.add(identifier);
+    // Preserve old configuration without allowing new reseller logins.
+    if (item.role === "reseller") return [];
     const salt = randomBytes(16);
-    return { identifier, role: item.role, organizationId: item.organizationId.toLowerCase(),
-      salt, pinHash: scryptSync(item.pin, salt, 64) };
+    return [{ identifier, role: "client" as const, organizationId: item.organizationId.toLowerCase(),
+      salt, pinHash: scryptSync(item.pin, salt, 64) }];
   });
+  if (!accounts.length) throw new Error("At least one client beta account is required");
+  return accounts;
 }
 
 export function verifyExternalAccount(accounts: ExternalAccount[], identifier: string, pin: string,
