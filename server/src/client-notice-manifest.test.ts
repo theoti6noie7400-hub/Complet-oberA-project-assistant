@@ -15,9 +15,15 @@ test("notice mapping is exact and only uses catalog model names and approved sha
       models.add(model);
     }
   }
-  assert.equal(CLIENT_NOTICE_SOURCES.length, 25);
-  assert.equal(models.size, 31);
-  for (const unverified of ["DUSTOMAT 4-24", "DUSTOMAT 4-10",
+  assert.equal(CLIENT_NOTICE_SOURCES.length, 26);
+  assert.equal(models.size, 32);
+  assert.deepEqual(CLIENT_NOTICE_SOURCES.find(item => item.models.includes("IC 22")), {
+    file: "FR  NOTICE TECHNIQUE IC-22 .pdf",
+    sha256: "7094fc327de8ae5d1284e9310671ebf13c9046543aa50fa7ccaa78f7f49b4d9a", models: ["IC 22"] });
+  assert.deepEqual(CLIENT_NOTICE_SOURCES.find(item => item.models.includes("DUSTOMAT 4-24")), {
+    file: "FR  NOTICE DUSTOMAT 4.pdf",
+    sha256: "692f4ce289474722c55d349a023602fb16d8700ddb98d9b463ab14195a79dacc", models: ["DUSTOMAT 4-24"] });
+  for (const unverified of ["DUSTOMAT 4-10",
     "ECOCLIM 20", "ePUR EX 2000", "ePUR 150", "ePURFresh 150"]) assert.ok(!models.has(unverified), unverified);
   for (const [left, right] of [["ePURBox", "ePURBox ATEX"], ["DUSTMAC", "DUSTMAC ATEX"],
     ["Dustomat HYDRO", "DUSTOMAT HYDRO ATEX"],

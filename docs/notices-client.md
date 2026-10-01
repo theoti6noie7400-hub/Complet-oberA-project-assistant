@@ -1,10 +1,10 @@
 # Notices Client — inventaire et raccordement du ZIP du lot 6
 
-Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/modèles ci-dessous ont été vérifiés par extraction des deux premières pages (le titre ePUR Ex 5000 apparaît en page 2). Les PDF ne sont pas committés ni servis par `public/` : leur dépôt privé est une étape distincte. La correspondance active est limitée aux 25 fichiers et 31 noms de modèle exacts du manifeste `server/src/client-notice-manifest.ts`. Le SHA-256 complet est figé dans ce manifeste ; il interdit de substituer un autre PDF lors de l’import.
+Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF, avec confirmation métier OberA supplémentaire pour `DUSTOMAT 4-24`. Les titres/modèles ci-dessous ont été vérifiés par extraction des deux premières pages (le titre ePUR Ex 5000 apparaît en page 2). Les PDF ne sont pas committés ni servis par `public/` : leur dépôt privé est une étape distincte. La correspondance active est limitée aux 26 fichiers et 32 noms de modèle exacts du manifeste `server/src/client-notice-manifest.ts`. Le SHA-256 complet est figé dans ce manifeste ; il interdit de substituer un autre PDF lors de l’import.
 
 | Fichier du ZIP | Titre / modèle observé dans le PDF | Décision |
 |---|---|---|
-| `FR  NOTICE DUSTOMAT 4.pdf` | EXTRACTEUR DE POUSSIERES MOBILE / DUSTOMAT 4 / MANUEL D’INSTRUCTION / CONSIGNES GENERALES | Non lié : à valider / hors catalogue actuel / autre version |
+| `FR  NOTICE DUSTOMAT 4.pdf` | EXTRACTEUR DE POUSSIERES MOBILE / DUSTOMAT 4 / MANUEL D’INSTRUCTION / CONSIGNES GENERALES | `DUSTOMAT 4-24` : correspondance validée explicitement par OberA le 1er octobre 2026 |
 | `FR  NOTICE EPURBOX ATEX.pdf` | CAISSONS MOBILES D’ASPIRATION / EPURBOX ATEX / MANUEL D’INSTRUCTION / INTRODUCTION | Non lié : à valider / hors catalogue actuel / autre version |
 | `FR  NOTICE TECHNIQUE IC-22 .pdf` | RAFRAÎCHISSEUR D'AIR / IC-22 / MANUEL D’UTILISATION / IC 22 - Introduction | Mapping confirmé dans le manifeste |
 | `FR -   NOTICE EPUR EX 3000.pdf` | EPUR EX 3000 / MANUEL D'INSTRUCTIONS / EPUR EX 3000 ­ AVERTISSEMENT ET RÉFÉRENCES DE SÉCURITÉ / Ne jamais utiliser l'appareil sans filt | Mapping confirmé dans le manifeste |
@@ -52,7 +52,7 @@ Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/mo
 
 ## Correspondances exclues de cette livraison
 
-- `DUSTOMAT 4-24` et `DUSTOMAT 4-10` : le PDF « DUSTOMAT 4 » ne démontre pas, dans son titre ou son texte extractible, la variante exacte. Le PDF « Dustomat 4-24 ATEX » est titré DUSTOMAT 4 ATEX : il est lié exclusivement à `DUSTOMAT 4 ATEX`. Demander la confirmation OberA avant tout partage au 4-24 standard.
+- `DUSTOMAT 4-24` : OberA a confirmé explicitement que le PDF « DUSTOMAT 4 » s'applique à ce modèle. `DUSTOMAT 4-10` reste à valider. Le PDF « Dustomat 4-24 ATEX » est titré DUSTOMAT 4 ATEX : il reste lié exclusivement à `DUSTOMAT 4 ATEX`.
 - `ECOCLIM 20` : la notice extraite est `ECOCLIM 22`, pas 20. `IC 22EC`, `IC 30 NG` et `VL 50B` sont distincts des modèles IC 22, IC 30 et VL 50 du catalogue.
 - `DUSTOMAT DRY` générique et `DUSTOMAT DRY ATEX` générique attendent une validation de leurs sous-modèles.
 - `ePUR 150` n’est pas automatiquement `ePUR 150 FRESH` ; confirmer aussi si `ePURFresh 150` dans le catalogue désigne exactement le modèle `ePUR 150 FRESH` du PDF. `ePUR EX` générique et `ePUR EX 2000` n’ont pas de notice française confirmée dans ce ZIP.
@@ -62,7 +62,7 @@ Les mutualisations explicitement validées sont dans le manifeste : ePURBox/ATEX
 
 ## Import privé et service
 
-Après validation de diffusion des notices Client, extraire l’archive de référence dans un répertoire **privé** accessible à l’importateur (noms de fichiers conservés) ; définir `CLIENT_NOTICE_SOURCE_DIR`, `PRIVATE_DOCUMENT_ROOT` et `DATABASE_URL` côté serveur ; appliquer les migrations puis exécuter `npm --prefix server run import:client-notices`. L’import vérifie le type PDF et tous les SHA-256 avant de créer des liens exacts modèle → notice dans `client_model_notices`. Il écrit les fichiers sous `PRIVATE_DOCUMENT_ROOT/client-notices/<sha256>.pdf`, hors racine web. Un modèle sans liaison, ou un fichier privé absent, affiche « Notice indisponible ». L’endpoint `GET /api/client/devices/:id/notice` revérifie session, rôle, organisation, appareil, liaison, emplacement et contenu SHA-256 avant téléchargement. L’import refuse une liaison existante en conflit : ne pas remplacer silencieusement un document déjà publié.
+Après validation de diffusion des notices Client, extraire l’archive de référence dans un répertoire **privé** accessible à l’importateur (noms de fichiers conservés), incluant les deux PDF IC 22 et DUSTOMAT 4 confirmés ; définir `CLIENT_NOTICE_SOURCE_DIR`, `PRIVATE_DOCUMENT_ROOT` et `DATABASE_URL` côté serveur ; appliquer les migrations puis exécuter `npm --prefix server run import:client-notices`. L’import vérifie le type PDF et tous les SHA-256 avant de créer des liens exacts modèle → notice dans `client_model_notices`. Il écrit les fichiers sous `PRIVATE_DOCUMENT_ROOT/client-notices/<sha256>.pdf`, hors racine web. Un modèle sans liaison, ou un fichier privé absent, affiche « Notice indisponible ». L’endpoint `GET /api/client/devices/:id/notice` revérifie session, rôle, organisation, appareil, liaison, emplacement et contenu SHA-256 avant téléchargement. L’import refuse une liaison existante en conflit : ne pas remplacer silencieusement un document déjà publié.
 
 ## Contrat d’intégration prestataire
 

@@ -20,9 +20,20 @@ La première exécution installe les dépendances dans le dossier du projet si n
 
 Un second compte `DEMO-CLIENT-B` / `1234` et son parc distinct permettent de vérifier l'isolation. Le bandeau **MODE RECETTE LOCALE — DONNÉES FICTIVES** reste visible et contient **Réinitialiser les données DEMO**. Les demandes et leurs statuts sont conservés dans `.local-recipe/data.json` après rechargement et redémarrage ; ce dossier est ignoré par Git. La réinitialisation efface ces demandes, les changements de statut et les sessions locales. N'entrer que des données fictives pendant la recette.
 
-Le diagnostic affiché utilise les arbres métier actuels du frontend et son résumé est validé par la même fonction de parcours que l'API réelle. Les écrans, photos, KPI et calculs restent ceux du portail. Les demandes et sessions sont **simulées** par un serveur local distinct, sans PostgreSQL ni stockage privé réel. Pour IC 22, le lien télécharge un **fichier texte explicitement DEMO**, jamais une notice OberA ; pour DUSTOMAT 4-24 la notice reste indisponible. Les statistiques SAV historiques restent des fixtures, séparées des demandes créées. La saisie manuelle SAV reste en mode simulation non persistante. Le rattachement à un dossier SAV réel, les documents privés, l'authentification et les garanties de sécurité du backend PostgreSQL se testent dans l'environnement complet, pas dans ce mode local.
+Le diagnostic affiché utilise les arbres métier actuels du frontend et son résumé est validé par la même fonction de parcours que l'API réelle. Les écrans, photos, KPI et calculs restent ceux du portail. Les demandes et sessions sont **simulées** par un serveur local distinct, sans PostgreSQL. Les deux notices officielles IC 22 et DUSTOMAT 4-24 sont téléchargées depuis le stockage privé local lorsqu'elles ont été importées et vérifiées ; sans import, « Notice indisponible » s'affiche. Les statistiques SAV historiques restent des fixtures, séparées des demandes créées. La saisie manuelle SAV reste en mode simulation non persistante. Le rattachement à un dossier SAV réel, les autres documents privés, l'authentification et les garanties de sécurité du backend PostgreSQL se testent dans l'environnement complet, pas dans ce mode local.
 
 Le serveur de recette écoute uniquement sur `127.0.0.1`. Il ne s'active que par `npm.cmd run recette` : `npm run dev`, le build standard, le backend Fastify et les migrations PostgreSQL ne chargent pas ce module. Le bandeau et les identifiants DEMO sont absents du build normal.
+
+### Installer les deux notices officielles pour la recette locale
+
+Télécharger les deux PDF officiels joints dans votre dossier **Téléchargements**, en conservant exactement leurs noms : `FR  NOTICE TECHNIQUE IC-22 .pdf` et `FR  NOTICE DUSTOMAT 4.pdf`. Fermer l'ancien serveur de recette avec Ctrl+C, puis, depuis le dossier du projet, exécuter :
+
+```powershell
+& "C:\Users\ThéoBanchonpanith\Downloads\node-v24.21.0-win-x64\node-v24.21.0-win-x64\npm.cmd" run recette:import-notices
+& "C:\Users\ThéoBanchonpanith\Downloads\node-v24.21.0-win-x64\node-v24.21.0-win-x64\npm.cmd" run recette
+```
+
+Si les PDF se trouvent ailleurs, ajouter `-- "C:\chemin\vers\le\dossier"` à la commande `recette:import-notices`. L'import vérifie le SHA-256 des deux fichiers **avant** de les copier dans `C:\Users\ThéoBanchonpanith\.obera-local-recipe\private-documents\client-notices`. Ce dossier privé est hors du projet, hors de Git et hors des fichiers servis par Vite. Les PDF restent inchangés. Le bouton de réinitialisation DEMO efface les demandes et sessions de recette, **pas** les notices importées. Si l'un des PDF manque ou diffère, la notice reste indisponible et l'import explique l'erreur.
 
 ## Bêta interne
 

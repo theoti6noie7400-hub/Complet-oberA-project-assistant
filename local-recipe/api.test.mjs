@@ -1,18 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createLocalRecipeApi } from "./api.mjs";
+import { importLocalNotices, localNotice } from "./notices.mjs";
 
 const ic22 = "e1000000-0000-4000-8000-000000000001";
 const dust = "e1000000-0000-4000-8000-000000000002";
 const other = "e1000000-0000-4000-8000-000000000003";
 
-async function serve(dataFile) {
-  const handler = createLocalRecipeApi(dataFile);
+async function serve(dataFile, noticeOptions) {
+  const handler = createLocalRecipeApi(dataFile, noticeOptions);
   const server = createServer((req, res) => handler(req, res, () => { res.writeHead(404); res.end(); }));
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -35,8 +36,17 @@ async function serve(dataFile) {
 test("recette locale : Client, SAV, droits, persistance et remise à zéro", async t => {
   const dir = await mkdtemp(join(tmpdir(), "obera-local-recipe-"));
   const file = join(dir, "state.json");
+  const sourceDir = join(dir, "source");
+  const noticeRoot = join(dir, "private");
+  await mkdir(sourceDir);
+  const noticeSources = ["IC 22", "DUSTOMAT 4-24"].map((model, index) => {
+    const data = Buffer.from(`%PDF-1.4\n% NOTICE FICTIVE TEST ${model}\n%%EOF\n`);
+    return { model, file: `DEMO-${index}.pdf`,
+      sha256: createHash("sha256").update(data).digest("hex"), data };
+  });
+  const options = { noticeRoot, noticeSources };
   t.after(() => rm(dir, { recursive: true, force: true }));
-  let api = await serve(file);
+  let api = await serve(file, options);
   t.after(async () => { if (api) await api.close(); });
   const { call, login } = api;
 
@@ -53,12 +63,28 @@ test("recette locale : Client, SAV, droits, persistance et remise à zéro", asy
     ["DEMO-SN-B-001"]);
   assert.equal((await call("GET", `/api/client/devices/${other}`, a)).status, 404);
   assert.equal((await call("GET", `/api/client/devices/${ic22}`, staff)).status, 403);
-  assert.equal((await call("GET", `/api/client/devices/${ic22}/notice`, a)).status, 200);
-  const notice = await call("GET", `/api/client/devices/${ic22}/notice`, a);
-  assert.match(notice.data, /DOCUMENT DEMO/);
-  assert.match(notice.headers.get("content-disposition"), /\.txt/);
-  assert.equal((await call("GET", `/api/client/devices/${dust}/notice`, a)).status, 404);
+  assert.equal((await call("GET", `/api/client/devices/${ic22}`, a)).data.notice_available, false);
+  assert.equal((await call("GET", `/api/client/devices/${dust}`, a)).data.notice_available, false);
+  assert.equal((await call("GET", `/api/client/devices/${ic22}/notice`, a)).status, 404);
+  assert.equal(await localNotice(noticeRoot, "ePURFresh 150", noticeSources), null);
+  for (const notice of noticeSources) await writeFile(join(sourceDir, notice.file), notice.data);
+  await assert.rejects(importLocalNotices(sourceDir, noticeRoot,
+    noticeSources.map((item, index) => index ? { ...item, sha256: "0".repeat(64) } : item)));
+  assert.equal((await call("GET", `/api/client/devices/${ic22}/notice`, a)).status, 404);
+  assert.equal(await importLocalNotices(sourceDir, noticeRoot, noticeSources), 2);
+  assert.deepEqual((await call("GET", "/api/client/devices", a)).data.devices.map(item => item.notice_available),
+    [true, true]);
+  for (const [device, source] of [[ic22, noticeSources[0]], [dust, noticeSources[1]]]) {
+    const notice = await call("GET", `/api/client/devices/${device}/notice`, a);
+    assert.equal(notice.status, 200);
+    assert.equal(notice.headers.get("content-type"), "application/pdf");
+    assert.match(notice.headers.get("content-disposition"), /\.pdf/);
+    assert.equal(notice.data, source.data.toString());
+  }
+  assert.equal((await call("GET", `/api/client/devices/${ic22}/notice`, staff)).status, 403);
   assert.equal((await call("GET", `/api/client/devices/${ic22}/notice`, b)).status, 404);
+  assert.equal((await call("GET", `/api/client/devices/${other}/notice`, a)).status, 404);
+  assert.equal((await call("GET", `/api/client/devices/${other}/notice`, b)).status, 200);
   assert.equal((await call("GET", "/api/portal/requests", a)).status, 403);
 
   const diagnosticContext = { version: 1, productId: "ic22", result: "unresolved", steps: [
@@ -121,7 +147,7 @@ test("recette locale : Client, SAV, droits, persistance et remise à zéro", asy
 
   // Restart the mock server to prove the DEMO request history survives more than a page reload.
   await api.close();
-  api = await serve(file);
+  api = await serve(file, options);
   const afterRestartA = await api.login("/api/client/login", "DEMO-CLIENT-A", "1234");
   assert.equal((await api.call("GET", "/api/client/requests", afterRestartA)).data.requests.length, 4);
   const afterRestartStaff = await api.login("/api/login", "DEMO-STAFF", "1789");

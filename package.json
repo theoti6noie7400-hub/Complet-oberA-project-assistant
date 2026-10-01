@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "recette": "node local-recipe/start.mjs",
+    "recette:import-notices": "node local-recipe/import-notices.mjs",
     "test:recette": "node --test local-recipe/*.test.mjs"
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { resolveDiagnosticPath } from "../src/lib/diagnosticContext.ts";
 import { fingerprintDiagnosticGraph } from "../server/src/diagnostic-fingerprint.ts";
+import { localNotice, LOCAL_NOTICE_ROOT, LOCAL_NOTICE_SOURCES } from "./notices.mjs";
 
 // This module is loaded only by the explicit local launcher. It is never
 // registered with the Fastify/PostgreSQL backend or a normal Vite build.
@@ -10,11 +11,11 @@ const alpha = "a1000000-0000-4000-8000-000000000001";
 const beta = "a1000000-0000-4000-8000-000000000002";
 const devices = [
   { id: "e1000000-0000-4000-8000-000000000001", organizationId: alpha,
-    model: "IC 22", serial: "DEMO-SN-A-001", notice_available: true },
+    model: "IC 22", serial: "DEMO-SN-A-001" },
   { id: "e1000000-0000-4000-8000-000000000002", organizationId: alpha,
-    model: "DUSTOMAT 4-24", serial: "DEMO-SN-A-002", notice_available: false },
+    model: "DUSTOMAT 4-24", serial: "DEMO-SN-A-002" },
   { id: "e1000000-0000-4000-8000-000000000003", organizationId: beta,
-    model: "IC 22", serial: "DEMO-SN-B-001", notice_available: false }
+    model: "IC 22", serial: "DEMO-SN-B-001" }
 ];
 const accounts = new Map([
   ["DEMO-CLIENT-A", { pin: "1234", role: "client", organizationId: alpha, organizationName: "CLIENT DEMO ALPHA" }],
@@ -54,8 +55,11 @@ const internalRequest = item => {
     linked_sav_case_id: null, linked_sav_reference: null, diagnostic_context: item.diagnostic_context };
 };
 
-export function createLocalRecipeApi(dataFile) {
+export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
+  noticeSources = LOCAL_NOTICE_SOURCES } = {}) {
   const sessions = new Map();
+  const publicDevice = async item => ({ id: item.id, model: item.model, serial: item.serial,
+    notice_available: Boolean(await localNotice(noticeRoot, item.model, noticeSources)) });
   let pending = Promise.resolve();
   async function load() {
     try { return JSON.parse(await readFile(dataFile, "utf8")); }
@@ -127,20 +131,20 @@ export function createLocalRecipeApi(dataFile) {
         if (method === "GET" && path === "/api/client/me")
           return send(res, 200, { organization: { name: principal.organizationName }, role: "client" });
         if (method === "GET" && path === "/api/client/devices")
-          return send(res, 200, { devices: own.map(({ id, model, serial, notice_available }) =>
-            ({ id, model, serial, notice_available })) });
+          return send(res, 200, { devices: await Promise.all(own.map(publicDevice)) });
         if (method === "GET" && device) {
           const found = own.find(item => item.id === device[1]);
           if (!found) return send(res, 404, { error: "not_found" });
           if (device[2]) {
-            if (!found.notice_available) return send(res, 404, { error: "not_found" });
-            res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store",
-              "Content-Disposition": 'attachment; filename="NOTICE-DEMO-IC22.txt"',
+            const pdf = await localNotice(noticeRoot, found.model, noticeSources);
+            if (!pdf) return send(res, 404, { error: "not_found" });
+            const filename = found.model === "IC 22" ? "notice-ic-22.pdf" : "notice-dustomat-4-24.pdf";
+            res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
+              "Content-Disposition": `attachment; filename="${filename}"`,
               "X-Content-Type-Options": "nosniff" });
-            return res.end("MODE RECETTE LOCALE — DOCUMENT DEMO. Ceci n'est pas une notice OberA.\n");
+            return res.end(pdf);
           }
-          return send(res, 200, { id: found.id, model: found.model, serial: found.serial,
-            notice_available: found.notice_available });
+          return send(res, 200, await publicDevice(found));
         }
         if (method === "GET" && path === "/api/client/documents") return send(res, 200, { documents: [] });
         if (method === "GET" && path === "/api/client/requests") {

@@ -9,7 +9,7 @@ import { OBERA_PRODUCT_IMAGES } from "../assets/oberaProductImages";
 
 afterEach(cleanup);
 const devices = [
-  { id: "a", model: "DUSTOMAT 4-24", serial: "DEMO-SN-A-002", notice_available: false },
+  { id: "a", model: "DUSTOMAT 4-24", serial: "DEMO-SN-A-002", notice_available: true },
   { id: "b", model: "IC 22", serial: "DEMO-SN-A-001", notice_available: true }
 ];
 
@@ -41,9 +41,9 @@ it("centers the owned devices, serials, actions and notice availability", () => 
   expect(view.getAllByRole("link", { name: "Diagnostic" })).toHaveLength(2);
   expect(view.getAllByRole("link", { name: "Créer une demande SAV" })).toHaveLength(2);
   expect(view.getAllByRole("link", { name: "Demander des consommables" })).toHaveLength(2);
-  expect(view.getByRole("link", { name: "Télécharger la notice" }).getAttribute("href"))
-    .toBe("/api/client/devices/b/notice");
-  expect(view.getByText("Notice indisponible")).toBeTruthy();
+  expect(view.getAllByRole("link", { name: "Télécharger la notice" }).map(item => item.getAttribute("href")))
+    .toEqual(["/api/client/devices/a/notice", "/api/client/devices/b/notice"]);
+  expect(view.queryByText("Notice indisponible")).toBeNull();
   expect(view.queryByText("ePUR 100")).toBeNull();
 });
 

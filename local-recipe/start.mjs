@@ -22,7 +22,7 @@ process.env.VITE_LOCAL_RECIPE = "1";
 const { createServer } = await import("vite");
 const api = createLocalRecipeApi(join(root, ".local-recipe", "data.json"));
 const server = await createServer({ root, base: "/", server: { host: "127.0.0.1", port: 5173,
-  strictPort: true, proxy: {} }, plugins: [{ name: "obera-local-recipe-only",
+  strictPort: true, proxy: {}, fs: { strict: true, allow: [root] } }, plugins: [{ name: "obera-local-recipe-only",
   configureServer(vite) { vite.middlewares.use(api); } }] });
 try {
   await server.listen();

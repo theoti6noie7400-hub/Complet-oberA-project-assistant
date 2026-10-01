@@ -83,13 +83,21 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     [digest, `client-notices/${digest}.pdf`, demoPdf.length]);
     await db.query(`INSERT INTO client_model_notices(model,asset_sha256)
       VALUES('IC 22',$1) ON CONFLICT DO NOTHING`, [digest]);
+    const dustPdf = Buffer.from("%PDF-1.4\n% DEMO DUSTOMAT 4-24 - AUTOMATED TEST ONLY\n%%EOF\n");
+    const dustDigest = createHash("sha256").update(dustPdf).digest("hex");
+    await writeFile(join(privateRoot, "client-notices", `${dustDigest}.pdf`), dustPdf);
+    await db.query(`INSERT INTO client_notice_assets(sha256,storage_key,source_name,size_bytes)
+      VALUES($1,$2,'DEMO-DUSTOMAT.pdf',$3) ON CONFLICT DO NOTHING`,
+    [dustDigest, `client-notices/${dustDigest}.pdf`, dustPdf.length]);
+    await db.query(`INSERT INTO client_model_notices(model,asset_sha256)
+      VALUES('DUSTOMAT 4-24',$1) ON CONFLICT DO NOTHING`, [dustDigest]);
     const ownDevices = await send("GET", "/api/client/devices", a);
     assert.equal(ownDevices.statusCode, 200);
     assert.deepEqual(ownDevices.json().devices.map((item: { id: string }) => item.id).sort(),
       [deviceA, "e1000000-0000-4000-8000-000000000002"]);
     assert.deepEqual(Object.keys(ownDevices.json().devices[0]).sort(), ["id","model","notice_available","serial"]);
     assert.equal(ownDevices.json().devices.find((item: { model: string }) => item.model === "IC 22").notice_available, true);
-    assert.equal(ownDevices.json().devices.find((item: { model: string }) => item.model === "DUSTOMAT 4-24").notice_available, false);
+    assert.equal(ownDevices.json().devices.find((item: { model: string }) => item.model === "DUSTOMAT 4-24").notice_available, true);
     assert.equal((await send("GET", "/api/client/devices", b)).json().devices
       .some((item: { model: string }) => item.model === "IC 22"), false);
     assert.equal((await send("GET", `/api/client/devices/${deviceA}`, b)).statusCode, 404);
@@ -100,7 +108,11 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.equal(notice.headers["content-type"], "application/pdf");
     assert.equal(notice.headers["cache-control"], "no-store");
     assert.equal(notice.rawPayload.toString(), demoPdf.toString());
-    assert.equal((await send("GET", "/api/client/devices/e1000000-0000-4000-8000-000000000002/notice", a)).statusCode, 404);
+    const dustNotice = await send("GET", "/api/client/devices/e1000000-0000-4000-8000-000000000002/notice", a);
+    assert.equal(dustNotice.statusCode, 200);
+    assert.equal(dustNotice.headers["content-type"], "application/pdf");
+    assert.equal(dustNotice.rawPayload.toString(), dustPdf.toString());
+    assert.equal((await send("GET", "/api/client/devices/e1000000-0000-4000-8000-000000000002/notice", b)).statusCode, 404);
     assert.equal((await send("GET", `/api/client/devices/${deviceA}/notice`, staff)).statusCode, 403);
     assert.equal((await send("GET", "/api/client/devices/00000000-0000-4000-8000-000000000000/notice", a)).statusCode, 404);
     assert.equal((await send("GET", `/api/client/devices/${deviceB}`, a)).statusCode, 404);

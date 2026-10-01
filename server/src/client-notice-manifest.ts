@@ -19,6 +19,7 @@ export const CLIENT_NOTICE_SOURCES: ReadonlyArray<{ file: string; sha256: string
   { file: "NOTICE CLEARBOX - FR.pdf", sha256: "6d957d67f56e442d3d6ca9fefb97199433e1db3a57c9c3c978abde3eb191f62c", models: ["Clearbox"] },
   { file: "NOTICE DUSTOMAT 10-FR.pdf", sha256: "7d8ff3ca2b3d3ed4428275e6852887c9ccbeb97aeccadcb2a6259e293839a73c", models: ["DUSTOMAT 10"] },
   { file: "FR -Notice d'utilisation Dustomat 16 M.pdf", sha256: "f81418a0ae8d6ff1fc4a0abf10b4d74855d86ee4041dacd56e0510fba806ef4b", models: ["DUSTOMAT 16M"] },
+  { file: "FR  NOTICE DUSTOMAT 4.pdf", sha256: "692f4ce289474722c55d349a023602fb16d8700ddb98d9b463ab14195a79dacc", models: ["DUSTOMAT 4-24"] },
   { file: "FR - NOTICE DUSTOMAT HYDRO.pdf", sha256: "141e45bfc55481c80761d6aa91c6fd7e260b054682073e6f5c88b8dc70d027d7", models: ["Dustomat HYDRO", "DUSTOMAT HYDRO ATEX"] },
   { file: "Notice technique Dustomat 4-24 ATEX - FR.pdf", sha256: "9b07238a4239dee32900ab4ab12efeef42c5a932aec00a63bb6f8fc55b3d81e6", models: ["DUSTOMAT 4 ATEX"] },
   { file: "FR - Notice Dustomat P-90.pdf", sha256: "6d4784fcb47593f1aa615f504181a6c1e632a3dbe35b2d8a6295f879e5b3bbd0", models: ["DUSTMAC", "DUSTMAC ATEX"] },

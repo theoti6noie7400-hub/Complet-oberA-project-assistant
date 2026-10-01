@@ -259,7 +259,7 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
           <Link className="obera-btn-outline" to={`${base}?type=sav&device=${selectedDevice.id}#nouvelle-demande`}>Créer une demande SAV</Link>
           <Link className="obera-btn-outline" to={`${base}?type=consumables&device=${selectedDevice.id}#nouvelle-demande`}>Demander des consommables</Link>
           {selectedDevice.notice_available ? <a className="obera-btn-outline"
-            href={`/api/client/devices/${selectedDevice.id}/notice`}>{import.meta.env.DEV && import.meta.env.VITE_LOCAL_RECIPE === "1" ? "Télécharger le document DEMO" : "Télécharger la notice"}</a> :
+            href={`/api/client/devices/${selectedDevice.id}/notice`}>Télécharger la notice</a> :
             <span>Notice indisponible</span>}
         </div>
       </section>}

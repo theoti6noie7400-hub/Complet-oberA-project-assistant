@@ -26,9 +26,9 @@ afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 it("montre la photo officielle exacte dans chaque fiche appareil Client", async () => {
   const models = [
-    { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", image: "ic-22.png" },
+    { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", image: "ic-22.png", notice_available: true },
     { id: "e1000000-0000-4000-8000-000000000002", model: "DUSTOMAT 4-24",
-      serial: "DEMO-SN-A-002", image: "dustomat-4-24.png" }
+      serial: "DEMO-SN-A-002", image: "dustomat-4-24.png", notice_available: true }
   ];
   vi.stubGlobal("fetch", vi.fn((url: string) => {
     if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });
@@ -46,6 +46,8 @@ it("montre la photo officielle exacte dans chaque fiche appareil Client", async 
     expect(photo.getAttribute("src")).toContain(`assets/obera-products/${item.image}`);
     expect(Boolean(photo.closest(".client-device-photo-ic22-frame"))).toBe(item.model === "IC 22");
     expect(view.getByText(`Numéro de série : ${item.serial}`)).toBeTruthy();
+    expect(view.getByRole("link", { name: "Télécharger la notice" }).getAttribute("href"))
+      .toBe(`/api/client/devices/${item.id}/notice`);
     cleanup();
   }
 });
