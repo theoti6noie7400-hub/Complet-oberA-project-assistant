@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createLocalRecipeApi } from "./api.mjs";
+import { loadPrivateClients } from "./private-clients.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 if (Number(process.versions.node.split(".")[0]) !== 24) {
@@ -20,7 +21,8 @@ if (!existsSync(join(root, "node_modules", "vite"))) {
 // load the local API, accounts or fixture state.
 process.env.VITE_LOCAL_RECIPE = "1";
 const { createServer } = await import("vite");
-const api = createLocalRecipeApi(join(root, ".local-recipe", "data.json"));
+const api = createLocalRecipeApi(join(root, ".local-recipe", "data.json"), {
+  privateClients: await loadPrivateClients() });
 const server = await createServer({ root, base: "/", server: { host: "127.0.0.1", port: 5173,
   strictPort: true, proxy: {}, fs: { strict: true, allow: [root] } }, plugins: [{ name: "obera-local-recipe-only",
   configureServer(vite) { vite.middlewares.use(api); } }] });

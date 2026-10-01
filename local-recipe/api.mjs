@@ -4,12 +4,13 @@ import { dirname } from "node:path";
 import { resolveDiagnosticPath } from "../src/lib/diagnosticContext.ts";
 import { fingerprintDiagnosticGraph } from "../server/src/diagnostic-fingerprint.ts";
 import { localNotice, LOCAL_NOTICE_ROOT, LOCAL_NOTICE_SOURCES } from "./notices.mjs";
+import { checkPrivatePin } from "./private-clients.mjs";
 
 // This module is loaded only by the explicit local launcher. It is never
 // registered with the Fastify/PostgreSQL backend or a normal Vite build.
 const alpha = "a1000000-0000-4000-8000-000000000001";
 const beta = "a1000000-0000-4000-8000-000000000002";
-const devices = [
+const demoDevices = [
   { id: "e1000000-0000-4000-8000-000000000001", organizationId: alpha,
     model: "IC 22", serial: "DEMO-SN-A-001" },
   { id: "e1000000-0000-4000-8000-000000000002", organizationId: alpha,
@@ -17,7 +18,7 @@ const devices = [
   { id: "e1000000-0000-4000-8000-000000000003", organizationId: beta,
     model: "IC 22", serial: "DEMO-SN-B-001" }
 ];
-const accounts = new Map([
+const demoAccounts = new Map([
   ["DEMO-CLIENT-A", { pin: "1234", role: "client", organizationId: alpha, organizationName: "CLIENT DEMO ALPHA" }],
   ["DEMO-CLIENT-B", { pin: "1234", role: "client", organizationId: beta, organizationName: "CLIENT DEMO BETA" }],
   ["DEMO-STAFF", { pin: "1789", role: "global_admin" }],
@@ -45,7 +46,7 @@ async function body(req) {
 const publicRequest = item => ({ id: item.id, request_type: item.request_type,
   device_id: item.device_id, device_ids: item.device_ids, subject: item.subject,
   message: item.message, public_status: item.public_status, created_at: item.created_at });
-const internalRequest = item => {
+const internalRequest = (item, devices) => {
   const device = devices.find(entry => entry.id === item.device_id);
   return { ...publicRequest(item), kind: "client", organization_name: item.organization_name,
     author_identifier: item.author_identifier, device_model: device?.model ?? null,
@@ -56,8 +57,15 @@ const internalRequest = item => {
 };
 
 export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
-  noticeSources = LOCAL_NOTICE_SOURCES } = {}) {
+  noticeSources = LOCAL_NOTICE_SOURCES, privateClients = [] } = {}) {
   const sessions = new Map();
+  const accounts = new Map(demoAccounts);
+  const devices = [...demoDevices];
+  for (const client of privateClients) {
+    if (accounts.has(client.identifier)) throw new Error("Identifiant de recette déjà utilisé");
+    accounts.set(client.identifier, { ...client, role: "client" });
+    devices.push(...client.devices);
+  }
   const publicDevice = async item => ({ id: item.id, model: item.model, serial: item.serial,
     notice_available: Boolean(await localNotice(noticeRoot, item.model, noticeSources)) });
   let pending = Promise.resolve();
@@ -97,10 +105,13 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
       const session = token && sessions.get(token);
       const principal = session && session.expires > Date.now() ? session.account : null;
 
+      if (method === "GET" && path === "/api/local-recipe/info")
+        return send(res, 200, { private_data_loaded: privateClients.length > 0 });
+
       if (method === "POST" && ["/api/client/login", "/api/login"].includes(path)) {
         const input = await body(req);
         const account = accounts.get(input.identifier);
-        if (!account || account.pin !== input.pin ||
+        if (!account || (account.pinHash ? !checkPrivatePin(account, input.pin) : account.pin !== input.pin) ||
             (path === "/api/client/login" ? account.role !== "client" : !staffRoles.has(account.role)))
           return send(res, 401, { error: "invalid_credentials" });
         if (token) sessions.delete(token);
@@ -138,7 +149,7 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
           if (device[2]) {
             const pdf = await localNotice(noticeRoot, found.model, noticeSources);
             if (!pdf) return send(res, 404, { error: "not_found" });
-            const filename = found.model === "IC 22" ? "notice-ic-22.pdf" : "notice-dustomat-4-24.pdf";
+            const filename = `notice-${found.model.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
             res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
               "Content-Disposition": `attachment; filename="${filename}"`,
               "X-Content-Type-Options": "nosniff" });
@@ -210,13 +221,13 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         if (method === "GET" && path === "/api/portal/requests") {
           const filter = new URL(req.url, "http://127.0.0.1").searchParams.get("requestType");
           const all = (await snapshot()).requests.filter(item => !filter || filter === item.request_type).reverse();
-          return send(res, 200, { requests: all.slice(0, 100).map(internalRequest), has_more: all.length > 100,
+          return send(res, 200, { requests: all.slice(0, 100).map(item => internalRequest(item, devices)), has_more: all.length > 100,
             can_manage: managementRoles.has(principal.role) });
         }
         if (request) {
           const item = (await snapshot()).requests.find(entry => entry.id === request[1]);
           if (!item) return send(res, 404, { error: "not_found" });
-          if (method === "GET" && !request[2]) return send(res, 200, internalRequest(item));
+          if (method === "GET" && !request[2]) return send(res, 200, internalRequest(item, devices));
           if (method === "GET" && request[2] === "compatible-cases") return send(res, 200, { cases: [] });
           if (method === "POST" && request[2] === "sav-case")
             return managementRoles.has(principal.role) ? send(res, 404, { error: "no_demo_sav_case" }) :

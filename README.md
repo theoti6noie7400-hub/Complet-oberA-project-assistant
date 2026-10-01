@@ -18,22 +18,35 @@ La première exécution installe les dépendances dans le dossier du projet si n
 | SAV responsable (contrôle des droits) | `DEMO-SAV-MANAGER` | `1789` |
 | SAV technicien (lecture seulement des demandes) | `DEMO-SAV-TECH` | `1789` |
 
-Un second compte `DEMO-CLIENT-B` / `1234` et son parc distinct permettent de vérifier l'isolation. Le bandeau **MODE RECETTE LOCALE — DONNÉES FICTIVES** reste visible et contient **Réinitialiser les données DEMO**. Les demandes et leurs statuts sont conservés dans `.local-recipe/data.json` après rechargement et redémarrage ; ce dossier est ignoré par Git. La réinitialisation efface ces demandes, les changements de statut et les sessions locales. N'entrer que des données fictives pendant la recette.
+Un second compte `DEMO-CLIENT-B` / `1234` et son parc distinct permettent de vérifier l'isolation. Le bandeau **MODE RECETTE LOCALE — DONNÉES FICTIVES** reste visible en mode DEMO, et signale les données Client privées lorsqu'elles ont été importées. Il contient **Réinitialiser les données DEMO**. Les demandes et leurs statuts sont conservés dans `.local-recipe/data.json` après rechargement et redémarrage ; ce dossier est ignoré par Git. La réinitialisation efface ces demandes, les changements de statut et les sessions locales. Ne saisir que des demandes fictives pendant la recette.
 
-Le diagnostic affiché utilise les arbres métier actuels du frontend et son résumé est validé par la même fonction de parcours que l'API réelle. Les écrans, photos, KPI et calculs restent ceux du portail. Les demandes et sessions sont **simulées** par un serveur local distinct, sans PostgreSQL. Les deux notices officielles IC 22 et DUSTOMAT 4-24 sont téléchargées depuis le stockage privé local lorsqu'elles ont été importées et vérifiées ; sans import, « Notice indisponible » s'affiche. Les statistiques SAV historiques restent des fixtures, séparées des demandes créées. La saisie manuelle SAV reste en mode simulation non persistante. Le rattachement à un dossier SAV réel, les autres documents privés, l'authentification et les garanties de sécurité du backend PostgreSQL se testent dans l'environnement complet, pas dans ce mode local.
+Le diagnostic affiché utilise les arbres métier actuels du frontend et son résumé est validé par la même fonction de parcours que l'API réelle. Les écrans, photos, KPI et calculs restent ceux du portail. Les demandes et sessions sont **simulées** par un serveur local distinct, sans PostgreSQL. Les notices validées sont téléchargées depuis le stockage privé local lorsqu'elles ont été importées et vérifiées ; sans import, « Notice indisponible » s'affiche. Les statistiques SAV historiques restent des fixtures, séparées des demandes créées. La saisie manuelle SAV reste en mode simulation non persistante. Le rattachement à un dossier SAV réel, les autres documents privés, l'authentification et les garanties de sécurité du backend PostgreSQL se testent dans l'environnement complet, pas dans ce mode local.
 
 Le serveur de recette écoute uniquement sur `127.0.0.1`. Il ne s'active que par `npm.cmd run recette` : `npm run dev`, le build standard, le backend Fastify et les migrations PostgreSQL ne chargent pas ce module. Le bandeau et les identifiants DEMO sont absents du build normal.
 
-### Installer les deux notices officielles pour la recette locale
+### Importer un parc Client privé pour la recette
 
-Télécharger les deux PDF officiels joints dans votre dossier **Téléchargements**, en conservant exactement leurs noms : `FR  NOTICE TECHNIQUE IC-22 .pdf` et `FR  NOTICE DUSTOMAT 4.pdf`. Fermer l'ancien serveur de recette avec Ctrl+C, puis, depuis le dossier du projet, exécuter :
+Placer le fichier `obera-clients-recette.json` reçu séparément dans **Téléchargements**. Ce fichier contient des données privées : ne pas le copier dans le dépôt, ne pas le commiter, ne pas le partager publiquement. Fermer le serveur de recette avec Ctrl+C, puis exécuter depuis le projet :
+
+```powershell
+& "C:\Users\ThéoBanchonpanith\Downloads\node-v24.21.0-win-x64\node-v24.21.0-win-x64\npm.cmd" run recette:import-clients
+& "C:\Users\ThéoBanchonpanith\Downloads\node-v24.21.0-win-x64\node-v24.21.0-win-x64\npm.cmd" run recette
+```
+
+L'import vérifie les modèles du catalogue, les champs autorisés et l'unicité des séries ; il refuse les données de maintenance, les notes ou les sites. Il stocke uniquement les identifiants, l'organisation, les modèles et les séries dans `%USERPROFILE%\.obera-local-recipe\private-data\clients.json`, hors du dépôt et des fichiers servis par Vite. Le PIN y est dérivé avec `scrypt`. Le fichier source peut être supprimé de Téléchargements après l'import. L'import à nouveau des mêmes données conserve les identifiants techniques des appareils. Après modification du parc, relancer le serveur de recette. Le bandeau indique la présence de données Client privées. **Réinitialiser les données DEMO** efface les demandes et les sessions de recette, mais préserve le parc et les notices importés ; il ne supprime pas le fichier source dans Téléchargements.
+
+Le format d'import est `{"version":1,"clients":[{"identifier":"TEST-CLIENT","pin":"1234","organizationName":"CLIENT TEST","devices":[{"model":"IC 22","serial":"TEST-SN-001"}]}]}`. Les vrais rapports de maintenance ne sont jamais importés ni rendus accessibles au Client. Ce mode local reste une simulation, sans sécurité ni stockage PostgreSQL de production.
+
+### Installer les notices officielles pour la recette locale
+
+Télécharger les PDF officiels joints dans votre dossier **Téléchargements**, en conservant exactement leurs noms. Les notices reconnues pour cette recette sont `FR  NOTICE TECHNIQUE IC-22 .pdf`, `FR  NOTICE DUSTOMAT 4.pdf`, `NOTICE TECHNIQUE IC 12 - FR - VD.pdf`, `NOTICE TECHNIQUE EPUR EX 1000 - FR.pdf` et `NOTICE CLEARBOX - FR.pdf`. Fermer l'ancien serveur de recette avec Ctrl+C, puis, depuis le dossier du projet, exécuter :
 
 ```powershell
 & "C:\Users\ThéoBanchonpanith\Downloads\node-v24.21.0-win-x64\node-v24.21.0-win-x64\npm.cmd" run recette:import-notices
 & "C:\Users\ThéoBanchonpanith\Downloads\node-v24.21.0-win-x64\node-v24.21.0-win-x64\npm.cmd" run recette
 ```
 
-Si les PDF se trouvent ailleurs, ajouter `-- "C:\chemin\vers\le\dossier"` à la commande `recette:import-notices`. L'import vérifie le SHA-256 des deux fichiers **avant** de les copier dans `C:\Users\ThéoBanchonpanith\.obera-local-recipe\private-documents\client-notices`. Ce dossier privé est hors du projet, hors de Git et hors des fichiers servis par Vite. Les PDF restent inchangés. Le bouton de réinitialisation DEMO efface les demandes et sessions de recette, **pas** les notices importées. Si l'un des PDF manque ou diffère, la notice reste indisponible et l'import explique l'erreur.
+Si les PDF se trouvent ailleurs, ajouter `-- "C:\chemin\vers\le\dossier"` à la commande `recette:import-notices`. L'import ne prend que les PDF officiels présents, vérifie leurs SHA-256 **avant** de les copier dans `%USERPROFILE%\.obera-local-recipe\private-documents\client-notices`. Ce dossier privé est hors du projet, hors de Git et hors des fichiers servis par Vite. Les PDF restent inchangés. Le bouton de réinitialisation DEMO efface les demandes et sessions de recette, **pas** les notices importées. Si un PDF présent diffère, l'import est interrompu ; une notice absente reste indisponible.
 
 ## Bêta interne
 
