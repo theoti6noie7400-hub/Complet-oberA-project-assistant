@@ -25,7 +25,19 @@ async function withDisposableDatabase(run: (pool: pg.Pool) => Promise<void>) {
     await run(pool);
   } finally {
     await pool?.end();
-    try { await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`); }
+    try {
+      // Do not kill a connection that pg.Pool is still closing: FORCE can emit
+      // an asynchronous client error after the assertions have all passed.
+      let remaining = 0;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        remaining = (await admin.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname = $1`, [name])).rows[0].n as number;
+        if (remaining === 0) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      assert.equal(remaining, 0, `Connections remain open to disposable database ${name}`);
+      await admin.query(`DROP DATABASE IF EXISTS ${name}`);
+    }
     finally { await admin.end(); }
   }
 }
