@@ -28,7 +28,13 @@ it("montre la photo officielle exacte dans chaque fiche appareil Client", async 
   const models = [
     { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", image: "ic-22.png", notice_available: true },
     { id: "e1000000-0000-4000-8000-000000000002", model: "DUSTOMAT 4-24",
-      serial: "DEMO-SN-A-002", image: "dustomat-4-24.png", notice_available: true }
+      serial: "DEMO-SN-A-002", image: "dustomat-4-24.png", notice_available: true },
+    { id: "e1000000-0000-4000-8000-000000000003", model: "IC 12",
+      serial: "DEMO-SN-IC12", image: "ic-12.png", notice_available: true },
+    { id: "e1000000-0000-4000-8000-000000000004", model: "Clearbox",
+      serial: "DEMO-SN-CLEAR", image: "clearbox.png", notice_available: true },
+    { id: "e1000000-0000-4000-8000-000000000005", model: "ePUR EX 1000",
+      serial: "DEMO-SN-EPUR", image: "epur-ex-1000.png", notice_available: true }
   ];
   vi.stubGlobal("fetch", vi.fn((url: string) => {
     if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });

@@ -30,7 +30,7 @@ test("la commande explicite démarre Vite et l'API DEMO sur une seule origine", 
     assert.match(await banner.text(), /MODE RECETTE LOCALE/);
     const directFile = await fetch(`${origin}/@fs/${privatePdf.replaceAll("\\", "/")}`);
     assert.notEqual(directFile.status, 200, "Vite must not serve private PDFs outside the project root");
-    for (const filename of ["ic-22.png", "dustomat-4-24.png"]) {
+    for (const filename of ["ic-22.png", "dustomat-4-24.png", "ic-12.png", "clearbox.png", "epur-ex-1000.png"]) {
       const photo = await fetch(`${origin}/assets/obera-products/${filename}`);
       assert.equal(photo.status, 200);
       assert.match(photo.headers.get("content-type"), /image\/png/);

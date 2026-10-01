@@ -15,14 +15,34 @@ const devices = [
 
 it("resolves only an exact catalog model/image and falls back when no photo is available", () => {
   expect(clientProductForModel("IC 22")?.id).toBe("ic22");
-  expect(Object.keys(OBERA_PRODUCT_IMAGES).sort()).toEqual(["dustomat-424", "ic22"]);
+  expect(Object.keys(OBERA_PRODUCT_IMAGES).sort()).toEqual([
+    "clearbox", "dustomat-424", "epur-ex-1000", "ic12", "ic22"]);
+  expect(clientProductPhoto("IC 12")).toBe("assets/obera-products/ic-12.png");
+  expect(clientProductPhoto("Clearbox")).toBe("assets/obera-products/clearbox.png");
+  expect(clientProductPhoto("ePUR EX 1000")).toBe("assets/obera-products/epur-ex-1000.png");
   expect(clientProductPhoto("IC 22")).toBe("assets/obera-products/ic-22.png");
   expect(clientProductPhoto("DUSTOMAT 4-24")).toBe("assets/obera-products/dustomat-4-24.png");
   expect(clientProductPhoto("IC 22", { ic22: "assets/ic22-photo.jpg" })).toBe("assets/ic22-photo.jpg");
   expect(clientProductPhoto("IC 22", { ic12: "assets/ic12-photo.jpg" })).toBeNull();
-  expect(clientProductPhoto("IC 12")).toBeNull();
+  expect(clientProductPhoto("IC 12", { ic22: "assets/ic22-photo.jpg" })).toBeNull();
   expect(clientProductPhoto("DUSTOMAT 4-10")).toBeNull();
+  expect(clientProductPhoto("ePUR EX 1001", { "epur-ex-1000": "assets/epur-photo.jpg" })).toBeNull();
   expect(clientProductForModel("IC 22EC")).toBeNull();
+});
+
+it("montre les trois nouvelles photos exactes sur les cartes du parc Client", () => {
+  const items = [
+    { id: "ic12", model: "IC 12", serial: "DEMO-SN-IC12", image: "ic-12.png" },
+    { id: "clear", model: "Clearbox", serial: "DEMO-SN-CLEAR", image: "clearbox.png" },
+    { id: "epur", model: "ePUR EX 1000", serial: "DEMO-SN-EPUR", image: "epur-ex-1000.png" }
+  ];
+  const view = render(<MemoryRouter><ClientPark devices={items} base="/client-space" /></MemoryRouter>);
+  for (const item of items) {
+    const photo = view.getByRole("img", { name: `Photo du modèle ${item.model}` });
+    expect(photo.getAttribute("src")).toContain(`assets/obera-products/${item.image}`);
+    expect(photo.classList.contains("client-device-photo")).toBe(true);
+    expect(view.getByText(item.serial)).toBeTruthy();
+  }
 });
 
 it("centers the owned devices, serials, actions and notice availability", () => {
@@ -49,10 +69,10 @@ it("centers the owned devices, serials, actions and notice availability", () => 
 
 it("conserve le placeholder pour un modèle sans image officielle ou en erreur de chargement", () => {
   const view = render(<MemoryRouter><ClientPark devices={[
-    { id: "c", model: "IC 12", serial: "DEMO-SN-OTHER" },
+    { id: "c", model: "DUSTOMAT 4-10", serial: "DEMO-SN-OTHER" },
     devices[0]
   ]} base="/client-space" /></MemoryRouter>);
-  expect(view.getByRole("img", { name: "Photo indisponible pour IC 12" })).toBeTruthy();
+  expect(view.getByRole("img", { name: "Photo indisponible pour DUSTOMAT 4-10" })).toBeTruthy();
   fireEvent.error(view.getByRole("img", { name: "Photo du modèle DUSTOMAT 4-24" }));
   expect(view.getByRole("img", { name: "Photo indisponible pour DUSTOMAT 4-24" })).toBeTruthy();
 });
