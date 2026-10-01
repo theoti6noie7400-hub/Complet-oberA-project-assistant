@@ -174,7 +174,10 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
       subject: "DEMO mauvais champ", message: "DEMO interdit" })).statusCode, 400);
     assert.equal((await send("POST", "/api/reseller/requests", undefined, {
       submissionKey: randomUUID(), requestType: "maintenance_quote",
-      subject: "DEMO interdit", message: "DEMO interdit" })).statusCode, 401);
+      subject: "DEMO interdit", message: "DEMO interdit" })).statusCode, 400);
+    assert.equal((await send("POST", "/api/reseller/requests", undefined, {
+      submissionKey: randomUUID(), requestType: "consumables",
+      subject: "DEMO refus sans session", message: "DEMO interdit" })).statusCode, 401);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n, casesBefore);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM contracts")).rows[0].n, contractsBefore);
     assert.equal(Number((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n),auditMaintenanceBefore+3);
