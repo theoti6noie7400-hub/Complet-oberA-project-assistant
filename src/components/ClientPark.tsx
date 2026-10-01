@@ -5,12 +5,13 @@ import { clientProductForModel, clientProductPhoto } from "../lib/clientProductM
 
 export type ClientDevice = { id: string; model: string; serial: string; notice_available?: boolean };
 
-function Photo({ model }: { model: string }) {
+export function ClientDevicePhoto({ model, detail = false }: { model: string; detail?: boolean }) {
   const [failed, setFailed] = useState(false);
   const image = clientProductPhoto(model);
-  if (!image || failed) return <div className="client-device-photo client-device-placeholder" role="img"
+  const className = `client-device-photo${detail ? " client-device-photo-detail" : ""}`;
+  if (!image || failed) return <div className={`${className} client-device-placeholder`} role="img"
     aria-label={`Photo indisponible pour ${model}`}>OberA<br /><small>Photo indisponible</small></div>;
-  return <img className="client-device-photo" src={getImageUrl(image) ?? undefined}
+  return <img className={className} src={getImageUrl(image) ?? undefined}
     alt={`Photo du modèle ${model}`} onError={() => setFailed(true)} />;
 }
 
@@ -21,7 +22,7 @@ export function ClientPark({ devices, base }: { devices: ClientDevice[]; base: s
     {devices.length === 0 ? <p>Aucun appareil enregistré.</p> :
       <ul className="client-device-grid">{devices.map(device =>
         <li className="client-device-card" key={device.id}>
-          <Photo model={device.model} />
+          <ClientDevicePhoto model={device.model} />
           <div className="space-y-2 min-w-0"><h3 className="font-semibold text-lg">{device.model}</h3>
             <p>Numéro de série : <strong>{device.serial}</strong></p>
             <div className="client-device-actions">

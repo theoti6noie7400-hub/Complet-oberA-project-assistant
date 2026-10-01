@@ -24,6 +24,31 @@ function appAt(path: string) {
 
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
+it("montre la photo officielle exacte dans chaque fiche appareil Client", async () => {
+  const models = [
+    { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", image: "ic-22.png" },
+    { id: "e1000000-0000-4000-8000-000000000002", model: "DUSTOMAT 4-24",
+      serial: "DEMO-SN-A-002", image: "dustomat-4-24.png" }
+  ];
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });
+    if (url === "/api/client/me") return result({ organization: { name: "CLIENT DEMO ALPHA" } });
+    if (url === "/api/client/devices") return result({ devices: models });
+    if (url === "/api/client/requests") return result({ requests: [] });
+    if (url === "/api/client/documents") return result({ documents: [] });
+    const device = models.find(item => url === `/api/client/devices/${item.id}`);
+    if (device) return result(device);
+    throw new Error(`Unexpected ${url}`);
+  }));
+  for (const item of models) {
+    const view = appAt(`/client-space/devices/${item.id}`);
+    const photo = await view.findByRole("img", { name: `Photo du modèle ${item.model}` });
+    expect(photo.getAttribute("src")).toContain(`assets/obera-products/${item.image}`);
+    expect(view.getByText(`Numéro de série : ${item.serial}`)).toBeTruthy();
+    cleanup();
+  }
+});
+
 it("ouvre SAV ou consommables directement depuis sa carte avec le bon appareil préselectionné", async () => {
   vi.stubGlobal("fetch", vi.fn((url: string) => {
     if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });

@@ -5,6 +5,7 @@ import { afterEach, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { ClientPark, ClientDiagnosticSelector } from "./ClientPark";
 import { clientProductForModel, clientProductPhoto } from "../lib/clientProductMedia";
+import { OBERA_PRODUCT_IMAGES } from "../assets/oberaProductImages";
 
 afterEach(cleanup);
 const devices = [
@@ -14,9 +15,13 @@ const devices = [
 
 it("resolves only an exact catalog model/image and falls back when no photo is available", () => {
   expect(clientProductForModel("IC 22")?.id).toBe("ic22");
+  expect(Object.keys(OBERA_PRODUCT_IMAGES).sort()).toEqual(["dustomat-424", "ic22"]);
+  expect(clientProductPhoto("IC 22")).toBe("assets/obera-products/ic-22.png");
+  expect(clientProductPhoto("DUSTOMAT 4-24")).toBe("assets/obera-products/dustomat-4-24.png");
   expect(clientProductPhoto("IC 22", { ic22: "assets/ic22-photo.jpg" })).toBe("assets/ic22-photo.jpg");
   expect(clientProductPhoto("IC 22", { ic12: "assets/ic12-photo.jpg" })).toBeNull();
-  expect(clientProductPhoto("IC 22")).toBeNull();
+  expect(clientProductPhoto("IC 12")).toBeNull();
+  expect(clientProductPhoto("DUSTOMAT 4-10")).toBeNull();
   expect(clientProductForModel("IC 22EC")).toBeNull();
 });
 
@@ -24,7 +29,11 @@ it("centers the owned devices, serials, actions and notice availability", () => 
   const view = render(<MemoryRouter><ClientPark devices={devices} base="/client-space" /></MemoryRouter>);
   expect(view.getAllByText(/Numéro de série/)).toHaveLength(2);
   expect(view.getByText("DEMO-SN-A-001")).toBeTruthy();
-  expect(view.getAllByRole("img", { name: /Photo indisponible/ })).toHaveLength(2);
+  expect(view.getByRole("img", { name: "Photo du modèle IC 22" }).getAttribute("src"))
+    .toContain("assets/obera-products/ic-22.png");
+  expect(view.getByRole("img", { name: "Photo du modèle DUSTOMAT 4-24" }).getAttribute("src"))
+    .toContain("assets/obera-products/dustomat-4-24.png");
+  expect(view.queryByRole("img", { name: /Photo indisponible/ })).toBeNull();
   expect(view.getAllByRole("link", { name: "Diagnostic" })).toHaveLength(2);
   expect(view.getAllByRole("link", { name: "Créer une demande SAV" })).toHaveLength(2);
   expect(view.getAllByRole("link", { name: "Demander des consommables" })).toHaveLength(2);
@@ -32,6 +41,16 @@ it("centers the owned devices, serials, actions and notice availability", () => 
     .toBe("/api/client/devices/b/notice");
   expect(view.getByText("Notice indisponible")).toBeTruthy();
   expect(view.queryByText("ePUR 100")).toBeNull();
+});
+
+it("conserve le placeholder pour un modèle sans image officielle ou en erreur de chargement", () => {
+  const view = render(<MemoryRouter><ClientPark devices={[
+    { id: "c", model: "IC 12", serial: "DEMO-SN-OTHER" },
+    devices[0]
+  ]} base="/client-space" /></MemoryRouter>);
+  expect(view.getByRole("img", { name: "Photo indisponible pour IC 12" })).toBeTruthy();
+  fireEvent.error(view.getByRole("img", { name: "Photo du modèle DUSTOMAT 4-24" }));
+  expect(view.getByRole("img", { name: "Photo indisponible pour DUSTOMAT 4-24" })).toBeTruthy();
 });
 
 it("greys out empty families and models absent from the client's park", () => {

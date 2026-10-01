@@ -4,7 +4,7 @@ import PortalTopBar from "../components/PortalTopBar";
 import { useAdminAuth, type ExternalRole } from "../auth/adminAuth";
 import { DIAGNOSTIC_NODES, PRODUCTS, getDiagnosticStartNode, resolveDynamicNext } from "../lib/assistantData";
 import { resolveDiagnosticPath, type DiagnosticChoice, type DiagnosticPath } from "../lib/diagnosticContext";
-import { ClientPark, ClientDiagnosticSelector, type ClientDevice } from "../components/ClientPark";
+import { ClientPark, ClientDiagnosticSelector, ClientDevicePhoto, type ClientDevice } from "../components/ClientPark";
 
 type View = "home" | "device" | "diagnostic" | "request";
 type Device = ClientDevice;
@@ -252,6 +252,7 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
       </nav>}
       {view !== "home" && <Link className="underline" to={base}>Retour à mon espace</Link>}
       {view === "device" && selectedDevice && <section className="obera-panel p-5 space-y-3">
+        <ClientDevicePhoto model={selectedDevice.model} detail />
         <h2 className="text-xl font-semibold">{selectedDevice.model}</h2><p>Numéro de série : {selectedDevice.serial}</p>
         <div className="client-device-actions">
           <Link className="obera-btn-primary" to={`${base}/diagnostic/${selectedDevice.id}`}>Démarrer le diagnostic</Link>

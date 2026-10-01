@@ -23,6 +23,12 @@ test("la commande explicite démarre Vite et l'API DEMO sur une seule origine", 
     const banner = await fetch(`${origin}/src/components/LocalRecipeBanner.tsx`);
     assert.equal(banner.status, 200);
     assert.match(await banner.text(), /MODE RECETTE LOCALE/);
+    for (const filename of ["ic-22.png", "dustomat-4-24.png"]) {
+      const photo = await fetch(`${origin}/assets/obera-products/${filename}`);
+      assert.equal(photo.status, 200);
+      assert.match(photo.headers.get("content-type"), /image\/png/);
+      assert.ok((await photo.arrayBuffer()).byteLength > 40000);
+    }
     const login = await fetch(`${origin}/api/client/login`, { method: "POST",
       headers: { origin, "Content-Type": "application/json" },
       body: JSON.stringify({ identifier: "DEMO-CLIENT-A", pin: "1234" }) });
