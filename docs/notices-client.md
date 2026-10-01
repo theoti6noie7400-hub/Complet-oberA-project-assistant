@@ -1,6 +1,6 @@
 # Notices Client — inventaire et raccordement du ZIP du lot 6
 
-Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/modèles ci-dessous ont été vérifiés par extraction des deux premières pages (le titre ePUR Ex 5000 apparaît en page 2). Les PDF ne sont pas committés ni servis par `public/` : leur dépôt privé est une étape distincte. La correspondance active est limitée aux 25 fichiers et 30 noms de modèle exacts du manifeste `server/src/client-notice-manifest.ts`. Le SHA-256 complet est figé dans ce manifeste ; il interdit de substituer un autre PDF lors de l’import.
+Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/modèles ci-dessous ont été vérifiés par extraction des deux premières pages (le titre ePUR Ex 5000 apparaît en page 2). Les PDF ne sont pas committés ni servis par `public/` : leur dépôt privé est une étape distincte. La correspondance active est limitée aux 24 fichiers et 29 noms de modèle exacts du manifeste `server/src/client-notice-manifest.ts`. Le SHA-256 complet est figé dans ce manifeste ; il interdit de substituer un autre PDF lors de l’import.
 
 | Fichier du ZIP | Titre / modèle observé dans le PDF | Décision |
 |---|---|---|
@@ -44,7 +44,7 @@ Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/mo
 | `Notice technique VL 50-B FR - VD.pdf` | RAFRAÎCHISSEUR D'AIR VL 50B / MANUEL D’UTILISATION / VL 50B - Introduction / Cet appareil n’est pas destiné à être utilisé par des pers | Non lié : à valider / hors catalogue actuel / autre version |
 | `Notice technique ePUR 150 Fresh - DE.pdf` | LUFTFRISCHER ePUR 150 / FRESH / BEDIENUNGSANLEITUNG / +49 698 700 33 45 | Non lié : à valider / hors catalogue actuel / autre version |
 | `Notice technique ePUR 150 Fresh - EN.pdf` | ePUR 150 FRESH / AIR COOLER / INSTRUCTION MANUAL / ePUR 150 FRESH - Introduction | Non lié : à valider / hors catalogue actuel / autre version |
-| `Notice technique ePUR 150 Fresh - FR.pdf` | RAFRAîCHISSEUR D'AIR / ePUR 150 FRESH / MANUEL D’UTILISATION / ePUR 150 FRESH - Introduction | Mapping confirmé dans le manifeste |
+| `Notice technique ePUR 150 Fresh - FR.pdf` | RAFRAîCHISSEUR D'AIR / ePUR 150 FRESH / MANUEL D’UTILISATION / ePUR 150 FRESH - Introduction | Non lié : à valider (`ePURFresh 150` dans le catalogue) |
 | `Notice technique ePUR 150 Fresh - PL.pdf` | Mobilne przemysłowe / chłodnice powietrza / FRESH 150 / INSTRUKCJA OBSŁUGI | Non lié : à valider / hors catalogue actuel / autre version |
 | `OberA FR  NOTICE TECHNIQUE VL-120 .pdf` | RAFRAÎCHISSEUR D'AIR / VL-120 / MANUEL D’UTILISATION / contact@vilo-cooler.com 03 10 45 57 50 | Mapping confirmé dans le manifeste |
 | `OberA FR  NOTICE TECHNIQUE VL-220 .pdf` | RAFRAÎCHISSEUR D'AIR / VL-220 / MANUEL D’UTILISATION / contact@vilo-cooler.com 03 10 45 57 50 | Mapping confirmé dans le manifeste |
@@ -55,7 +55,7 @@ Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/mo
 - `DUSTOMAT 4-24` et `DUSTOMAT 4-10` : le PDF « DUSTOMAT 4 » ne démontre pas, dans son titre ou son texte extractible, la variante exacte. Le PDF « Dustomat 4-24 ATEX » est titré DUSTOMAT 4 ATEX : il est lié exclusivement à `DUSTOMAT 4 ATEX`. Demander la confirmation OberA avant tout partage au 4-24 standard.
 - `ECOCLIM 20` : la notice extraite est `ECOCLIM 22`, pas 20. `IC 22EC`, `IC 30 NG` et `VL 50B` sont distincts des modèles IC 22, IC 30 et VL 50 du catalogue.
 - `DUSTMAC` et `DUSTMAC ATEX` : le PDF nommé Dustomat P-90 se présente comme `DUSTMAC P-90` ; la règle de partage standard/ATEX ne prouve pas qu’il couvre tous les DUSTMAC. `DUSTOMAT DRY` générique et `DUSTOMAT DRY ATEX` générique attendent une validation de leurs sous-modèles.
-- `ePUR 150` n’est pas automatiquement `ePUR 150 FRESH`, `ePUR EX` générique et `ePUR EX 2000` n’ont pas de notice française confirmée dans ce ZIP.
+- `ePUR 150` n’est pas automatiquement `ePUR 150 FRESH` ; confirmer aussi si `ePURFresh 150` dans le catalogue désigne exactement le modèle `ePUR 150 FRESH` du PDF. `ePUR EX` générique et `ePUR EX 2000` n’ont pas de notice française confirmée dans ce ZIP.
 - `Filtower`, `Jumbo`, `Dosseret Aspirant` : pas de notice correspondante confirmée. Les autres PDF hors catalogue ne sont pas exposés.
 
 Les mutualisations explicitement validées sont dans le manifeste : ePURBox/ATEX, DUSTOMAT HYDRO/ATEX, ePUR EX 1001/1000, 3001/3000 et 5001/5000. La règle DUSTMAC standard/ATEX reste sans source générique confirmée.

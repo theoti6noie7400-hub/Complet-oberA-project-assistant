@@ -15,10 +15,10 @@ test("notice mapping is exact and only uses catalog model names and approved sha
       models.add(model);
     }
   }
-  assert.equal(CLIENT_NOTICE_SOURCES.length, 25);
-  assert.equal(models.size, 30);
+  assert.equal(CLIENT_NOTICE_SOURCES.length, 24);
+  assert.equal(models.size, 29);
   for (const unverified of ["DUSTOMAT 4-24", "DUSTOMAT 4-10", "DUSTMAC", "DUSTMAC ATEX",
-    "ECOCLIM 20", "ePUR EX 2000", "ePUR 150"]) assert.ok(!models.has(unverified), unverified);
+    "ECOCLIM 20", "ePUR EX 2000", "ePUR 150", "ePURFresh 150"]) assert.ok(!models.has(unverified), unverified);
   for (const [left, right] of [["ePURBox", "ePURBox ATEX"],
     ["Dustomat HYDRO", "DUSTOMAT HYDRO ATEX"],
     ["ePUR EX 1000", "ePUR EX 1001"], ["ePUR EX 3000", "ePUR EX 3001"],

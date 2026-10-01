@@ -11,7 +11,6 @@ export const CLIENT_NOTICE_SOURCES: ReadonlyArray<{ file: string; sha256: string
   { file: "OberA FR  NOTICE TECHNIQUE VL-300.pdf", sha256: "de9cdebdc75ed2249d8b30b958d9374fe3747af0bc0f8503d0a1d4d171df53ed", models: ["VL 300"] },
   { file: "NOTICE ECOCLIM12 - FR.pdf", sha256: "efb5c52d9726f2d6980c5223e6e91bf1a3b87f0c9629d363f9c8f7b0a6ee1cc4", models: ["ECOCLIM 12"] },
   { file: "NOTICE EcoCLIM30 -FR.pdf", sha256: "c2a10c40447946e8ae1cedf4a67125f3d0964d717ef8f4cfed6a9635da6ca611", models: ["ECOCLIM 30"] },
-  { file: "Notice technique ePUR 150 Fresh - FR.pdf", sha256: "7406e620a3b6a41a726111ee4a699ae710c0a0bf59a6f4af6a6af80f354447a3", models: ["ePURFresh 150"] },
   { file: "Notice EPUR010 - FR.pdf", sha256: "f03b9d281b6dbf0a1de77e96da765061f3720970403a27b12bf62e5a02e5ded9", models: ["ePUR 10"] },
   { file: "NOTICE EPUR 050 - FR.pdf", sha256: "7966c2753590ba9989ed21cf67e4003b9ff7f6dade62d00f3797a503348059b2", models: ["ePUR 50"] },
   { file: "NOTICE ePUR100 - FR.pdf", sha256: "723a6d25c2b2b53b0530ef01ed8b4ae5d88df96da64e3c810941ef4902790139", models: ["ePUR 100"] },
