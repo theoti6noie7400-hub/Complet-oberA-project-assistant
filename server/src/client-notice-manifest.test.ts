@@ -15,15 +15,18 @@ test("notice mapping is exact and only uses catalog model names and approved sha
       models.add(model);
     }
   }
-  assert.equal(CLIENT_NOTICE_SOURCES.length, 24);
-  assert.equal(models.size, 29);
-  for (const unverified of ["DUSTOMAT 4-24", "DUSTOMAT 4-10", "DUSTMAC", "DUSTMAC ATEX",
+  assert.equal(CLIENT_NOTICE_SOURCES.length, 25);
+  assert.equal(models.size, 31);
+  for (const unverified of ["DUSTOMAT 4-24", "DUSTOMAT 4-10",
     "ECOCLIM 20", "ePUR EX 2000", "ePUR 150", "ePURFresh 150"]) assert.ok(!models.has(unverified), unverified);
-  for (const [left, right] of [["ePURBox", "ePURBox ATEX"],
+  for (const [left, right] of [["ePURBox", "ePURBox ATEX"], ["DUSTMAC", "DUSTMAC ATEX"],
     ["Dustomat HYDRO", "DUSTOMAT HYDRO ATEX"],
     ["ePUR EX 1000", "ePUR EX 1001"], ["ePUR EX 3000", "ePUR EX 3001"],
     ["ePUR EX 5000", "ePUR EX 5001"]]) {
     const primary = CLIENT_NOTICE_SOURCES.find(item => item.models.includes(left));
     assert.ok(primary?.models.includes(right), `${left} and ${right}`);
   }
+  const dustmac = CLIENT_NOTICE_SOURCES.find(item => item.models.includes("DUSTMAC"));
+  assert.equal(dustmac?.file, "FR - Notice Dustomat P-90.pdf");
+  assert.equal(dustmac?.sha256, "6d4784fcb47593f1aa615f504181a6c1e632a3dbe35b2d8a6295f879e5b3bbd0");
 });

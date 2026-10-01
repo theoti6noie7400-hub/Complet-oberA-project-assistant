@@ -1,6 +1,6 @@
 # Notices Client — inventaire et raccordement du ZIP du lot 6
 
-Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/modèles ci-dessous ont été vérifiés par extraction des deux premières pages (le titre ePUR Ex 5000 apparaît en page 2). Les PDF ne sont pas committés ni servis par `public/` : leur dépôt privé est une étape distincte. La correspondance active est limitée aux 24 fichiers et 29 noms de modèle exacts du manifeste `server/src/client-notice-manifest.ts`. Le SHA-256 complet est figé dans ce manifeste ; il interdit de substituer un autre PDF lors de l’import.
+Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/modèles ci-dessous ont été vérifiés par extraction des deux premières pages (le titre ePUR Ex 5000 apparaît en page 2). Les PDF ne sont pas committés ni servis par `public/` : leur dépôt privé est une étape distincte. La correspondance active est limitée aux 25 fichiers et 31 noms de modèle exacts du manifeste `server/src/client-notice-manifest.ts`. Le SHA-256 complet est figé dans ce manifeste ; il interdit de substituer un autre PDF lors de l’import.
 
 | Fichier du ZIP | Titre / modèle observé dans le PDF | Décision |
 |---|---|---|
@@ -9,7 +9,7 @@ Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/mo
 | `FR  NOTICE TECHNIQUE IC-22 .pdf` | RAFRAÎCHISSEUR D'AIR / IC-22 / MANUEL D’UTILISATION / IC 22 - Introduction | Mapping confirmé dans le manifeste |
 | `FR -   NOTICE EPUR EX 3000.pdf` | EPUR EX 3000 / MANUEL D'INSTRUCTIONS / EPUR EX 3000 ­ AVERTISSEMENT ET RÉFÉRENCES DE SÉCURITÉ / Ne jamais utiliser l'appareil sans filt | Mapping confirmé dans le manifeste |
 | `FR - NOTICE DUSTOMAT HYDRO.pdf` | MODE D’EMPLOI / Séparateur par voie humide / DUSTOMAT HYDRO / X45901 | Mapping confirmé dans le manifeste |
-| `FR - Notice Dustomat P-90.pdf` | MODE D’EMPLOI D’ORIGINE / DUSTMAC P-90 (malgré le nom du fichier) | Non lié : à valider / hors catalogue actuel / autre version |
+| `FR - Notice Dustomat P-90.pdf` | MODE D’EMPLOI D’ORIGINE / DUSTMAC P-90 (malgré le nom du fichier) | Mapping `DUSTMAC` et `DUSTMAC ATEX`, décision métier OberA |
 | `FR -Notice d'utilisation Dustomat 16 M.pdf` | Le monde de l'extraction / DUSTOMAT-16 M / Extracteur mobile / Le monde de l'extraction | Mapping confirmé dans le manifeste |
 | `NOTICE BAS-V - FR.pdf` | TABLE ASPIRANTE / BAS­V / (TOUS LES MODÈLES) / EXPLOITATION ET | Mapping confirmé dans le manifeste |
 | `NOTICE CLEARBOX - FR.pdf` | CAISSONS MOBILES D’ASPIRATION / CLEARBOX / MANUEL D’INSTRUCTION / REMARQUES SUR LA DOCUMENTATION | Mapping confirmé dans le manifeste |
@@ -54,11 +54,11 @@ Source : archive `FR -   NOTICES.zip` fournie pour ce lot, 45 PDF. Les titres/mo
 
 - `DUSTOMAT 4-24` et `DUSTOMAT 4-10` : le PDF « DUSTOMAT 4 » ne démontre pas, dans son titre ou son texte extractible, la variante exacte. Le PDF « Dustomat 4-24 ATEX » est titré DUSTOMAT 4 ATEX : il est lié exclusivement à `DUSTOMAT 4 ATEX`. Demander la confirmation OberA avant tout partage au 4-24 standard.
 - `ECOCLIM 20` : la notice extraite est `ECOCLIM 22`, pas 20. `IC 22EC`, `IC 30 NG` et `VL 50B` sont distincts des modèles IC 22, IC 30 et VL 50 du catalogue.
-- `DUSTMAC` et `DUSTMAC ATEX` : le PDF nommé Dustomat P-90 se présente comme `DUSTMAC P-90` ; la règle de partage standard/ATEX ne prouve pas qu’il couvre tous les DUSTMAC. `DUSTOMAT DRY` générique et `DUSTOMAT DRY ATEX` générique attendent une validation de leurs sous-modèles.
+- `DUSTOMAT DRY` générique et `DUSTOMAT DRY ATEX` générique attendent une validation de leurs sous-modèles.
 - `ePUR 150` n’est pas automatiquement `ePUR 150 FRESH` ; confirmer aussi si `ePURFresh 150` dans le catalogue désigne exactement le modèle `ePUR 150 FRESH` du PDF. `ePUR EX` générique et `ePUR EX 2000` n’ont pas de notice française confirmée dans ce ZIP.
 - `Filtower`, `Jumbo`, `Dosseret Aspirant` : pas de notice correspondante confirmée. Les autres PDF hors catalogue ne sont pas exposés.
 
-Les mutualisations explicitement validées sont dans le manifeste : ePURBox/ATEX, DUSTOMAT HYDRO/ATEX, ePUR EX 1001/1000, 3001/3000 et 5001/5000. La règle DUSTMAC standard/ATEX reste sans source générique confirmée.
+Les mutualisations explicitement validées sont dans le manifeste : ePURBox/ATEX, DUSTOMAT HYDRO/ATEX, **DUSTMAC standard/ATEX**, ePUR EX 1001/1000, 3001/3000 et 5001/5000. Pour DUSTMAC, le PDF fourni est titré `DUSTMAC P-90` ; le rattachement aux deux modèles du catalogue découle de la décision métier OberA du 1er octobre 2026, et non d’une généralisation déduite du titre.
 
 ## Import privé et service
 

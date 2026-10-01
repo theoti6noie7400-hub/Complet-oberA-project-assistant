@@ -21,6 +21,7 @@ export const CLIENT_NOTICE_SOURCES: ReadonlyArray<{ file: string; sha256: string
   { file: "FR -Notice d'utilisation Dustomat 16 M.pdf", sha256: "f81418a0ae8d6ff1fc4a0abf10b4d74855d86ee4041dacd56e0510fba806ef4b", models: ["DUSTOMAT 16M"] },
   { file: "FR - NOTICE DUSTOMAT HYDRO.pdf", sha256: "141e45bfc55481c80761d6aa91c6fd7e260b054682073e6f5c88b8dc70d027d7", models: ["Dustomat HYDRO", "DUSTOMAT HYDRO ATEX"] },
   { file: "Notice technique Dustomat 4-24 ATEX - FR.pdf", sha256: "9b07238a4239dee32900ab4ab12efeef42c5a932aec00a63bb6f8fc55b3d81e6", models: ["DUSTOMAT 4 ATEX"] },
+  { file: "FR - Notice Dustomat P-90.pdf", sha256: "6d4784fcb47593f1aa615f504181a6c1e632a3dbe35b2d8a6295f879e5b3bbd0", models: ["DUSTMAC", "DUSTMAC ATEX"] },
   { file: "NOTICE TECHNIQUE EPUR EX 1000 - FR.pdf", sha256: "112ccbef786dc6a30be6ea9369b6ec45ac06c3def399acf025ed91f6a398ab6c", models: ["ePUR EX 1000", "ePUR EX 1001"] },
   { file: "FR -   NOTICE EPUR EX 3000.pdf", sha256: "d95a7fe2d832af84b31c5c647e2ce23f219b3916725fb826af3353fca588d6ea", models: ["ePUR EX 3000", "ePUR EX 3001"] },
   { file: "Notice ePUR EX 5000- FR.pdf", sha256: "85665485c0a00ec9eeb3ec1ab3123739025dfef797ef1cd874b4238f0f199e2f", models: ["ePUR EX 5000", "ePUR EX 5001"] },
