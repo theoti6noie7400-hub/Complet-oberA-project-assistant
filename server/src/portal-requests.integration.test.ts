@@ -46,7 +46,9 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
     const b = await login("/api/client", "DEMO-PORTAL-CLIENT-B", "8102");
     assert.equal((await send("POST", "/api/reseller/login", undefined,
       { identifier: "DEMO-PORTAL-RESELLER-A", pin: "8103" })).statusCode, 410);
-    const staff = cookies.get("sav_technician")!;
+    const staff = cookies.get("sav_manager")!;
+    const technician = cookies.get("sav_technician")!;
+    const admin = cookies.get("global_admin")!;
     const base = "/api/portal/requests";
     assert.equal((await send("GET", base)).statusCode, 401);
     for (const externalCookie of [a, b]) {
@@ -73,6 +75,7 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
       assert.equal(detail.device_serial, "DEMO-SN-A-001");
       assert.equal(detail.message, "DEMO message client");
       assert.equal(detail.organization_name.includes("DEMO"), true);
+      assert.equal(list.json().can_manage, role !== "sav_technician");
     }
     const quote = await send("POST", "/api/client/requests", a, {
       submissionKey: randomUUID(), requestType: "maintenance_quote", deviceIds: [deviceA],
@@ -97,6 +100,13 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
       { status: "in_progress" })).statusCode, 403);
     assert.equal((await send("POST", `${base}/${id}/sav-case`, undefined,
       { savCaseId: randomUUID() })).statusCode, 401);
+    assert.equal((await send("GET", `${base}/${id}`, technician)).statusCode, 200);
+    assert.equal((await send("GET", `${base}/${id}/compatible-cases`, technician)).statusCode, 200);
+    assert.equal((await send("POST", `${base}/${id}/status`, technician,
+      { status: "in_progress" })).statusCode, 403);
+    assert.equal((await send("POST", `${base}/${id}/sav-case`, technician,
+      { savCaseId: randomUUID() })).statusCode, 403);
+    assert.equal((await send("GET", `/api/client/requests/${id}`, a)).json().public_status, "received");
     assert.equal((await send("POST", `${base}/${id}/status`, staff, { status: "closed" })).statusCode, 409);
     assert.equal((await send("POST", `${base}/${id}/status`, staff, { status: "unknown" })).statusCode, 400);
     assert.equal((await send("POST", `${base}/${id}/status`, staff, { status: "in_progress" })).statusCode, 200);
@@ -141,6 +151,17 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
     const audits = (await db.query(`SELECT action FROM audit_events WHERE resource_kind = 'portal_request'
       AND resource_id = $1 ORDER BY id`, [id])).rows.map(row => row.action);
     assert.deepEqual(audits, ["create", "status:received:in_progress", "link_sav_case", "status:in_progress:closed"]);
+    const adminRequest = await send("POST", "/api/client/requests", a, {
+      submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA,
+      subject: "DEMO décision admin", message: "DEMO deuxième demande"
+    });
+    assert.equal(adminRequest.statusCode, 201);
+    const adminId = adminRequest.json().id as string;
+    assert.equal((await send("POST", `${base}/${adminId}/status`, admin,
+      { status: "in_progress" })).statusCode, 200);
+    assert.equal((await send("POST", `${base}/${adminId}/sav-case`, admin,
+      { savCaseId: ownCase })).statusCode, 200);
+    assert.equal((await send("GET", `/api/client/requests/${adminId}`, a)).json().public_status, "in_progress");
     // Even a direct SQL attempt cannot attach a different organization's case.
     await assert.rejects(db.query("UPDATE portal_requests SET linked_sav_case_id=$1 WHERE id=$2",
       [foreignCase, id]), { code: "23503" });

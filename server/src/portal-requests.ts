@@ -21,10 +21,13 @@ const joins = `FROM portal_requests p
   LEFT JOIN sav_cases s ON s.id = p.linked_sav_case_id`;
 
 export function registerPortalRequestRoutes(app: FastifyInstance, db: Database, publicOrigin: string) {
-  async function staff(request: FastifyRequest, reply: FastifyReply) {
+  async function staff(request: FastifyRequest, reply: FastifyReply, permission: "read" | "manage" = "read") {
     const principal = await findPrincipal(db, request.headers.cookie);
     if (!principal) { reply.code(401).send({ error: "authentication_required" }); return null; }
     if (!["global_admin", "sav_manager", "sav_technician"].includes(principal.role)) {
+      reply.code(403).send({ error: "access_denied" }); return null;
+    }
+    if (permission === "manage" && !["global_admin", "sav_manager"].includes(principal.role)) {
       reply.code(403).send({ error: "access_denied" }); return null;
     }
     return principal;
@@ -33,12 +36,14 @@ export function registerPortalRequestRoutes(app: FastifyInstance, db: Database, 
   app.get("/api/portal/requests", { schema: { querystring: { type: "object", additionalProperties: false,
     properties: { requestType: { type: "string", enum: ["sav", "consumables", "maintenance_quote"] } }
   } } }, async (request, reply) => {
-    if (!await staff(request, reply)) return reply;
+    const principal = await staff(request, reply);
+    if (!principal) return reply;
     const result = await db.query(`SELECT ${fields} ${joins}
       WHERE ($1::text IS NULL OR p.request_type = $1)
       ORDER BY p.created_at DESC, p.id DESC LIMIT 101`,
       [(request.query as { requestType?: string }).requestType ?? null]);
-    return { requests: result.rows.slice(0, 100), has_more: result.rows.length > 100 };
+    return { requests: result.rows.slice(0, 100), has_more: result.rows.length > 100,
+      can_manage: principal.role === "global_admin" || principal.role === "sav_manager" };
   });
 
   app.get("/api/portal/requests/:id", { schema: { params } }, async (request, reply) => {
@@ -67,7 +72,7 @@ export function registerPortalRequestRoutes(app: FastifyInstance, db: Database, 
     type: "object", required: ["status"], additionalProperties: false,
     properties: { status: { type: "string", enum: ["received", "in_progress", "closed"] } }
   } } }, async (request, reply) => {
-    const principal = await staff(request, reply);
+    const principal = await staff(request, reply, "manage");
     if (!principal) return reply;
     if (request.headers.origin !== publicOrigin) return reply.code(403).send({ error: "origin_denied" });
     const { id } = request.params as { id: string };
@@ -99,7 +104,7 @@ export function registerPortalRequestRoutes(app: FastifyInstance, db: Database, 
     type: "object", required: ["savCaseId"], additionalProperties: false,
     properties: { savCaseId: uuid }
   } } }, async (request, reply) => {
-    const principal = await staff(request, reply);
+    const principal = await staff(request, reply, "manage");
     if (!principal) return reply;
     if (request.headers.origin !== publicOrigin) return reply.code(403).send({ error: "origin_denied" });
     const { id } = request.params as { id: string };

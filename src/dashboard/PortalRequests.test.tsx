@@ -22,8 +22,9 @@ const record: {
 let items: typeof record[];
 let responseError = 0;
 let sent: string[];
+let canManage = true;
 beforeEach(() => {
-  items = [{ ...record }]; responseError = 0; sent = [];
+  items = [{ ...record }]; responseError = 0; sent = []; canManage = true;
   vi.stubGlobal("fetch", vi.fn((input: string, options?: RequestInit) => {
     sent.push(input);
     if (responseError) return Promise.resolve(Response.json({}, { status: responseError }));
@@ -41,7 +42,7 @@ beforeEach(() => {
     }
     if (input === `/api/portal/requests/${id}`) return Promise.resolve(Response.json(items[0]));
     if (input === "/api/portal/requests")
-      return Promise.resolve(Response.json({ requests: items, has_more: false }));
+      return Promise.resolve(Response.json({ requests: items, has_more: false, can_manage: canManage }));
     throw new Error(`Unexpected ${input}`);
   }));
 });
@@ -90,9 +91,9 @@ it("filtre au serveur les motifs et montre les appareils d'une demande maintenan
   vi.stubGlobal("fetch", vi.fn((path: string) => {
     paths.push(path);
     if (path === "/api/portal/requests?requestType=maintenance_quote")
-      return Promise.resolve(Response.json({ requests: [maintenance], has_more: false }));
+      return Promise.resolve(Response.json({ requests: [maintenance], has_more: false, can_manage: true }));
     if (path === "/api/portal/requests")
-      return Promise.resolve(Response.json({ requests: [record, maintenance], has_more: false }));
+      return Promise.resolve(Response.json({ requests: [record, maintenance], has_more: false, can_manage: true }));
     if (path === `/api/portal/requests/${maintenance.id}`)
       return Promise.resolve(Response.json(maintenance));
     throw new Error(`Unexpected ${path}`);
@@ -109,6 +110,18 @@ it("filtre au serveur les motifs et montre les appareils d'une demande maintenan
   await waitFor(() => expect(dialog.textContent).toContain("DEMO-SN-A-002"));
   expect(within(dialog).queryByRole("button", { name: "Rattacher le dossier SAV" })).toBeNull();
   expect(paths).not.toContain(`/api/portal/requests/${maintenance.id}/compatible-cases`);
+});
+
+it("laisse le technicien lire les demandes sans proposer les mutations administratives", async () => {
+  canManage = false;
+  const view = render(<MemoryRouter><PortalRequests /></MemoryRouter>);
+  fireEvent.click(await view.findByRole("button", { name: "DEMO assistance" }));
+  const dialog = await view.findByRole("dialog", { name: "Détail de la demande portail" });
+  await waitFor(() => expect(within(dialog).getByText("DEMO panne")).toBeTruthy());
+  expect(within(dialog).queryByRole("button", { name: "Passer en cours" })).toBeNull();
+  expect(within(dialog).queryByRole("button", { name: "Rattacher le dossier SAV" })).toBeNull();
+  expect(sent).not.toContain(`/api/portal/requests/${id}/status`);
+  expect(sent).not.toContain(`/api/portal/requests/${id}/sav-case`);
 });
 
 it("affiche le parcours Client déclaré au SAV sans le transformer en cause technique", async () => {

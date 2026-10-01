@@ -52,16 +52,18 @@ export default function PortalRequests() {
   const [error, setError] = useState("");
   const [detailError, setDetailError] = useState("");
   const [hasMore, setHasMore] = useState(false);
+  const [canManage, setCanManage] = useState(false);
   const [filter, setFilter] = useState("all");
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError(""); setItems([]);
+    setLoading(true); setError(""); setItems([]); setCanManage(false);
     const url = filter === "all" ? "/api/portal/requests" :
       `/api/portal/requests?requestType=${encodeURIComponent(filter)}`;
-    api<{ requests: PortalRequest[]; has_more: boolean }>(url, { signal: controller.signal })
-      .then(data => { if (!controller.signal.aborted) { setItems(data.requests); setHasMore(data.has_more); } })
+    api<{ requests: PortalRequest[]; has_more: boolean; can_manage: boolean }>(url, { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) { setItems(data.requests); setHasMore(data.has_more);
+        setCanManage(data.can_manage === true); } })
       .catch(err => { if (!controller.signal.aborted) setError(explain(err)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -84,7 +86,7 @@ export default function PortalRequests() {
   }, [selectedId, refresh]);
 
   async function change(path: string, body: object) {
-    if (!selectedId || busy) return;
+    if (!selectedId || busy || !canManage) return;
     setBusy(true); setDetailError("");
     try {
       await api(`/api/portal/requests/${encodeURIComponent(selectedId)}/${path}`, {
@@ -156,11 +158,11 @@ export default function PortalRequests() {
               </li>)}</ol>
             <p className="text-sm">Résultat déclaré : problème persistant. Ce parcours ne constitue pas un diagnostic technique définitif.</p>
           </section>}
-          {detail.kind === "client" && detail.public_status !== "closed" && <button type="button" disabled={busy}
+          {canManage && detail.kind === "client" && detail.public_status !== "closed" && <button type="button" disabled={busy}
             className="obera-btn-primary" onClick={() => change("status", {
               status: detail.public_status === "received" ? "in_progress" : "closed"
             })}>{detail.public_status === "received" ? "Passer en cours" : "Terminer"}</button>}
-          {detail.kind === "client" && detail.request_type === "sav" && !detail.linked_sav_case_id && <div className="space-y-2">
+          {canManage && detail.kind === "client" && detail.request_type === "sav" && !detail.linked_sav_case_id && <div className="space-y-2">
             <h4 className="font-medium">Créer / rattacher un dossier SAV</h4>
             <p className="text-sm">Le rattachement concerne uniquement un dossier existant du même client et du même appareil.
               La création nécessite une saisie interne complète des champs métier.</p>
