@@ -31,8 +31,12 @@ it("centers the owned devices, serials, actions and notice availability", () => 
   expect(view.getByText("DEMO-SN-A-001")).toBeTruthy();
   expect(view.getByRole("img", { name: "Photo du modèle IC 22" }).getAttribute("src"))
     .toContain("assets/obera-products/ic-22.png");
+  expect(view.getByRole("img", { name: "Photo du modèle IC 22" }).closest(".client-device-photo-ic22-frame"))
+    .toBeTruthy();
   expect(view.getByRole("img", { name: "Photo du modèle DUSTOMAT 4-24" }).getAttribute("src"))
     .toContain("assets/obera-products/dustomat-4-24.png");
+  expect(view.getByRole("img", { name: "Photo du modèle DUSTOMAT 4-24" }).closest(".client-device-photo-ic22-frame"))
+    .toBeNull();
   expect(view.queryByRole("img", { name: /Photo indisponible/ })).toBeNull();
   expect(view.getAllByRole("link", { name: "Diagnostic" })).toHaveLength(2);
   expect(view.getAllByRole("link", { name: "Créer une demande SAV" })).toHaveLength(2);

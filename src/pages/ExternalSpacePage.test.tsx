@@ -44,6 +44,7 @@ it("montre la photo officielle exacte dans chaque fiche appareil Client", async 
     const view = appAt(`/client-space/devices/${item.id}`);
     const photo = await view.findByRole("img", { name: `Photo du modèle ${item.model}` });
     expect(photo.getAttribute("src")).toContain(`assets/obera-products/${item.image}`);
+    expect(Boolean(photo.closest(".client-device-photo-ic22-frame"))).toBe(item.model === "IC 22");
     expect(view.getByText(`Numéro de série : ${item.serial}`)).toBeTruthy();
     cleanup();
   }

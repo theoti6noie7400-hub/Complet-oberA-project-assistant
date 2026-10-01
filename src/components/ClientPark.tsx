@@ -11,6 +11,10 @@ export function ClientDevicePhoto({ model, detail = false }: { model: string; de
   const className = `client-device-photo${detail ? " client-device-photo-detail" : ""}`;
   if (!image || failed) return <div className={`${className} client-device-placeholder`} role="img"
     aria-label={`Photo indisponible pour ${model}`}>OberA<br /><small>Photo indisponible</small></div>;
+  if (clientProductForModel(model)?.id === "ic22") return <span className={`${className} client-device-photo-ic22-frame`}>
+    <img className="client-device-photo-ic22-image" src={getImageUrl(image) ?? undefined}
+      alt={`Photo du modèle ${model}`} onError={() => setFailed(true)} />
+  </span>;
   return <img className={className} src={getImageUrl(image) ?? undefined}
     alt={`Photo du modèle ${model}`} onError={() => setFailed(true)} />;
 }
