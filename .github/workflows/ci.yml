@@ -31,7 +31,7 @@ jobs:
       DATABASE_URL: postgres://obera_ci:demo_ci_only@127.0.0.1:5432/obera_beta_demo
       EXTERNAL_TEST_DATABASE_URL: postgres://obera_ci:demo_ci_only@127.0.0.1:5432/obera_beta_demo
       EXTERNAL_DEMO_MODE: '1'
-      PRIVATE_DOCUMENT_ROOT: ${{ runner.temp }}/obera-ci-documents
+      PRIVATE_DOCUMENT_ROOT: /tmp/obera-ci-documents
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
