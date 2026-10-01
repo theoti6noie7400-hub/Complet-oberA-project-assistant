@@ -75,21 +75,24 @@ integration("PostgreSQL: populated 001–005 retains history through 006–007",
     const files = await migrationFiles();
     assert.deepEqual(await migrate(pool, files[4]), files.slice(0, 5));
     const ids = {
-      clientA: randomUUID(), clientB: randomUUID(), reseller: randomUUID(),
-      manager: randomUUID(), clientUser: randomUUID(), clientBUser: randomUUID(), resellerUser: randomUUID(),
+      clientA: randomUUID(), clientB: randomUUID(), reseller: randomUUID(), resellerB: randomUUID(),
+      manager: randomUUID(), clientUser: randomUUID(), clientBUser: randomUUID(),
+      resellerUser: randomUUID(), resellerBUser: randomUUID(),
       deviceA: randomUUID(), deviceA2: randomUUID(), deviceB: randomUUID(),
-      savRequest: randomUUID(), consumables: randomUUID(), resellerRequest: randomUUID(),
+      savRequest: randomUUID(), consumables: randomUUID(),
+      resellerRequest: randomUUID(), resellerBRequest: randomUUID(),
       caseId: randomUUID(), contractId: randomUUID()
     };
     for (const [id, kind, name] of [[ids.clientA, "client", "CLIENT DEMO ALPHA"],
-      [ids.clientB, "client", "CLIENT DEMO BETA"], [ids.reseller, "reseller", "REVENDEUR DEMO ARCHIVE"]])
+      [ids.clientB, "client", "CLIENT DEMO BETA"], [ids.reseller, "reseller", "REVENDEUR DEMO ALPHA"],
+      [ids.resellerB, "reseller", "REVENDEUR DEMO BETA"]])
       await pool.query("INSERT INTO organizations(id,kind,name) VALUES ($1,$2,$3)", [id, kind, name]);
     for (const [id, role] of [[ids.manager, "sav_manager"], [ids.clientUser, "client"],
-      [ids.clientBUser, "client"], [ids.resellerUser, "reseller"]])
+      [ids.clientBUser, "client"], [ids.resellerUser, "reseller"], [ids.resellerBUser, "reseller"]])
       await pool.query(`INSERT INTO users(id,identity_issuer,identity_subject,role)
         VALUES ($1,'urn:obera:demo',$2,$3)`, [id, `DEMO-${id}`, role]);
     for (const [user, org] of [[ids.clientUser, ids.clientA], [ids.clientBUser, ids.clientB],
-      [ids.resellerUser, ids.reseller]])
+      [ids.resellerUser, ids.reseller], [ids.resellerBUser, ids.resellerB]])
       await pool.query("INSERT INTO user_organizations(user_id,organization_id) VALUES ($1,$2)", [user, org]);
     await pool.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ('DEMO-TOKEN-HASH',$1,now() + interval '1 hour')", [ids.manager]);
     for (const [id, org, serial] of [[ids.deviceA, ids.clientA, "DEMO-SN-A-1"],
@@ -108,12 +111,14 @@ integration("PostgreSQL: populated 001–005 retains history through 006–007",
     for (const [id, kind, org, author, type, device] of [
       [ids.savRequest, "client", ids.clientA, ids.clientUser, "sav", ids.deviceA],
       [ids.consumables, "client", ids.clientB, ids.clientBUser, "consumables", null],
-      [ids.resellerRequest, "reseller", ids.reseller, ids.resellerUser, "general", null]
+      [ids.resellerRequest, "reseller", ids.reseller, ids.resellerUser, "general", null],
+      [ids.resellerBRequest, "reseller", ids.resellerB, ids.resellerBUser, "consumables", null]
     ]) await pool.query(`INSERT INTO portal_requests(id,kind,organization_id,created_by,
       request_type,device_id,subject,message) VALUES ($1,$2,$3,$4,$5,$6,'DEMO OLD','DEMO TEXT')`,
     [id, kind, org, author, type, device]);
     for (const [org, audience, key] of [[ids.clientA, "client", "DEMO-CLIENT-DOCUMENT"],
-      [ids.reseller, "reseller", "DEMO-ARCHIVED-DOCUMENT"]])
+      [ids.reseller, "reseller", "DEMO-ARCHIVED-DOCUMENT-A"],
+      [ids.resellerB, "reseller", "DEMO-ARCHIVED-DOCUMENT-B"]])
       await pool.query("INSERT INTO documents(id,organization_id,audience,storage_key,title) VALUES ($1,$2,$3,$4,'DEMO DOC')",
       [randomUUID(), org, audience, key]);
     await pool.query(`INSERT INTO audit_events(actor_user_id,action,resource_kind,resource_id)
@@ -125,12 +130,13 @@ integration("PostgreSQL: populated 001–005 retains history through 006–007",
     const after = await snapshot(pool);
     assert.deepEqual(after, before, "All historical rows and values survive both migrations");
     assert.deepEqual((await checksums(pool, files)).slice(0, 5), firstChecksums);
-    for (const id of [ids.savRequest, ids.consumables, ids.resellerRequest]) {
+    for (const id of [ids.savRequest, ids.consumables, ids.resellerRequest, ids.resellerBRequest]) {
       const row = await pool.query("SELECT diagnostic_context FROM portal_requests WHERE id=$1", [id]);
       assert.equal(row.rows.length, 1);
       assert.equal(row.rows[0].diagnostic_context, null);
     }
     assert.equal((await pool.query("SELECT kind FROM portal_requests WHERE id=$1", [ids.resellerRequest])).rows[0].kind, "reseller");
+    assert.equal((await pool.query("SELECT kind FROM portal_requests WHERE id=$1", [ids.resellerBRequest])).rows[0].kind, "reseller");
     console.log("POPULATED COUNTS BEFORE/AFTER", JSON.stringify(Object.fromEntries(
       tables.map(table => [table, [before[table].length, after[table].length]]))));
 
@@ -149,7 +155,7 @@ integration("PostgreSQL: populated 001–005 retains history through 006–007",
       await assert.rejects(pool.query("UPDATE portal_requests SET diagnostic_context='{}'::jsonb WHERE id=$1", [request]),
         { code: "23514" });
     }
-    for (const id of [ids.consumables, ids.resellerRequest])
+    for (const id of [ids.consumables, ids.resellerRequest, ids.resellerBRequest])
       await assert.rejects(pool.query("UPDATE portal_requests SET diagnostic_context='{}'::jsonb WHERE id=$1", [id]),
         { code: "23514" });
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n, before.sav_cases.length);
