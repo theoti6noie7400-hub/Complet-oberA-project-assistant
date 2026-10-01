@@ -100,7 +100,9 @@ export default function PortalRequests() {
   return <section className="obera-panel p-4 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h3 className="font-medium">Demandes Client</h3>
-        <p className="text-sm text-stone-500">Demandes enregistrées dans PostgreSQL, séparées des statistiques de démonstration.</p></div>
+        <p className="text-sm text-stone-500">{import.meta.env.DEV && import.meta.env.VITE_LOCAL_RECIPE === "1" ?
+          "Demandes fictives enregistrées sur ce PC pour la recette, séparées des statistiques DEMO." :
+          "Demandes enregistrées dans PostgreSQL, séparées des statistiques de démonstration."}</p></div>
       <button className="obera-tab" type="button" onClick={() => setRefresh(value => value + 1)}>Actualiser</button>
     </div>
     <label className="block max-w-sm">Filtrer par motif

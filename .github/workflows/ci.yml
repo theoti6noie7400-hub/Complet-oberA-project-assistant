@@ -41,10 +41,14 @@ jobs:
         run: npm ci
       - name: Frontend tests
         run: npm test
+      - name: Local recipe contract and launcher tests
+        run: npm run test:recette
       - name: Frontend typecheck
         run: npx tsc --noEmit
       - name: Frontend build
         run: npm run build
+      - name: Verify normal build excludes local recipe
+        run: node local-recipe/check-normal-build.mjs
       - name: Install backend dependencies
         working-directory: server
         run: npm ci

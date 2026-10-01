@@ -9,6 +9,7 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import { AdminAuthProvider } from "./auth/adminAuth";
 import RequireAdmin from "./components/RequireAdmin";
 import AdminSessionBar from "./components/AdminSessionBar";
+import LocalRecipeBanner from "./components/LocalRecipeBanner";
 import {
   LanguageProvider,
   LanguageSwitcher,
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <LanguageProvider>
       <AdminAuthProvider>
+        {import.meta.env.DEV && import.meta.env.VITE_LOCAL_RECIPE === "1" && <LocalRecipeBanner />}
         <RuntimeTextTranslator />
         <LanguageSwitcher />
         <AdminSessionBar />

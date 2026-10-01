@@ -29,7 +29,7 @@ export function ClientPark({ devices, base }: { devices: ClientDevice[]; base: s
               <Link className="obera-btn-outline" to={`${base}/diagnostic/${device.id}`}>Diagnostic</Link>
               <Link className="obera-btn-outline" to={`${base}?type=sav&device=${device.id}#nouvelle-demande`}>Créer une demande SAV</Link>
               <Link className="obera-btn-outline" to={`${base}?type=consumables&device=${device.id}#nouvelle-demande`}>Demander des consommables</Link>
-              {device.notice_available ? <a className="obera-btn-outline" href={`/api/client/devices/${device.id}/notice`}>Télécharger la notice</a> :
+              {device.notice_available ? <a className="obera-btn-outline" href={`/api/client/devices/${device.id}/notice`}>{import.meta.env.DEV && import.meta.env.VITE_LOCAL_RECIPE === "1" ? "Télécharger le document DEMO" : "Télécharger la notice"}</a> :
                 <span className="text-sm text-slate-600">Notice indisponible</span>}
             </div>
           </div>

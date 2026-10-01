@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "recette": "node local-recipe/start.mjs",
+    "test:recette": "node --test local-recipe/*.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.473.0",
