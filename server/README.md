@@ -10,6 +10,8 @@ Le serveur refuse de démarrer sans configuration de comptes. Après vérificati
 
 L'ancienne URL `/api/recipe/session` renvoie `410`. La connexion Revendeur renvoie également `410` ; les autres API Revendeur restent en place pour compatibilité mais aucune session Revendeur n'est reconnue. `BETA_EXTERNAL_ACCOUNTS` doit contenir au moins un Client ; les anciennes entrées Revendeur sont ignorées. Au démarrage, seules les sessions des anciens rôles sont supprimées ; leurs utilisateurs, organisations, demandes, documents et audits sont conservés. Voir [le profil bêta externe](../deploy/beta/README.md).
 
+Les notices Client du lot 6 sont inventoriées dans [le mapping contrôlé](../docs/notices-client.md). L'endpoint `/api/client/devices/:id/notice` utilise le même cookie Client et vérifie la propriété de l'appareil, son modèle exact et le contenu du fichier privé. Le ZIP de référence n'est pas dans le dépôt : l'import privé exige `CLIENT_NOTICE_SOURCE_DIR` et `PRIVATE_DOCUMENT_ROOT` uniquement côté serveur. Sans import, l'interface affiche « Notice indisponible ».
+
 ## Lancement local fictif
 
 Node.js 24 et une base PostgreSQL **vide et fictive** nommée `obera_recipe` sont requis. Ne renseignez jamais de compte ni de donnée réelle pour ces essais.

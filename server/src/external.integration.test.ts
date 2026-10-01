@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "node:test";
 import { createApp } from "./app.ts";
 import { loadBetaAccounts } from "./beta-auth.ts";
@@ -70,11 +72,37 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.equal((await send("GET", "/api/sav/contracts", a)).statusCode, 403);
     assert.equal((await send("GET", "/api/client/devices", staff)).statusCode, 403);
     assert.equal((await send("GET", "/api/reseller/requests", a)).statusCode, 403);
+    // Test-only PDF, clearly marked DEMO, never committed as an OberA notice.
+    const demoPdf = Buffer.from("%PDF-1.4\n% DEMO NOTICE - AUTOMATED TEST ONLY\n%%EOF\n");
+    const digest = createHash("sha256").update(demoPdf).digest("hex");
+    const privateRoot = process.env.PRIVATE_DOCUMENT_ROOT!;
+    await mkdir(join(privateRoot, "client-notices"), { recursive: true });
+    await writeFile(join(privateRoot, "client-notices", `${digest}.pdf`), demoPdf);
+    await db.query(`INSERT INTO client_notice_assets(sha256,storage_key,source_name,size_bytes)
+      VALUES($1,$2,'DEMO-notice.pdf',$3) ON CONFLICT DO NOTHING`,
+    [digest, `client-notices/${digest}.pdf`, demoPdf.length]);
+    await db.query(`INSERT INTO client_model_notices(model,asset_sha256)
+      VALUES('IC 22',$1) ON CONFLICT DO NOTHING`, [digest]);
     const ownDevices = await send("GET", "/api/client/devices", a);
     assert.equal(ownDevices.statusCode, 200);
     assert.deepEqual(ownDevices.json().devices.map((item: { id: string }) => item.id).sort(),
       [deviceA, "e1000000-0000-4000-8000-000000000002"]);
-    assert.deepEqual(Object.keys(ownDevices.json().devices[0]).sort(), ["id","model","serial"]);
+    assert.deepEqual(Object.keys(ownDevices.json().devices[0]).sort(), ["id","model","notice_available","serial"]);
+    assert.equal(ownDevices.json().devices.find((item: { model: string }) => item.model === "IC 22").notice_available, true);
+    assert.equal(ownDevices.json().devices.find((item: { model: string }) => item.model === "DUSTOMAT 4-24").notice_available, false);
+    assert.equal((await send("GET", "/api/client/devices", b)).json().devices
+      .some((item: { model: string }) => item.model === "IC 22"), false);
+    assert.equal((await send("GET", `/api/client/devices/${deviceA}`, b)).statusCode, 404);
+    assert.equal((await send("GET", `/api/client/devices/${deviceA}/notice`)).statusCode, 401);
+    assert.equal((await send("GET", `/api/client/devices/${deviceA}/notice`, b)).statusCode, 404);
+    const notice = await send("GET", `/api/client/devices/${deviceA}/notice`, a);
+    assert.equal(notice.statusCode, 200);
+    assert.equal(notice.headers["content-type"], "application/pdf");
+    assert.equal(notice.headers["cache-control"], "no-store");
+    assert.equal(notice.rawPayload.toString(), demoPdf.toString());
+    assert.equal((await send("GET", "/api/client/devices/e1000000-0000-4000-8000-000000000002/notice", a)).statusCode, 404);
+    assert.equal((await send("GET", `/api/client/devices/${deviceA}/notice`, staff)).statusCode, 403);
+    assert.equal((await send("GET", "/api/client/devices/00000000-0000-4000-8000-000000000000/notice", a)).statusCode, 404);
     assert.equal((await send("GET", `/api/client/devices/${deviceB}`, a)).statusCode, 404);
     assert.equal((await send("GET", `/api/client/requests/${requestB}`, a)).statusCode, 404);
     assert.equal((await send("GET", `/api/reseller/requests/${requestResellerB}`)).statusCode, 401);

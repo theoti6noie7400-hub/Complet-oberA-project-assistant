@@ -10,6 +10,7 @@
     "migrate": "node src/migrate.ts",
     "seed:recipe": "node src/seed-recipe.ts",
     "seed:external-demo": "node src/seed-external-demo.ts",
+    "import:client-notices": "node src/import-client-notices.ts",
     "test": "node --test --test-concurrency=1 src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

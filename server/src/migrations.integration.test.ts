@@ -69,11 +69,11 @@ async function snapshot(pool: pg.Pool) {
   return rows;
 }
 
-integration("PostgreSQL: empty 001–007, checksums and idempotent second run", async () => {
+integration("PostgreSQL: empty 001–008, checksums and idempotent second run", async () => {
   await withDisposableDatabase(async pool => {
     const files = await migrationFiles();
-    assert.equal(files.length, 7);
-    assert.deepEqual(files.map(name => name.slice(0, 3)), ["001", "002", "003", "004", "005", "006", "007"]);
+    assert.equal(files.length, 8);
+    assert.deepEqual(files.map(name => name.slice(0, 3)), ["001", "002", "003", "004", "005", "006", "007", "008"]);
     assert.deepEqual(await migrate(pool), files);
     const first = await checksums(pool, files);
     assert.deepEqual(await migrate(pool), []);
@@ -82,7 +82,7 @@ integration("PostgreSQL: empty 001–007, checksums and idempotent second run", 
   });
 });
 
-integration("PostgreSQL: populated 001–005 retains history through 006–007", async () => {
+integration("PostgreSQL: populated 001–005 retains history through 006–008", async () => {
   await withDisposableDatabase(async pool => {
     const files = await migrationFiles();
     assert.deepEqual(await migrate(pool, files[4]), files.slice(0, 5));

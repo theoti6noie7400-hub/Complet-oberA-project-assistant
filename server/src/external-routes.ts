@@ -7,6 +7,7 @@ import { findPrincipal } from "./session.ts";
 import type { ExternalRole } from "./external-auth.ts";
 import { resolveDiagnosticPath, type DiagnosticPath } from "../../src/lib/diagnosticContext.ts";
 import { fingerprintDiagnosticGraph } from "./diagnostic-fingerprint.ts";
+import { noticeAvailable, verifiedNotice, type NoticeAsset } from "./client-notices.ts";
 
 const uuid = { type: "string", format: "uuid" } as const;
 const idParams = { params: { type: "object", required: ["id"], properties: { id: uuid } } } as const;
@@ -44,20 +45,40 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
     });
 
     if (role === "client") {
+      const deviceFields = `d.id, d.model, d.serial, n.sha256, n.storage_key, n.size_bytes`;
+      const deviceJoin = `FROM devices d LEFT JOIN client_model_notices m ON m.model = d.model
+        LEFT JOIN client_notice_assets n ON n.sha256 = m.asset_sha256`;
+      const publicDevice = async (row: Record<string, unknown>) => ({ id: row.id, model: row.model,
+        serial: row.serial, notice_available: await noticeAvailable(process.env.PRIVATE_DOCUMENT_ROOT,
+          row.storage_key ? row as unknown as NoticeAsset : null) });
       app.get(`${base}/devices`, async (request, reply) => {
         const owner = await scope(request, reply, role);
         if (!owner) return reply;
-        const result = await db.query(`SELECT id, model, serial FROM devices
-          WHERE client_organization_id = $1 ORDER BY model, id LIMIT 100`, [owner.organizationId]);
-        return { devices: result.rows };
+        const result = await db.query(`SELECT ${deviceFields} ${deviceJoin}
+          WHERE d.client_organization_id = $1 ORDER BY d.model, d.id LIMIT 100`, [owner.organizationId]);
+        return { devices: await Promise.all(result.rows.map(publicDevice)) };
       });
       app.get(`${base}/devices/:id`, { schema: idParams }, async (request, reply) => {
         const owner = await scope(request, reply, role);
         if (!owner) return reply;
-        const result = await db.query(`SELECT id, model, serial FROM devices
-          WHERE id = $1 AND client_organization_id = $2`,
+        const result = await db.query(`SELECT ${deviceFields} ${deviceJoin}
+          WHERE d.id = $1 AND d.client_organization_id = $2`,
         [(request.params as { id: string }).id, owner.organizationId]);
-        return result.rows[0] ?? reply.code(404).send({ error: "not_found" });
+        return result.rows[0] ? publicDevice(result.rows[0]) : reply.code(404).send({ error: "not_found" });
+      });
+      app.get(`${base}/devices/:id/notice`, { schema: idParams }, async (request, reply) => {
+        const owner = await scope(request, reply, role);
+        if (!owner) return reply;
+        const result = await db.query(`SELECT n.sha256, n.storage_key, n.size_bytes ${deviceJoin}
+          WHERE d.id = $1 AND d.client_organization_id = $2`,
+        [(request.params as { id: string }).id, owner.organizationId]);
+        const asset = result.rows[0] as NoticeAsset | undefined;
+        if (!asset?.storage_key) return reply.code(404).send({ error: "not_found" });
+        const data = await verifiedNotice(process.env.PRIVATE_DOCUMENT_ROOT, asset);
+        if (!data) return reply.code(404).send({ error: "not_found" });
+        return reply.header("Cache-Control", "no-store")
+          .header("Content-Disposition", 'attachment; filename="notice-obera.pdf"')
+          .type("application/pdf").send(data);
       });
     }
 
