@@ -41,6 +41,12 @@ Les réponses externes n'incluent que `id`, `model`, `serial` pour les appareils
 
 Les contrôles de chaque requête SAV sont dans `src/app.ts` et `src/access.ts`. Les gardes React servent à la navigation, jamais à accorder l'accès aux données. Le mode simulation manuel reste séparé des dossiers PostgreSQL. Aucun repli automatique en simulation n'intervient après une erreur API.
 
+## Trace du diagnostic Client
+
+Pour une demande SAV, le backend vérifie le chemin transmis dans le graphe en cours et retrouve le modèle et le numéro de série dans l'appareil appartenant à l'organisation du Client. Le snapshot interne porte `version: 1` (format de la trace) et `graphFingerprintVersion: 2` : son SHA-256 couvre les nœuds, les modèles, leurs nœuds de départ et les transitions spécifiques à chaque modèle. Les anciennes traces sans `graphFingerprintVersion` conservent leur empreinte historique limitée aux nœuds et restent lisibles. La confirmation d'une manipulation est une déclaration du Client, pas une preuve de réalisation.
+
+La distinction métier entre un terminal « résolu » et « non résolu » reste à valider. Le parcours transmis comme demande SAV est actuellement marqué `unresolved` lorsque le Client choisit de contacter le SAV ; ce lot ne modifie ni les terminaux ni les procédures.
+
 ## Avant production
 
 Cette connexion par PIN reste temporaire : choisir et intégrer l'identité OIDC, organiser les comptes individuels et leur révocation, définir l'hébergement HTTPS, les sauvegardes et la supervision, puis terminer la recette navigateur et sécurité. Le verrouillage des tentatives est local à un seul processus ; une architecture à plusieurs instances nécessitera un contrôle partagé. Les sessions déjà ouvertes restent valides jusqu'à expiration ou révocation si un compte est retiré de la configuration : désactiver son utilisateur en base et révoquer ses sessions lors d'un retrait urgent.

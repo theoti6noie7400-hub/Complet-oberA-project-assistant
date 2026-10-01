@@ -5,8 +5,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Database } from "./db.ts";
 import { findPrincipal } from "./session.ts";
 import type { ExternalRole } from "./external-auth.ts";
-import { DIAGNOSTIC_NODES } from "../../src/lib/assistantData.ts";
 import { resolveDiagnosticPath, type DiagnosticPath } from "../../src/lib/diagnosticContext.ts";
+import { fingerprintDiagnosticGraph } from "./diagnostic-fingerprint.ts";
 
 const uuid = { type: "string", format: "uuid" } as const;
 const idParams = { params: { type: "object", required: ["id"], properties: { id: uuid } } } as const;
@@ -20,7 +20,7 @@ const publicReadFields = `${publicRequestFields}, COALESCE((
 type RequestInput = { submissionKey: string; requestType: "sav" | "consumables" | "maintenance_quote" | "general";
   deviceId?: string; deviceIds?: string[]; subject: string; message: string;
   diagnosticContext?: DiagnosticPath };
-const diagnosticGraphFingerprint = createHash("sha256").update(JSON.stringify(DIAGNOSTIC_NODES)).digest("hex");
+const diagnosticGraphFingerprint = fingerprintDiagnosticGraph();
 
 export function registerExternalRoutes(app: FastifyInstance, db: Database, publicOrigin: string) {
   async function scope(request: FastifyRequest, reply: FastifyReply, role: ExternalRole) {
@@ -134,7 +134,8 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
             if (!path || JSON.stringify(input.diagnosticContext).length > 12000) {
               await client.query("ROLLBACK"); return reply.code(400).send({ error: "invalid_diagnostic_context" });
             }
-            diagnosticSnapshot = { version: 1, graphFingerprint: diagnosticGraphFingerprint,
+            diagnosticSnapshot = { version: 1, graphFingerprintVersion: 2,
+              graphFingerprint: diagnosticGraphFingerprint,
               productId: input.diagnosticContext.productId,
               device: { id: deviceId, model: device.rows[0].model, serial: device.rows[0].serial },
               symptom: path.symptom, steps: path.steps, result: "unresolved", comment: input.message };

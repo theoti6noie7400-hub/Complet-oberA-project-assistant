@@ -5,6 +5,7 @@ import { createApp } from "./app.ts";
 import { loadBetaAccounts } from "./beta-auth.ts";
 import { loadExternalAccounts } from "./external-auth.ts";
 import { openDatabase } from "./db.ts";
+import { fingerprintDiagnosticGraph } from "./diagnostic-fingerprint.ts";
 
 const integration = process.env.EXTERNAL_TEST_DATABASE_URL ? test : test.skip;
 const origin = "https://portail-demo.example.invalid";
@@ -102,6 +103,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const createdId = created.json().id;
     assert.equal((await send("GET", `/api/client/requests/${createdId}`, a2)).statusCode, 200);
     assert.equal((await send("GET", `/api/client/requests/${createdId}`, b)).statusCode, 404);
+    const casesBeforeDiagnostic = (await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n;
     const diagnosticPayload = { submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA,
       subject: "DEMO diagnostic transmis", message: "DEMO commentaire final",
       diagnosticContext: { version: 1, productId: "ic12", result: "unresolved", steps: [
@@ -112,24 +114,43 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.equal(diagnosticRequest.statusCode, 201, diagnosticRequest.body);
     const diagnosticId = diagnosticRequest.json().id as string;
     assert.equal((await send("POST", "/api/client/requests", a, diagnosticPayload)).statusCode, 200);
+    assert.equal((await send("POST", "/api/client/requests", a, {
+      ...diagnosticPayload, diagnosticContext: { ...diagnosticPayload.diagnosticContext,
+        steps: [{ nodeId: "start", optionIndex: 3 }, { nodeId: "contact-sav-general" }] }
+    })).statusCode, 409);
     assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, b)).statusCode, 404);
     const staffDiagnostic = (await send("GET", `/api/portal/requests/${diagnosticId}`, staff)).json();
     assert.equal(staffDiagnostic.diagnostic_context.device.serial, "DEMO-SN-A-001");
     assert.equal(staffDiagnostic.diagnostic_context.symptom, "L'appareil ne s'allume pas");
     assert.equal(staffDiagnostic.diagnostic_context.steps[2].clientConfirmed, true);
     assert.equal(staffDiagnostic.diagnostic_context.result, "unresolved");
+    assert.equal(staffDiagnostic.diagnostic_context.graphFingerprintVersion, 2);
+    assert.equal(staffDiagnostic.diagnostic_context.graphFingerprint, fingerprintDiagnosticGraph());
+    assert.equal(staffDiagnostic.diagnostic_context.comment, "DEMO commentaire final");
+    assert.equal(Object.hasOwn(staffDiagnostic.diagnostic_context, "cause"), false);
+    assert.equal(Object.hasOwn(staffDiagnostic.diagnostic_context, "sav_action"), false);
     assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, a2)).json().diagnostic_context, undefined);
+    assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, a2)).json().cause, undefined);
+    assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, a2)).json().sav_action, undefined);
+    assert.equal((await send("GET", "/api/portal/requests/f1000000-0000-4000-8000-000000000001", staff))
+      .json().diagnostic_context, null);
     assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
       submissionKey: randomUUID(), diagnosticContext: { ...diagnosticPayload.diagnosticContext,
         steps: [{ nodeId: "start", optionIndex: 1 }, { nodeId: "contact-sav-general" }] }
     })).statusCode, 400);
     assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
       submissionKey: randomUUID(), deviceId: deviceB })).statusCode, 404);
+    assert.equal((await send("POST", "/api/client/requests", b, { ...diagnosticPayload,
+      submissionKey: randomUUID() })).statusCode, 404);
+    assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
+      submissionKey: randomUUID(), diagnosticContext: { ...diagnosticPayload.diagnosticContext,
+        productId: "ic22" } })).statusCode, 400);
     assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
       submissionKey: randomUUID(), requestType: "consumables" })).statusCode, 400);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request' AND resource_id=$1",
       [diagnosticId])).rows[0].n, 1);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM portal_requests WHERE id=$1", [diagnosticId])).rows[0].n, 1);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n, casesBeforeDiagnostic);
     assert.equal((await send("POST", "/api/client/requests", a,
       { ...payload, submissionKey: randomUUID(), deviceId: deviceB })).statusCode, 404);
     const rejectedOrigin = await app.inject({ method: "POST", url: "/api/client/requests",

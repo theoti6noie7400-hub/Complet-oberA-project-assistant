@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { resolveDiagnosticPath, type DiagnosticPath } from "../../src/lib/diagnosticContext.ts";
+import { fingerprintDiagnosticGraph } from "./diagnostic-fingerprint.ts";
 import { createApp } from "./app.ts";
 import type { Database } from "./db.ts";
 
@@ -18,6 +19,8 @@ test("graph path validates model, actual branch, terminal and explicit confirmat
   assert.equal(valid?.steps[0].answer, "J'ai un autre problème");
   assert.equal(resolveDiagnosticPath(path, "IC 22"), null);
   assert.equal(resolveDiagnosticPath(path, "DUSTOMAT 4-24"), null);
+  assert.equal(resolveDiagnosticPath({ ...path, productId: "ic22" }, "IC 12"), null);
+  assert.equal(resolveDiagnosticPath({ ...path, steps: Array(31).fill(path.steps[0]) }, "IC 12"), null);
   assert.equal(resolveDiagnosticPath({ ...path, steps: [{ nodeId: "start", optionIndex: 3 }] }, "IC 12"), null);
   assert.equal(resolveDiagnosticPath({ ...path, steps: [path.steps[0], { nodeId: "no-power" }] }, "IC 12"), null);
   assert.equal(resolveDiagnosticPath({ ...path, steps: [{ nodeId: "start", optionIndex: 9 }, path.steps[1]] }, "IC 12"), null);
@@ -60,6 +63,14 @@ test("client diagnostic snapshot is derived from its own device and is never inc
   try {
     assert.equal((await send(cookieB, payload)).statusCode, 404);
     assert.equal((await send(cookieA, { ...payload, requestType: "consumables" })).statusCode, 400);
+    assert.equal((await send(cookieA, { ...payload, requestType: "maintenance_quote",
+      deviceId: undefined, deviceIds: [] })).statusCode, 400);
+    assert.equal((await send(cookieA, { ...payload, diagnosticContext: { ...path,
+      steps: Array(31).fill(path.steps[0]) } })).statusCode, 400);
+    assert.equal((await send(cookieA, { ...payload, diagnosticContext: { ...path,
+      productId: "X".repeat(12001) } })).statusCode, 400);
+    assert.equal((await send(cookieA, { ...payload, diagnosticContext: { ...path,
+      productId: "ic22" } })).statusCode, 400);
     assert.equal((await send(cookieA, { ...payload, diagnosticContext: { ...path,
       steps: [{ nodeId: "start", optionIndex: 3 }, { nodeId: "no-power" }] } })).statusCode, 400);
     const created = await send(cookieA, payload);
@@ -70,7 +81,13 @@ test("client diagnostic snapshot is derived from its own device and is never inc
     assert.equal(stored.symptom, "J'ai un autre problème");
     assert.equal(stored.comment, "DEMO commentaire");
     assert.equal(stored.result, "unresolved");
+    assert.equal(stored.graphFingerprintVersion, 2);
+    assert.equal(stored.graphFingerprint, fingerprintDiagnosticGraph());
+    assert.equal(Object.hasOwn(stored, "cause"), false);
+    assert.equal(Object.hasOwn(stored, "sav_action"), false);
     assert.equal(Object.hasOwn(created.json(), "diagnostic_context"), false);
+    assert.equal(Object.hasOwn(created.json(), "cause"), false);
+    assert.equal(Object.hasOwn(created.json(), "sav_action"), false);
     assert.equal(audits, 1);
   } finally { await app.close(); }
 });
