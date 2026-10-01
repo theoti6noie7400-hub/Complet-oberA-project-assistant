@@ -24,6 +24,27 @@ function appAt(path: string) {
 
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
+it("ouvre SAV ou consommables directement depuis sa carte avec le bon appareil préselectionné", async () => {
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });
+    if (url === "/api/client/me") return result({ organization: { name: "CLIENT DEMO ALPHA" } });
+    if (url === "/api/client/devices") return result({ devices: [
+      { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: true }
+    ] });
+    if (url === "/api/client/requests") return result({ requests: [] });
+    if (url === "/api/client/documents") return result({ documents: [] });
+    throw new Error(`Unexpected ${url}`);
+  }));
+  const view = appAt("/client-space");
+  await view.findByText("Bienvenue, CLIENT DEMO ALPHA");
+  fireEvent.click(view.getByRole("link", { name: "Demander des consommables" }));
+  await waitFor(() => expect((view.getByLabelText("Type de demande") as HTMLSelectElement).value).toBe("consumables"));
+  expect((view.getByLabelText("Appareil (facultatif)") as HTMLSelectElement).value).toBe(deviceId);
+  fireEvent.click(view.getByRole("link", { name: "Créer une demande SAV" }));
+  await waitFor(() => expect((view.getByLabelText("Type de demande") as HTMLSelectElement).value).toBe("sav"));
+  expect((view.getByLabelText("Appareil concerné") as HTMLSelectElement).value).toBe(deviceId);
+});
+
 it("connecte Client, montre son appareil, le diagnostic et enregistre puis relit sa demande", async () => {
   let active: "client" | null = null;
   let created = false;
@@ -55,7 +76,7 @@ it("connecte Client, montre son appareil, le diagnostic et enregistre puis relit
   fireEvent.change(view.getByLabelText("Code PIN"), { target: { value: "9876" } });
   fireEvent.click(view.getByRole("button", { name: "Se connecter" }));
   await view.findByText("Bienvenue, CLIENT DEMO ALPHA");
-  fireEvent.click(view.getByRole("link", { name: /IC 12 — DEMO-SN-A/ }));
+  fireEvent.click(view.getByRole("link", { name: "Voir l’appareil" }));
   await view.findByText("Numéro de série : DEMO-SN-A");
   fireEvent.click(view.getByRole("link", { name: "Démarrer le diagnostic" }));
   await view.findByText("Diagnostic : IC 12");
@@ -63,7 +84,7 @@ it("connecte Client, montre son appareil, le diagnostic et enregistre puis relit
   fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
   await view.findByText("Le ventilateur tourne mais l'air reste chaud ?");
   fireEvent.click(view.getByRole("link", { name: "Retour à mon espace" }));
-  await view.findByText("Nouvelle demande");
+  await view.findByRole("heading", { name: "Nouvelle demande" });
   fireEvent.change(view.getByLabelText("Appareil concerné"), { target: { value: deviceId } });
   fireEvent.change(view.getByLabelText("Objet"), { target: { value: "DEMO panne" } });
   fireEvent.change(view.getByLabelText("Votre message"), { target: { value: "DEMO problème" } });

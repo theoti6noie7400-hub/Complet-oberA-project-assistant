@@ -4,9 +4,10 @@ import PortalTopBar from "../components/PortalTopBar";
 import { useAdminAuth, type ExternalRole } from "../auth/adminAuth";
 import { DIAGNOSTIC_NODES, PRODUCTS, getDiagnosticStartNode, resolveDynamicNext } from "../lib/assistantData";
 import { resolveDiagnosticPath, type DiagnosticChoice, type DiagnosticPath } from "../lib/diagnosticContext";
+import { ClientPark, ClientDiagnosticSelector, type ClientDevice } from "../components/ClientPark";
 
 type View = "home" | "device" | "diagnostic" | "request";
-type Device = { id: string; model: string; serial: string };
+type Device = ClientDevice;
 type PublicRequest = { id: string; request_type: string; device_id: string | null;
   device_ids?: string[]; subject: string; message: string; public_status: string; created_at: string };
 type Document = { id: string; title: string; created_at: string };
@@ -118,8 +119,11 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
   const [pendingDiagnostic, setPendingDiagnostic] = useState<DiagnosticPath | null>(null);
 
   useEffect(() => {
-    if (role === "client" && view === "home" && params.get("device"))
-      setDeviceId(params.get("device")!);
+    if (role !== "client" || view !== "home") return;
+    const requested = params.get("type");
+    if (requested === "sav" || requested === "consumables" || requested === "maintenance_quote")
+      setRequestType(requested);
+    if (params.get("device")) setDeviceId(params.get("device")!);
   }, [role, view, params]);
 
   useEffect(() => {
@@ -239,11 +243,24 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         }}>Déconnexion</button>
       </section>
       {error && <p role="alert" className="text-red-700">{error}</p>}
+      {role === "client" && view === "home" && <nav aria-label="Navigation de l'espace Client"
+        className="obera-panel p-4 flex flex-wrap gap-4">
+        <a className="underline" href="#mes-appareils">Mes appareils</a>
+        <a className="underline" href="#mes-demandes">Mes demandes</a>
+        <a className="underline" href="#nouvelle-demande">Nouvelle demande</a>
+        <a className="underline" href="#mes-documents">Documents</a>
+      </nav>}
       {view !== "home" && <Link className="underline" to={base}>Retour à mon espace</Link>}
       {view === "device" && selectedDevice && <section className="obera-panel p-5 space-y-3">
         <h2 className="text-xl font-semibold">{selectedDevice.model}</h2><p>Numéro de série : {selectedDevice.serial}</p>
-        <Link className="obera-btn-primary inline-flex" to={`${base}/diagnostic/${selectedDevice.id}`}>Démarrer le diagnostic</Link>{" "}
-        <Link className="obera-btn-outline inline-flex" to={`${base}?type=sav&device=${selectedDevice.id}`}>Créer une demande SAV</Link>
+        <div className="client-device-actions">
+          <Link className="obera-btn-primary" to={`${base}/diagnostic/${selectedDevice.id}`}>Démarrer le diagnostic</Link>
+          <Link className="obera-btn-outline" to={`${base}?type=sav&device=${selectedDevice.id}#nouvelle-demande`}>Créer une demande SAV</Link>
+          <Link className="obera-btn-outline" to={`${base}?type=consumables&device=${selectedDevice.id}#nouvelle-demande`}>Demander des consommables</Link>
+          {selectedDevice.notice_available ? <a className="obera-btn-outline"
+            href={`/api/client/devices/${selectedDevice.id}/notice`}>Télécharger la notice</a> :
+            <span>Notice indisponible</span>}
+        </div>
       </section>}
       {view === "diagnostic" && selectedDevice && externalOrganizationId &&
         <ExternalDiagnostic device={selectedDevice} base={base} organizationId={externalOrganizationId} />}
@@ -260,12 +277,9 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         <p>{selectedRequest.message}</p><p>Créée le {new Date(selectedRequest.created_at).toLocaleDateString("fr-FR")}</p>
       </section>}
       {view === "home" && <>
-        {role === "client" && <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Mes appareils</h2>
-          {devices.length === 0 ? <p>Aucun appareil enregistré.</p> : <ul className="space-y-2">{devices.map(device =>
-            <li key={device.id}><Link className="underline" to={`${base}/devices/${device.id}`}>{device.model} — {device.serial}</Link></li>)}</ul>}
-          {devices.length === 100 && <p>Affichage limité aux 100 premiers appareils.</p>}
-        </section>}
-        <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Nouvelle demande</h2>
+        {role === "client" && <><ClientPark devices={devices} base={base} />
+          <ClientDiagnosticSelector devices={devices} base={base} /></>}
+        <section id="nouvelle-demande" className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Nouvelle demande</h2>
           <form onSubmit={create} className="space-y-3 max-w-xl">
             {params.get("diagnostic") === "1" && requestType === "sav" && !pendingDiagnostic && !saved &&
               <p role="alert">Résumé du diagnostic indisponible. Relancez le diagnostic depuis la fiche de l'appareil si vous souhaitez le transmettre.</p>}
@@ -306,13 +320,13 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
             <button className="obera-btn-primary" type="submit" disabled={busy}>{busy ? "Enregistrement…" : "Envoyer la demande"}</button>
           </form>
         </section>
-        <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Historique de mes demandes</h2>
+        <section id="mes-demandes" className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Historique de mes demandes</h2>
           {requests.length === 0 ? <p>Aucune demande.</p> : <ul className="space-y-2">{requests.map(item =>
             <li key={item.id}><span>{requestTypeLabel(item.request_type)} — </span>
               <Link className="underline" to={`${base}/requests/${item.id}`}>{item.subject}</Link> — {publicStatusLabel(item.public_status)}</li>)}</ul>}
           {requests.length === 100 && <p>Affichage limité aux 100 dernières demandes.</p>}
         </section>
-        <section className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Documents partagés</h2>
+        <section id="mes-documents" className="obera-panel p-5"><h2 className="text-xl font-semibold mb-3">Documents partagés</h2>
           {documents.length === 0 ? <p>Aucun document partagé.</p> : <ul className="space-y-2">{documents.map(item =>
             <li key={item.id}><a className="underline" href={`${apiBase}/documents/${item.id}/content`}>{item.title}</a></li>)}</ul>}
           {documents.length === 100 && <p>Affichage limité aux 100 derniers documents.</p>}
