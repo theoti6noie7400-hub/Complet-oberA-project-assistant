@@ -89,7 +89,7 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
     assert.equal(filtered.json().requests.some((r: { id: string }) => r.id === id), false);
     assert.equal((await send("GET", `${base}?requestType=unknown`, staff)).statusCode, 400);
     const quoteDetail = (await send("GET", `${base}/${quoteId}`, staff)).json();
-    assert.deepEqual(quoteDetail.maintenance_devices, [{ model: "IC 12", serial: "DEMO-SN-A-001" }]);
+    assert.deepEqual(quoteDetail.maintenance_devices, [{ model: "IC 22", serial: "DEMO-SN-A-001" }]);
     assert.deepEqual((await send("GET", `${base}/${quoteId}/compatible-cases`, staff)).json().cases, []);
     assert.equal((await send("POST", `${base}/${quoteId}/sav-case`, staff,
       { savCaseId: randomUUID() })).statusCode, 409);

@@ -44,14 +44,19 @@ try {
       VALUES ($1,$2) ON CONFLICT DO NOTHING`, [user.rows[0].id, org]);
   }
   const devices = [
-    ["e1000000-0000-4000-8000-000000000001", demoOrganizations.clientA, "IC 12", "DEMO-SN-A-001"],
+    ["e1000000-0000-4000-8000-000000000001", demoOrganizations.clientA, "IC 22", "DEMO-SN-A-001"],
     ["e1000000-0000-4000-8000-000000000002", demoOrganizations.clientA, "DUSTOMAT 4-24", "DEMO-SN-A-002"],
     ["e1000000-0000-4000-8000-000000000003", demoOrganizations.clientB, "ePUR 100", "DEMO-SN-B-001"],
-    ["e1000000-0000-4000-8000-000000000004", demoOrganizations.clientB, "IC 22", "DEMO-SN-B-002"]
+    ["e1000000-0000-4000-8000-000000000004", demoOrganizations.clientB, "IC 12", "DEMO-SN-B-002"]
   ];
-  for (const [id, org, model, serial] of devices)
+  for (const [id, org, model, serial] of devices) {
     await db.query(`INSERT INTO devices (id,client_organization_id,model,serial)
       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`, [id, org, model, serial]);
+    const existing = await db.query("SELECT client_organization_id, model, serial FROM devices WHERE id=$1", [id]);
+    if (existing.rows[0]?.client_organization_id !== org || existing.rows[0]?.model !== model ||
+        existing.rows[0]?.serial !== serial)
+      throw new Error("Existing DEMO park differs: use a fresh fictional database; no historical device is overwritten");
+  }
 
   const requests = [
     ["f1000000-0000-4000-8000-000000000001", "client", demoOrganizations.clientA, identities[0][0], "sav", devices[0][0], "DEMO SAV ALPHA", "PROBLEME FICTIF ALPHA"],

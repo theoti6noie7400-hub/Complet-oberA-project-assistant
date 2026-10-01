@@ -27,7 +27,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
   process.env.DATABASE_URL = process.env.EXTERNAL_TEST_DATABASE_URL;
   const db = openDatabase();
   const accounts = loadExternalAccounts(JSON.stringify([
-    { identifier: "DEMO-CLIENT-A", pin: "8011", role: "client", organizationId: organization.clientA },
+    { identifier: "DEMO-CLIENT-A", pin: "1234", role: "client", organizationId: organization.clientA },
     { identifier: "DEMO-CLIENT-B", pin: "8022", role: "client", organizationId: organization.clientB },
     { identifier: "DEMO-CLIENT-A2", pin: "8033", role: "client", organizationId: organization.clientA },
     { identifier: "DEMO-RESELLER-A", pin: "8044", role: "reseller", organizationId: organization.resellerA },
@@ -36,7 +36,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     { identifier: "DEMO-WRONG-KIND", pin: "8077", role: "client", organizationId: organization.resellerA }
   ]));
   const app = createApp(db, origin, loadBetaAccounts(JSON.stringify([
-    { identifier: "DEMO-STAFF", pin: "8088", role: "sav_technician" }
+    { identifier: "DEMO-STAFF", pin: "1789", role: "global_admin" }
   ])), accounts);
   const send = (method: "GET" | "POST", url: string, cookie?: string, payload?: object) =>
     app.inject({ method, url, headers: { ...(cookie ? { cookie } : {}), ...(method === "POST" ? { origin } : {}) }, payload });
@@ -59,13 +59,13 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.equal((await send("POST", "/api/client/login", undefined,
       { identifier: "DEMO-WRONG-KIND", pin: "8077" })).statusCode, 401);
     assert.equal((await db.query("SELECT count(*) AS n FROM users WHERE identity_subject IN ('DEMO-NO-ORG','DEMO-WRONG-KIND')")).rows[0].n,"0");
-    const a = await login("client", "DEMO-CLIENT-A", "8011");
+    const a = await login("client", "DEMO-CLIENT-A", "1234");
     const b = await login("client", "DEMO-CLIENT-B", "8022");
     const a2 = await login("client", "DEMO-CLIENT-A2", "8033");
     assert.equal((await send("POST", "/api/reseller/login", undefined,
       { identifier: "DEMO-RESELLER-A", pin: "8044" })).statusCode, 410);
     assert.equal((await send("GET", "/api/reseller/requests")).statusCode, 401);
-    const staff = await login("", "DEMO-STAFF", "8088");
+    const staff = await login("", "DEMO-STAFF", "1789");
     assert.equal((await send("GET", "/api/sav/cases", a)).statusCode, 403);
     assert.equal((await send("GET", "/api/sav/contracts", a)).statusCode, 403);
     assert.equal((await send("GET", "/api/client/devices", staff)).statusCode, 403);
@@ -106,7 +106,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const casesBeforeDiagnostic = (await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n;
     const diagnosticPayload = { submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA,
       subject: "DEMO diagnostic transmis", message: "DEMO commentaire final",
-      diagnosticContext: { version: 1, productId: "ic12", result: "unresolved", steps: [
+      diagnosticContext: { version: 1, productId: "ic22", result: "unresolved", steps: [
         { nodeId: "start", optionIndex: 1 }, { nodeId: "no-power", optionIndex: 1 },
         { nodeId: "power-check-advice", confirmed: true }
       ] } };
@@ -144,7 +144,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
       submissionKey: randomUUID() })).statusCode, 404);
     assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
       submissionKey: randomUUID(), diagnosticContext: { ...diagnosticPayload.diagnosticContext,
-        productId: "ic22" } })).statusCode, 400);
+        productId: "ic12" } })).statusCode, 400);
     assert.equal((await send("POST", "/api/client/requests", a, { ...diagnosticPayload,
       submissionKey: randomUUID(), requestType: "consumables" })).statusCode, 400);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request' AND resource_id=$1",
