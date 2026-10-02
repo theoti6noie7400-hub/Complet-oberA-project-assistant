@@ -72,3 +72,42 @@ it("guide COOL clignotant vers niveau d'eau, capteur, vidéo puis formulaire SAV
   expect(view.getByLabelText("Téléphone")).toBeTruthy();
   expect(view.getByLabelText("E-mail")).toBeTruthy();
 });
+
+it("guide COOL fixe vers niveau d'eau, raccordements et observation sécurisée de la pompe", async () => {
+  const view = renderPage();
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
+  selectIc22(view);
+
+  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  fireEvent.click(view.getByRole("button", { name: "COOL fixe" }));
+
+  expect(view.getByRole("heading", { name: "Le réservoir contient-il suffisamment d'eau ?" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Oui" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Non" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: /Oui, mais très faiblement/i })).toBeNull();
+
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  expect(view.getByRole("heading", { name: "Contrôle du raccordement de la pompe" })).toBeTruthy();
+  const video = view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" });
+  expect(video.getAttribute("href")).toBe(IC22_KM22_DISMANTLING_VIDEO_URL);
+  expect(view.getByText(/connecteur électrique est correctement enfiché/)).toBeTruthy();
+  expect(view.getByText(/tuyaux sont correctement raccordés/)).toBeTruthy();
+
+  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  expect(view.getByRole("heading", { name: "Les raccordements électriques et hydrauliques de la pompe sont-ils corrects ?" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  expect(view.getByRole("heading", { name: "Contrôle sous tension — sécuriser la zone" })).toBeTruthy();
+  expect(view.getByText(/personne ne doit pouvoir accéder à l'intérieur de l'appareil/)).toBeTruthy();
+  expect(view.getByText(/restez uniquement en observation/)).toBeTruthy();
+
+  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  expect(view.getByRole("heading", { name: "La pompe fonctionne-t-elle lorsque l'appareil est en marche ?" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Non" }));
+  expect(view.getByRole("heading", { name: "Pompe non fonctionnelle" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Contacter le SAV" })).toBeTruthy();
+});
