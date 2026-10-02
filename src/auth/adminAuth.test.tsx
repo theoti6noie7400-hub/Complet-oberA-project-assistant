@@ -89,7 +89,7 @@ it("ne croit pas un rôle dans la réponse login et révoque la session lors de 
   fireEvent.change(view.getByLabelText("Code PIN"), { target: { value: "5678" } });
   fireEvent.click(view.getByRole("button", { name: "Acceder" }));
   await waitFor(() => expect(view.getByText("SAV autorisé")).toBeTruthy());
-  fireEvent.click(view.getByRole("button", { name: "Deconnexion" }));
+  fireEvent.click(view.getByRole("button", { name: "Déconnexion" }));
   await waitFor(() => expect(view.getByText("Connexion interne")).toBeTruthy());
   expect(logoutCalls).toBe(1);
   expect(role).toBeNull();
