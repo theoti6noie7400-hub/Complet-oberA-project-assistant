@@ -2,7 +2,8 @@ import {
   DIAGNOSTIC_NODES,
   resolveDynamicNext,
   type CategoryId,
-  type DiagnosticNode
+  type DiagnosticNode,
+  type ProductCatalogItem
 } from "./assistantData";
 
 export const COMMERCIAL_EXCLUDED_PRODUCT_IDS = new Set([
@@ -11,7 +12,13 @@ export const COMMERCIAL_EXCLUDED_PRODUCT_IDS = new Set([
   "epur-ex-2000",
   "ecoclim20",
   "epur150",
-  "dosseret-aspirant"
+  "dosseret-aspirant",
+  "dustomat-410",
+  "dustomat-10",
+  // Les VL ci-dessous partagent le même châssis et le même diagnostic que leur IC/KM correspondant.
+  "vl120",
+  "vl220",
+  "vl300"
 ]);
 
 export const COMMERCIAL_CATEGORY_LABELS: Record<CategoryId, string> = {
@@ -20,6 +27,29 @@ export const COMMERCIAL_CATEGORY_LABELS: Record<CategoryId, string> = {
   depoussiereurs: "Dépoussiéreurs",
   "tables-aspirantes": "Tables aspirantes"
 };
+
+const CHASSIS_LABELS: Record<string, string> = {
+  ic12: "IC 12 / KM 12 / VL 120",
+  ic22: "IC 22 / KM 22 / VL 220",
+  ic30: "IC 30 / KM 30 / VL 300"
+};
+
+const CHASSIS_SEARCH_ALIASES: Record<string, string[]> = {
+  ic12: ["IC12", "IC 12", "KM12", "KM 12", "VL120", "VL 120"],
+  ic22: ["IC22", "IC 22", "KM22", "KM 22", "VL220", "VL 220"],
+  ic30: ["IC30", "IC 30", "KM30", "KM 30", "VL300", "VL 300"]
+};
+
+export function commercialProductLabel(product: ProductCatalogItem): string {
+  return CHASSIS_LABELS[product.id] ?? product.name;
+}
+
+export function commercialProductMatchesQuery(product: ProductCatalogItem, query: string): boolean {
+  const normalized = query.trim().toLocaleLowerCase("fr");
+  if (!normalized) return true;
+  const values = [product.name, commercialProductLabel(product), ...(CHASSIS_SEARCH_ALIASES[product.id] ?? [])];
+  return values.some(value => value.toLocaleLowerCase("fr").includes(normalized));
+}
 
 // Ressource technique OberA fournie pour la V1 interne. Le fichier n'est pas
 // commité dans le portail ; le lien Drive permet de garder la vidéo hors du build.
