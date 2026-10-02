@@ -69,7 +69,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       .catch(() => { if (active) setSession(emptySession); });
     const refresh = () => {
       if (!active || document.visibilityState === "hidden") return;
-      setSession(current => ({ ...current, isLoading: true }));
+      // Revalidate silently. Losing browser focus (tab switch, screenshot tool, etc.)
+      // must not unmount a protected page and erase the diagnostic in progress.
       readSession().then(next => { if (active) setSession(next); })
         .catch(() => { if (active) setSession(emptySession); });
     };
