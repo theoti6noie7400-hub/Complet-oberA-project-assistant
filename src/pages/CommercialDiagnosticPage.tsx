@@ -4,23 +4,140 @@ import PortalTopBar from "../components/PortalTopBar";
 import { ClientDevicePhoto } from "../components/ClientPark";
 import {
   CATEGORIES,
-  DIAGNOSTIC_NODES,
   PRODUCTS,
   getDiagnosticStartNode,
-  resolveDynamicNext,
-  type DiagnosticNode,
   type ProductCatalogItem
 } from "../lib/assistantData";
+import {
+  COMMERCIAL_CATEGORY_LABELS,
+  COMMERCIAL_EXCLUDED_PRODUCT_IDS,
+  FINAL_RESOLVED_NODE_IDS,
+  IC22_KM22_DISMANTLING_VIDEO_URL,
+  IC22_VIDEO_HELP_NODE_IDS,
+  commercialDiagnosticNode,
+  resolveCommercialNext
+} from "../lib/commercialDiagnosticOverrides";
 
 type Step = { nodeId: string; optionIndex?: number; confirmed?: boolean; continued?: boolean };
 
+type ContactFormProps = {
+  product: ProductCatalogItem;
+  history: Step[];
+  onClose?: () => void;
+};
+
+function ContactSavForm({ product, history, onClose }: ContactFormProps) {
+  const [company, setCompany] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState("");
+
+  const trace = useMemo(() => history.map((step) => {
+    const node = commercialDiagnosticNode(step.nodeId, product.id);
+    if (!node) return null;
+    if (node.type === "question") {
+      const answer = step.optionIndex === undefined ? null : node.options[step.optionIndex]?.label;
+      return answer ? `${node.title} — Réponse : ${answer}` : node.title;
+    }
+    return `${node.title} — ${node.body}${step.confirmed ? " — contrôle effectué" : ""}`;
+  }).filter(Boolean).join("\n"), [history, product.id]);
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!company.trim() || !contactName.trim()) {
+      setError("Renseignez au minimum la société et le nom du contact.");
+      return;
+    }
+    if (!phone.trim() && !email.trim()) {
+      setError("Renseignez au moins un téléphone ou un e-mail.");
+      return;
+    }
+    setError("");
+    const subject = `Transmission diagnostic - ${product.name} - ${company.trim()}`;
+    const body = [
+      `Société : ${company.trim()}`,
+      `Contact : ${contactName.trim()}`,
+      `Téléphone : ${phone.trim() || "-"}`,
+      `E-mail : ${email.trim() || "-"}`,
+      `Appareil : ${product.name}`,
+      "",
+      "Parcours diagnostic :",
+      trace || "Aucune étape enregistrée.",
+      "",
+      `Commentaire : ${comment.trim() || "-"}`
+    ].join("\n");
+    window.location.href = `mailto:sav@obera.fr?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  return <form onSubmit={submit} className="border-t pt-4 space-y-3" aria-label="Contacter le SAV">
+    <div>
+      <h4 className="text-lg font-semibold">Contacter le SAV</h4>
+      <p className="text-sm text-slate-600">Le parcours diagnostic sera ajouté automatiquement au message. Aucune donnée Client n’est recherchée dans le portail.</p>
+    </div>
+    <div className="grid gap-3 md:grid-cols-2">
+      <label className="block">Société / client
+        <input className="block w-full p-2 border rounded" value={company} onChange={event => setCompany(event.target.value)} maxLength={200} required />
+      </label>
+      <label className="block">Nom du contact
+        <input className="block w-full p-2 border rounded" value={contactName} onChange={event => setContactName(event.target.value)} maxLength={200} required />
+      </label>
+      <label className="block">Téléphone
+        <input className="block w-full p-2 border rounded" value={phone} onChange={event => setPhone(event.target.value)} maxLength={80} />
+      </label>
+      <label className="block">E-mail
+        <input className="block w-full p-2 border rounded" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength={200} />
+      </label>
+    </div>
+    <label className="block">Commentaire complémentaire
+      <textarea className="block w-full p-2 border rounded min-h-24" value={comment}
+        onChange={event => setComment(event.target.value)} maxLength={2000} />
+    </label>
+    {error && <p role="alert" className="text-red-700">{error}</p>}
+    <div className="flex flex-wrap gap-2">
+      <button className="obera-btn-primary" type="submit">Préparer le message au SAV</button>
+      {onClose && <button className="obera-btn-outline" type="button" onClick={onClose}>Annuler</button>}
+    </div>
+  </form>;
+}
+
 function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; onBack: () => void }) {
   const [history, setHistory] = useState<Step[]>([{ nodeId: getDiagnosticStartNode(product.id) }]);
-  const node: DiagnosticNode | null = history.length ? DIAGNOSTIC_NODES[history[history.length - 1].nodeId] ?? null : null;
+  const [contactVisible, setContactVisible] = useState(false);
+  const [resolved, setResolved] = useState(false);
+  const current = history[history.length - 1];
+  const node = current ? commercialDiagnosticNode(current.nodeId, product.id) : null;
 
   useEffect(() => {
     setHistory([{ nodeId: getDiagnosticStartNode(product.id) }]);
+    setContactVisible(false);
+    setResolved(false);
   }, [product.id]);
+
+  const goNext = (next: string) => {
+    if (!node) return;
+    setContactVisible(false);
+    setResolved(false);
+    setHistory(value => [...value.slice(0, -1),
+      { ...value[value.length - 1], continued: true },
+      { nodeId: resolveCommercialNext(node.id, next, product.id) }]);
+  };
+
+  const choose = (next: string, index: number) => {
+    if (!node) return;
+    setContactVisible(false);
+    setResolved(false);
+    setHistory(value => [...value.slice(0, -1),
+      { ...value[value.length - 1], optionIndex: index },
+      { nodeId: resolveCommercialNext(node.id, next, product.id) }]);
+  };
+
+  const confirmed = current?.confirmed === true;
+  const showVideo = product.id === "ic22" && node && IC22_VIDEO_HELP_NODE_IDS.has(node.id);
+  const terminalResolved = node?.type === "text" && !node.next && node.target === "resolved";
+  const alreadyResolved = Boolean(node && FINAL_RESOLVED_NODE_IDS.has(node.id));
+  const terminalNeedsSav = node?.type === "text" && !node.next && node.target !== "resolved";
 
   return <section className="obera-panel p-5 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -36,32 +153,51 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
       <h3 className="text-xl font-semibold">{node.title}</h3>
       {node.type === "question" ? <div className="flex flex-wrap gap-2">
         {node.options.map((option, index) => <button className="obera-btn-outline" type="button" key={option.label}
-          onClick={() => setHistory(value => [...value.slice(0, -1),
-            { ...value[value.length - 1], optionIndex: index },
-            { nodeId: resolveDynamicNext(option.next, product.id) }])}>
-          {option.label}
-        </button>)}
+          onClick={() => choose(option.next, index)}>{option.label}</button>)}
       </div> : <>
         <p>{node.body}</p>
-        <label className="flex gap-2 items-center text-sm"><input type="checkbox"
-          checked={history[history.length - 1].confirmed === true}
-          onChange={event => setHistory(value => [...value.slice(0, -1),
-            { ...value[value.length - 1], confirmed: event.target.checked }])} />
-          Je confirme avoir effectué le contrôle proposé, s'il s'applique à cette étape.
-        </label>
-        {node.next ? <button className="obera-btn-outline" type="button"
-          onClick={() => setHistory(value => [...value.slice(0, -1),
-            { ...value[value.length - 1], continued: true },
-            { nodeId: resolveDynamicNext(node.next!, product.id) }])}>
-          Continuer
-        </button> : <p role="status" className="font-semibold">
-          Fin du parcours guidé. Si le problème persiste, transmettre le cas au SAV.
-        </p>}
+        {showVideo && <a className="obera-btn-outline inline-flex" href={IC22_KM22_DISMANTLING_VIDEO_URL}
+          target="_blank" rel="noreferrer">Voir la vidéo de démontage IC22 / KM22</a>}
+
+        {node.next && <>
+          <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
+            onChange={event => setHistory(value => [...value.slice(0, -1),
+              { ...value[value.length - 1], confirmed: event.target.checked }])} />
+            Je confirme avoir effectué le contrôle proposé.
+          </label>
+          <button className="obera-btn-outline" type="button" disabled={!confirmed}
+            onClick={() => goNext(node.next!)}>Continuer</button>
+        </>}
+
+        {terminalResolved && alreadyResolved && <p role="status" className="font-semibold text-green-700">Problème résolu.</p>}
+
+        {terminalResolved && !alreadyResolved && <>
+          <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
+            onChange={event => setHistory(value => [...value.slice(0, -1),
+              { ...value[value.length - 1], confirmed: event.target.checked }])} />
+            Je confirme avoir effectué le contrôle proposé.
+          </label>
+          {confirmed && !resolved && !contactVisible && <div className="space-y-2">
+            <p className="font-semibold">Après ce contrôle, le problème est-il résolu ?</p>
+            <div className="flex flex-wrap gap-2">
+              <button className="obera-btn-primary" type="button" onClick={() => setResolved(true)}>Oui, le problème est résolu</button>
+              <button className="obera-btn-outline" type="button" onClick={() => setContactVisible(true)}>Non, le problème persiste</button>
+            </div>
+          </div>}
+          {resolved && <p role="status" className="font-semibold text-green-700">Problème résolu.</p>}
+        </>}
+
+        {terminalNeedsSav && !contactVisible && <div className="space-y-2">
+          <p className="font-semibold">Le problème nécessite une prise en charge par le SAV.</p>
+          <button className="obera-btn-primary" type="button" onClick={() => setContactVisible(true)}>Contacter le SAV</button>
+        </div>}
+
+        {contactVisible && <ContactSavForm product={product} history={history} onClose={() => setContactVisible(false)} />}
       </>}
     </>}
-    {history.length > 1 && <button className="obera-btn-outline" type="button" onClick={() => setHistory(value => value.slice(0, -1))}>
-      Étape précédente
-    </button>}
+    {history.length > 1 && <button className="obera-btn-outline" type="button" onClick={() => {
+      setContactVisible(false); setResolved(false); setHistory(value => value.slice(0, -1));
+    }}>Étape précédente</button>}
   </section>;
 }
 
@@ -81,7 +217,8 @@ export default function CommercialDiagnosticPage() {
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("fr");
-    return PRODUCTS.filter(product => !normalized || product.name.toLocaleLowerCase("fr").includes(normalized));
+    return PRODUCTS.filter(product => !COMMERCIAL_EXCLUDED_PRODUCT_IDS.has(product.id))
+      .filter(product => !normalized || product.name.toLocaleLowerCase("fr").includes(normalized));
   }, [query]);
 
   return <div className="portal-page">
@@ -102,17 +239,17 @@ export default function CommercialDiagnosticPage() {
           const products = filtered.filter(product => product.category === category.id);
           if (!products.length) return null;
           return <section className="obera-panel p-5 space-y-4" key={category.id}>
-            <h2 className="text-xl font-semibold">{category.icon} {category.label}</h2>
+            <h2 className="text-xl font-semibold">{category.icon} {COMMERCIAL_CATEGORY_LABELS[category.id]}</h2>
             <ul className="client-device-grid">{products.map(product => <li className="client-device-card" key={product.id}>
               <ClientDevicePhoto model={product.name} />
               <div className="space-y-2 min-w-0">
                 <h3 className="font-semibold text-lg">{product.name}</h3>
                 <div className="client-device-actions">
                   <button className="obera-btn-primary" type="button" onClick={() => setSelected(product)}>Lancer le diagnostic</button>
-                  {noticeModels.has(product.name) ? <a className="obera-btn-outline"
-                    href={`/api/internal/catalog/notices/${encodeURIComponent(product.name)}`}>Télécharger la notice</a> :
-                    <span className="text-sm text-slate-600">Notice indisponible</span>}
+                  {noticeModels.has(product.name) && <a className="obera-btn-outline"
+                    href={`/api/internal/catalog/notices/${encodeURIComponent(product.name)}`}>Télécharger la notice</a>}
                 </div>
+                {!noticeModels.has(product.name) && <p className="text-sm text-slate-600">Notice indisponible</p>}
               </div>
             </li>)}</ul>
           </section>;
