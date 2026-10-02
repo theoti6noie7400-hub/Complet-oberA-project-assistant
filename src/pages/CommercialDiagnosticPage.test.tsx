@@ -24,6 +24,11 @@ function selectIc22(view: ReturnType<typeof renderPage>) {
   fireEvent.click(view.getByRole("button", { name: "Lancer le diagnostic" }));
 }
 
+function clickSav(view: ReturnType<typeof renderPage>) {
+  const buttons = view.getAllByRole("button", { name: "Contacter le SAV" });
+  fireEvent.click(buttons[buttons.length - 1]);
+}
+
 it("masque les anciens modèles invalidés et clarifie le contrôle d'alimentation", async () => {
   const view = renderPage();
   await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
@@ -41,6 +46,39 @@ it("masque les anciens modèles invalidés et clarifie le contrôle d'alimentati
   fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
   fireEvent.click(view.getByRole("button", { name: "Continuer" }));
   expect(view.getByRole("heading", { name: "Après ces vérifications, l'appareil s'allume-t-il ?" })).toBeTruthy();
+});
+
+it("regroupe les châssis IC KM VL et retire les anciens DUSTOMAT du catalogue diagnostic", async () => {
+  const view = renderPage();
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "KM 22" } });
+  expect(view.getByRole("heading", { name: "IC 22 / KM 22 / VL 220" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "VL 120" } });
+  expect(view.getByRole("heading", { name: "IC 12 / KM 12 / VL 120" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "DUSTOMAT 4-10" } });
+  expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "DUSTOMAT 10" } });
+  expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
+});
+
+it("laisse le formulaire SAV accessible immédiatement sans imposer le questionnaire", async () => {
+  const view = renderPage();
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
+  selectIc22(view);
+
+  expect(view.getByRole("heading", { name: "IC 22 / KM 22 / VL 220" })).toBeTruthy();
+  expect(view.getByText(/formulaire SAV reste accessible à tout moment/)).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Contacter le SAV" }));
+  expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
+  expect(view.getByLabelText("Société / client")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Revenir au diagnostic" }));
+  expect(view.queryByRole("form", { name: "Contacter le SAV" })).toBeNull();
+  expect(view.getByRole("heading", { name: "Quel est le problème principal ?" })).toBeTruthy();
 });
 
 it("guide COOL clignotant vers niveau d'eau, capteur, vidéo puis formulaire SAV", async () => {
@@ -65,7 +103,7 @@ it("guide COOL clignotant vers niveau d'eau, capteur, vidéo puis formulaire SAV
   expect(view.getByRole("heading", { name: /Le capteur de niveau d'eau est-il monté dans le bon sens/ })).toBeTruthy();
 
   fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  fireEvent.click(view.getByRole("button", { name: "Contacter le SAV" }));
+  clickSav(view);
   expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
   expect(view.getByLabelText("Société / client")).toBeTruthy();
   expect(view.getByLabelText("Nom du contact")).toBeTruthy();
@@ -109,7 +147,7 @@ it("guide COOL fixe vers niveau d'eau, raccordements et observation sécurisée 
 
   fireEvent.click(view.getByRole("button", { name: "Non" }));
   expect(view.getByRole("heading", { name: "Pompe non fonctionnelle" })).toBeTruthy();
-  expect(view.getByRole("button", { name: "Contacter le SAV" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
 });
 
 it("n'affiche la vidéo de démontage qu'au moment d'ouvrir l'appareil", async () => {
@@ -165,5 +203,5 @@ it("termine par un conseil SAV panneaux ou environnement quand la pompe fonction
   expect(view.getByText(/panneaux évaporatifs/)).toBeTruthy();
   expect(view.getByText(/conditions d'utilisation et de l'environnement/)).toBeTruthy();
   expect(view.getByText(/Contactez le SAV pour conseil sur les panneaux évaporatifs/)).toBeTruthy();
-  expect(view.getByRole("button", { name: "Contacter le SAV" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
 });
