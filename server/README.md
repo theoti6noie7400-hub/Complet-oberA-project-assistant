@@ -8,9 +8,9 @@ Les comptes de la bêta sont fournis exclusivement au serveur par `BETA_INTERNAL
 
 Le serveur refuse de démarrer sans configuration de comptes. Après vérification du code côté serveur, `/api/login` lie l'identifiant à `users` et crée une session PostgreSQL de huit heures. Le navigateur reçoit uniquement un cookie `HttpOnly`, `SameSite=Lax`, `Secure` sous HTTPS. Le token est aléatoire et seul son haché est stocké en base. `/api/session` consulte la session et fournit le rôle ; `/api/logout` supprime la session en base et efface le cookie. Un changement de compte révoque l'ancien cookie. Les écritures exigent une origine exacte `PUBLIC_ORIGIN`. Les tentatives répétées sont limitées dans la mémoire du processus unique (5 par identifiant/IP et 10 par IP, sur 15 minutes).
 
-L'ancienne URL `/api/recipe/session` renvoie `410`. La connexion Revendeur renvoie également `410` ; les autres API Revendeur restent en place pour compatibilité mais aucune session Revendeur n'est reconnue. `BETA_EXTERNAL_ACCOUNTS` doit contenir au moins un Client ; les anciennes entrées Revendeur sont ignorées. Au démarrage, seules les sessions des anciens rôles sont supprimées ; leurs utilisateurs, organisations, demandes, documents et audits sont conservés. Voir [le profil bêta externe](../deploy/beta/README.md).
+L'ancienne URL `/api/recipe/session` et les connexions Client/Revendeur renvoient `410` en V1. Les routes externes ne sont pas enregistrées par le démarrage V1, même avec une ancienne session Client. `BETA_EXTERNAL_ACCOUNTS` n'est pas lu. Le code externe reste testable explicitement en isolation pour une phase 2 ; ses créations de demandes refusent désormais le motif `consumables`. Les utilisateurs, organisations, demandes, documents, audits et migrations historiques sont conservés. Voir [le profil de déploiement](../deploy/beta/README.md).
 
-Les notices Client du lot 6 sont inventoriées dans [le mapping contrôlé](../docs/notices-client.md). L'endpoint `/api/client/devices/:id/notice` utilise le même cookie Client et vérifie la propriété de l'appareil, son modèle exact et le contenu du fichier privé. Le ZIP de référence n'est pas dans le dépôt : l'import privé exige `CLIENT_NOTICE_SOURCE_DIR` et `PRIVATE_DOCUMENT_ROOT` uniquement côté serveur. Sans import, l'interface affiche « Notice indisponible ».
+Les notices sont inventoriées dans [le mapping contrôlé](../docs/notices-client.md). En V1, `/api/sav/devices/:id/notice` exige une session SAV, vérifie l'existence de l'appareil Client, le modèle exact et l'intégrité du fichier privé. L'API interne `/api/sav/clients` et `/api/sav/clients/:id/devices` permet au SAV de consulter les parcs en lecture seule. Le ZIP de référence n'est pas dans le dépôt : l'import privé exige `CLIENT_NOTICE_SOURCE_DIR` et `PRIVATE_DOCUMENT_ROOT` uniquement côté serveur. Sans import, l'interface affiche « Notice indisponible ».
 
 ## Lancement local fictif
 
@@ -20,7 +20,7 @@ Node.js 24 et une base PostgreSQL **vide et fictive** nommée `obera_recipe` son
 cd server
 npm ci
 DATABASE_URL='postgres://.../obera_recipe' npm run migrate
-RECIPE_MODE=1 DATABASE_URL='postgres://.../obera_recipe' PUBLIC_ORIGIN='http://localhost:5173' BETA_INTERNAL_ACCOUNTS='<JSON_LOCAL_NON_COMMITÉ>' BETA_EXTERNAL_ACCOUNTS='<JSON_LOCAL_NON_COMMITÉ>' PRIVATE_DOCUMENT_ROOT='<DOSSIER_PRIVÉ>' npm start
+RECIPE_MODE=1 DATABASE_URL='postgres://.../obera_recipe' PUBLIC_ORIGIN='http://localhost:5173' BETA_INTERNAL_ACCOUNTS='<JSON_LOCAL_NON_COMMITÉ>' PRIVATE_DOCUMENT_ROOT='<DOSSIER_PRIVÉ>' npm start
 ```
 
 Dans un autre terminal, à la racine du dépôt :
@@ -33,10 +33,10 @@ Sur un hébergement bêta, `PUBLIC_ORIGIN` doit être l'origine HTTPS exacte du 
 
 ## Autorisations effectivement servies
 
-- `global_admin`, `sav_manager`, `sav_technician` : liste et détail de tous les dossiers SAV, création manuelle, lecture des contrats API ; les modifications techniques futures ne disposent pas encore d'endpoint.
+- `global_admin`, `sav_manager`, `sav_technician` : liste et détail de tous les dossiers SAV, création manuelle, lecture des contrats API, recherche et consultation des parcs Client et téléchargement contrôlé des notices ; les modifications techniques futures ne disposent pas encore d'endpoint.
 - `marketing`, `sales`, `adv`, `logistics` : aucune nouvelle connexion et aucune session existante acceptée.
 - Un client ou revendeur ne peut pas créer de session via cette connexion interne.
-- `client` : profil limité à une organisation Client ; appareils de son parc, diagnostic du modèle, demandes SAV ou consommables via `portal_requests`, historique et documents avec audience `client` correspondant à cette organisation.
+- `client` : accès inactif en V1 ; les anciennes données et contrôles d'organisation restent présents pour la phase 2 et les tests isolés.
 - `reseller` : connexion fermée ; demandes et documents antérieurs conservés comme archive interne.
 
 Les réponses externes n'incluent que `id`, `model`, `serial` pour les appareils ; `id`, `request_type`, `device_id`, `subject`, `message`, `public_status`, `created_at` pour les demandes ; et `id`, `title`, `created_at` pour les documents. Les fichiers sont délivrés uniquement par un endpoint authentifié après contrôle de l'audience et de l'organisation, depuis `PRIVATE_DOCUMENT_ROOT`. `storage_key`, cause/action SAV et audits ne sont jamais dans les projections externes. La migration `004_external_portal.sql` ajoute le type de demande, le lien appareil sous contrainte d'organisation, l'idempotence et un lien nullable futur vers un dossier SAV interne. Aucun flux automatique de conversion SAV n'est livré.

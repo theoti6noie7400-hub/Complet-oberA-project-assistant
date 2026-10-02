@@ -29,7 +29,7 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
     { identifier: "DEMO-PORTAL-RESELLER-A", pin: "8103", role: "reseller", organizationId: resellerA },
     { identifier: "DEMO-PORTAL-RESELLER-B", pin: "8104", role: "reseller", organizationId: resellerB }
   ]));
-  const app = createApp(db, origin, accounts, external);
+  const app = createApp(db, origin, accounts, external, { externalAccessEnabled: true });
   const send = (method: "GET" | "POST", url: string, cookie?: string, payload?: object) => app.inject({
     method, url, headers: { ...(cookie ? { cookie } : {}), ...(method === "POST" ? { origin } : {}) }, payload
   });

@@ -52,6 +52,23 @@ test("API denies unauthenticated, marketing and client requests to internal SAV"
   } finally { await client.close(); }
 });
 
+test("V1 closes external login and API, including an old Client session, while keeping internal SAV", async () => {
+  const app = createApp(fakeDatabase("client").db, origin);
+  try {
+    assert.equal((await app.inject({ method: "POST", url: "/api/client/login", headers: { origin },
+      payload: { identifier: "DEMO-CLIENT-A", pin: "1234" } })).statusCode, 410);
+    assert.equal((await app.inject({ method: "GET", url: "/api/session", headers: { cookie } })).statusCode, 401);
+    assert.equal((await app.inject({ method: "GET", url: "/api/client/devices", headers: { cookie } })).statusCode, 404);
+    assert.equal((await app.inject({ method: "POST", url: "/api/client/requests", headers: { cookie, origin },
+      payload: { requestType: "consumables" } })).statusCode, 404);
+    assert.equal((await app.inject({ method: "GET", url: "/api/sav/clients", headers: { cookie } })).statusCode, 403);
+  } finally { await app.close(); }
+  const sav = createApp(fakeDatabase("sav_technician").db, origin);
+  try {
+    assert.equal((await sav.inject({ method: "GET", url: "/api/sav/clients", headers: { cookie } })).statusCode, 200);
+  } finally { await sav.close(); }
+});
+
 test("readiness checks PostgreSQL and exposes no database error", async () => {
   const healthy = createApp({ query: async () => ({ rows: [{ '?column?': 1 }] }) } as unknown as Database, origin);
   assert.equal((await healthy.inject({ method: "GET", url: "/api/ready" })).statusCode, 200);

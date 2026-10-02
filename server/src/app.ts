@@ -4,6 +4,7 @@ import { can, type Principal } from "./access.ts";
 import { provisionBetaUser, verifyBetaAccount, type BetaAccount } from "./beta-auth.ts";
 import { provisionExternalUser, verifyExternalAccount, type ExternalAccount, type ExternalRole } from "./external-auth.ts";
 import { registerExternalRoutes } from "./external-routes.ts";
+import { registerInternalParkRoutes } from "./internal-park.ts";
 import { registerPortalRequestRoutes } from "./portal-requests.ts";
 import type { Database } from "./db.ts";
 import { findPrincipal, issueSession, revokeSession, sessionClearCookie, sessionSetCookie } from "./session.ts";
@@ -21,7 +22,7 @@ type ManualSavInput = {
 };
 
 export function createApp(db: Database, publicOrigin: string, betaAccounts: BetaAccount[] = [],
-  externalAccounts: ExternalAccount[] = []) {
+  externalAccounts: ExternalAccount[] = [], options: { externalAccessEnabled?: boolean } = {}) {
   // Request paths can contain case identifiers; audit writes are stored separately.
   const app = Fastify({ logger: process.env.NODE_ENV === "production", bodyLimit: 64 * 1024 });
   const secureCookie = publicOrigin.startsWith("https://");
@@ -49,6 +50,8 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
   app.get("/api/session", async (request, reply) => {
     const principal = await authorized(request.headers.cookie);
     if (!principal) return reply.code(401).send({ error: "authentication_required" });
+    if (!options.externalAccessEnabled && ["client", "reseller"].includes(principal.role))
+      return reply.code(401).send({ error: "authentication_required" });
     return reply.header("Cache-Control", "no-store").send(principal);
   });
 
@@ -95,7 +98,9 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
   }
 
   app.post("/api/login", { schema: loginSchema }, (request, reply) => login(request, reply, "internal"));
-  app.post("/api/client/login", { schema: loginSchema }, (request, reply) => login(request, reply, "client"));
+  app.post("/api/client/login", { schema: loginSchema }, (request, reply) =>
+    options.externalAccessEnabled ? login(request, reply, "client") :
+      reply.code(410).send({ error: "client_access_closed" }));
   app.post("/api/reseller/login", async (_request, reply) =>
     reply.code(410).send({ error: "reseller_access_closed" }));
 
@@ -201,7 +206,8 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
     return { contracts: result.rows };
   });
 
-  registerExternalRoutes(app, db, publicOrigin);
+  if (options.externalAccessEnabled) registerExternalRoutes(app, db, publicOrigin);
+  registerInternalParkRoutes(app, db);
   registerPortalRequestRoutes(app, db, publicOrigin);
 
   return app;

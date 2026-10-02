@@ -58,7 +58,7 @@ it("montre la photo officielle exacte dans chaque fiche appareil Client", async 
   }
 });
 
-it("ouvre SAV ou consommables directement depuis sa carte avec le bon appareil préselectionné", async () => {
+it("ouvre SAV directement depuis sa carte avec le bon appareil préselectionné", async () => {
   vi.stubGlobal("fetch", vi.fn((url: string) => {
     if (url === "/api/session") return result({ role: "client", organizationIds: ["org-demo-a"] });
     if (url === "/api/client/me") return result({ organization: { name: "CLIENT DEMO ALPHA" } });
@@ -71,9 +71,7 @@ it("ouvre SAV ou consommables directement depuis sa carte avec le bon appareil p
   }));
   const view = appAt("/client-space");
   await view.findByText("Bienvenue, CLIENT DEMO ALPHA");
-  fireEvent.click(view.getByRole("link", { name: "Demander des consommables" }));
-  await waitFor(() => expect((view.getByLabelText("Type de demande") as HTMLSelectElement).value).toBe("consumables"));
-  expect((view.getByLabelText("Appareil (facultatif)") as HTMLSelectElement).value).toBe(deviceId);
+  expect(view.queryByRole("link", { name: "Demander des consommables" })).toBeNull();
   fireEvent.click(view.getByRole("link", { name: "Créer une demande SAV" }));
   await waitFor(() => expect((view.getByLabelText("Type de demande") as HTMLSelectElement).value).toBe("sav"));
   expect((view.getByLabelText("Appareil concerné") as HTMLSelectElement).value).toBe(deviceId);
@@ -175,13 +173,14 @@ it("sépare les trois motifs Client et permet zéro, un ou plusieurs appareils p
   const view = appAt("/client-space");
   await view.findByText("Bienvenue, CLIENT DEMO ALPHA");
   const type = view.getByLabelText("Type de demande");
-  fireEvent.change(type, { target: { value: "consumables" } });
-  expect(view.getByLabelText("Appareil (facultatif)")).toBeTruthy();
+  expect(Array.from((type as HTMLSelectElement).options, option => option.value)).toEqual(["sav", "maintenance_quote"]);
+  expect(view.getByLabelText("Appareil concerné")).toBeTruthy();
+  fireEvent.change(view.getByLabelText("Appareil concerné"), { target: { value: deviceId } });
   fireEvent.change(view.getByLabelText("Objet"), { target: { value: "DEMO filtres" } });
   fireEvent.change(view.getByLabelText("Votre message"), { target: { value: "DEMO besoin" } });
   fireEvent.click(view.getByRole("button", { name: "Envoyer la demande" }));
   await waitFor(() => expect(submitted).toHaveLength(1));
-  expect(submitted[0]).not.toHaveProperty("deviceId");
+  expect(submitted[0]).toHaveProperty("deviceId", deviceId);
   expect(submitted[0]).not.toHaveProperty("deviceIds");
   fireEvent.change(type, { target: { value: "maintenance_quote" } });
   expect(view.queryByLabelText("Appareil (facultatif)")).toBeNull();

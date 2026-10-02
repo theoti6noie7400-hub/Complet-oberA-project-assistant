@@ -67,7 +67,6 @@ function ExternalDiagnostic({ device, base, organizationId }: { device: Device; 
             { nodeId: resolveDynamicNext(node.next!, product!.id) }])}>
           Continuer
         </button>}
-        {node.target === "filter" && <Link className="obera-btn-primary inline-flex" to={`${base}?type=consumables&device=${device.id}`}>Demander des consommables</Link>}
         {!node.next && <Link className="obera-btn-primary inline-flex"
           onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
           Contacter le SAV / créer une demande</Link>}
@@ -105,10 +104,9 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
   const [selectedRequest, setSelectedRequest] = useState<PublicRequest | null>(null);
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
-  const [requestType, setRequestType] = useState<"sav" | "consumables" | "maintenance_quote" | "general">(
+  const [requestType, setRequestType] = useState<"sav" | "maintenance_quote" | "general">(
     role === "client" && params.get("type") === "maintenance_quote" ? "maintenance_quote" :
-    role === "client" && params.get("type") !== "consumables" ? "sav" :
-    params.get("type") === "consumables" ? "consumables" : "general");
+    role === "client" ? "sav" : "general");
   const [deviceId, setDeviceId] = useState(params.get("device") ?? "");
   const [maintenanceDeviceIds, setMaintenanceDeviceIds] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
@@ -121,7 +119,7 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
   useEffect(() => {
     if (role !== "client" || view !== "home") return;
     const requested = params.get("type");
-    if (requested === "sav" || requested === "consumables" || requested === "maintenance_quote")
+    if (requested === "sav" || requested === "maintenance_quote")
       setRequestType(requested);
     if (params.get("device")) setDeviceId(params.get("device")!);
   }, [role, view, params]);
@@ -257,7 +255,6 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
         <div className="client-device-actions">
           <Link className="obera-btn-primary" to={`${base}/diagnostic/${selectedDevice.id}`}>Démarrer le diagnostic</Link>
           <Link className="obera-btn-outline" to={`${base}?type=sav&device=${selectedDevice.id}#nouvelle-demande`}>Créer une demande SAV</Link>
-          <Link className="obera-btn-outline" to={`${base}?type=consumables&device=${selectedDevice.id}#nouvelle-demande`}>Demander des consommables</Link>
           {selectedDevice.notice_available ? <a className="obera-btn-outline"
             href={`/api/client/devices/${selectedDevice.id}/notice`}>Télécharger la notice</a> :
             <span>Notice indisponible</span>}
@@ -290,7 +287,6 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
               onChange={event => { setRequestType(event.target.value as typeof requestType); setDeviceId("");
                 setPendingDiagnostic(null); setMaintenanceDeviceIds([]); setSubmissionKey(""); }}>
               {role === "client" && <option value="sav">Problème / SAV</option>}
-              <option value="consumables">Consommables</option>
               {role === "client" && <option value="maintenance_quote">Contrat de maintenance / demande de devis</option>}
               {role === "reseller" && <option value="general">Autre demande</option>}
             </select></label>

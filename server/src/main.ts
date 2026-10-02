@@ -1,6 +1,5 @@
 import { createApp } from "./app.ts";
 import { loadBetaAccounts } from "./beta-auth.ts";
-import { loadExternalAccounts } from "./external-auth.ts";
 import { openDatabase } from "./db.ts";
 import { revokeLegacySessions } from "./session.ts";
 
@@ -8,7 +7,6 @@ const origin = process.env.PUBLIC_ORIGIN;
 const recipeMode = process.env.RECIPE_MODE === "1";
 const databaseUrl = process.env.DATABASE_URL;
 const accounts = loadBetaAccounts(process.env.BETA_INTERNAL_ACCOUNTS);
-const externalAccounts = loadExternalAccounts(process.env.BETA_EXTERNAL_ACCOUNTS);
 if (recipeMode) {
   if (!databaseUrl || new URL(databaseUrl).pathname !== "/obera_recipe" ||
     !["http://localhost:5173", "http://127.0.0.1:5173"].includes(origin ?? ""))
@@ -17,7 +15,8 @@ if (recipeMode) {
   throw new Error("PUBLIC_ORIGIN must be HTTPS");
 }
 const db = openDatabase();
-const app = createApp(db, origin!, accounts, externalAccounts);
+// V1 is internal only. Keep the external code and historical records for phase 2.
+const app = createApp(db, origin!, accounts);
 try {
   await revokeLegacySessions(db);
   await app.listen({ port: Number(process.env.PORT || "3000"), host: process.env.BIND_HOST || "127.0.0.1" });

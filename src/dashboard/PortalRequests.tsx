@@ -18,7 +18,7 @@ type PortalRequest = {
 };
 type CompatibleCase = { id: string; sav_reference: string };
 const statuses = { received: "Reçue", in_progress: "En cours", closed: "Terminée" };
-const types = { sav: "SAV", consumables: "Consommables", maintenance_quote: "Contrat de maintenance / demande de devis", general: "Générale (archive)" };
+const types = { sav: "SAV", consumables: "Consommables (historique)", maintenance_quote: "Contrat de maintenance / demande de devis", general: "Générale (archive)" };
 const devicesFor = (item: PortalRequest) => item.maintenance_devices?.length ?
   item.maintenance_devices.map(device => `${device.model} — ${device.serial}`).join(", ") : item.device_model ?? "—";
 
@@ -108,7 +108,7 @@ export default function PortalRequests() {
     <label className="block max-w-sm">Filtrer par motif
       <select className="block w-full border rounded p-2" value={filter} onChange={event => { setFilter(event.target.value); setSelectedId(null); }}>
         <option value="all">Toutes les demandes (archives incluses)</option>
-        <option value="sav">SAV</option><option value="consumables">Consommables</option>
+        <option value="sav">SAV</option><option value="consumables">Consommables (historique)</option>
         <option value="maintenance_quote">Contrat de maintenance / demande de devis</option>
       </select>
     </label>

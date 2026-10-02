@@ -39,7 +39,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
   ]));
   const app = createApp(db, origin, loadBetaAccounts(JSON.stringify([
     { identifier: "DEMO-STAFF", pin: "1789", role: "global_admin" }
-  ])), accounts);
+  ])), accounts, { externalAccessEnabled: true });
   const send = (method: "GET" | "POST", url: string, cookie?: string, payload?: object) =>
     app.inject({ method, url, headers: { ...(cookie ? { cookie } : {}), ...(method === "POST" ? { origin } : {}) }, payload });
   const login = async (realm: "client" | "", identifier: string, pin: string) => {
@@ -199,7 +199,7 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.equal(Number((await db.query("SELECT count(*) AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n),auditBefore+2);
     const clientConsumables = await send("POST", "/api/client/requests", a,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO sacs", message: "DEMO quantité" });
-    assert.equal(clientConsumables.statusCode, 201);
+    assert.equal(clientConsumables.statusCode, 400);
     const casesBefore = (await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n;
     const contractsBefore = (await db.query("SELECT count(*)::int AS n FROM contracts")).rows[0].n;
     const auditMaintenanceBefore = Number((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n);

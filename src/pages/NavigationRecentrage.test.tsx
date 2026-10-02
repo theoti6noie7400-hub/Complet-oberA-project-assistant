@@ -35,11 +35,13 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-it("affiche uniquement les liens SAV et Client à l'accueil", async () => {
+it("présente uniquement le SAV interne à l'accueil", async () => {
   const view = renderAt("/");
   await view.findByRole("heading", { name: "SAV / Maintenance" });
   const targets = Array.from(view.container.querySelectorAll("a.portal-card-cta"), link => link.getAttribute("href"));
-  expect(targets).toEqual(["/sav-maintenance", "/client-space"]);
+  expect(targets).toEqual(["/sav-maintenance"]);
+  expect(view.getByText("Outil interne SAV OberA")).toBeTruthy();
+  expect(view.queryByText("Espace Client")).toBeNull();
   expect(view.queryByText("Marketing")).toBeNull();
   expect(view.queryByText("Espace Revendeur")).toBeNull();
 });
@@ -52,6 +54,8 @@ it("garde les espaces SAV et calculateur pour le SAV interne", async () => {
   home.unmount();
   const sav = renderAt("/sav-maintenance");
   await sav.findByText("Que souhaitez-vous faire ?");
+  expect(sav.getByRole("link", { name: "Clients et parc appareils" })).toBeTruthy();
+  expect(sav.queryByText("Commander des consommables (Filtres, etc.)")).toBeNull();
   sav.unmount();
   const calculator = renderAt("/charbon-actif");
   await calculator.findByRole("heading", { name: "Calculateur de saturation du charbon actif" });
@@ -73,16 +77,15 @@ it.each(["/reseller-space", `/reseller-space/requests/${requestId}`])("résout %
   expect(calls.filter(url => url.startsWith("/api/reseller/"))).toEqual([]);
   fireEvent.click(view.getByRole("button", { name: "Déconnexion" }));
   await waitFor(() => expect(calls).toContain("/api/logout"));
-  await view.findByRole("heading", { name: "Espace Client" });
+  await view.findByRole("heading", { name: "SAV / Maintenance" });
 });
 
-it.each([
-  [`/client-space/devices/${deviceId}`, "Numéro de série : DEMO-SN-A"],
-  [`/client-space/diagnostic/${deviceId}`, "Diagnostic : IC 12"],
-  [`/client-space/requests/${requestId}`, "DEMO problème"]
-])("conserve l'URL Client profonde %s", async (path, expected) => {
+it.each(["/client-space", `/client-space/devices/${deviceId}`,
+  `/client-space/diagnostic/${deviceId}`, `/client-space/requests/${requestId}`])
+  ("résout %s sans exposer l'espace Client", async path => {
   role = "client";
   const view = renderAt(path);
-  await view.findByText(expected);
-  expect(calls.some(url => url.startsWith("/api/reseller/"))).toBe(false);
+  await view.findByRole("heading", { name: "Espace Client indisponible en V1" });
+  expect(view.queryByLabelText("Code PIN")).toBeNull();
+  expect(calls.some(url => url.startsWith("/api/client/"))).toBe(false);
 });

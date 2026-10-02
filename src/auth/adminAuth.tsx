@@ -29,10 +29,10 @@ const emptySession: AdminSession = { isLoading: false, isAuthenticated: false, r
 
 export function canUseInternalPath(role: InternalRole | null, pathname: string): boolean {
   if (!role) return false;
-  if (role === "global_admin") return pathname === "/sav-maintenance" ||
+  if (role === "global_admin") return ["/sav-maintenance", "/sav-maintenance/clients"].includes(pathname) ||
     pathname === "/charbon-actif" ||
     ["marketing", "commercial", "adv", "logistique"].some(key => pathname === `/service/${key}`);
-  if (pathname === "/sav-maintenance" || pathname === "/charbon-actif")
+  if (["/sav-maintenance", "/sav-maintenance/clients", "/charbon-actif"].includes(pathname))
     return role === "sav_manager" || role === "sav_technician";
   const servicePath: Partial<Record<InternalRole, string>> = {
     marketing: "/service/marketing", sales: "/service/commercial",

@@ -55,7 +55,7 @@ test("client diagnostic snapshot is derived from its own device and is never inc
     return { rows: [], rowCount: 0 };
   };
   const db = { query: run, connect: async () => ({ query: run, release() {} }) } as unknown as Database;
-  const app = createApp(db, origin);
+  const app = createApp(db, origin, [], [], { externalAccessEnabled: true });
   const payload = { submissionKey: "90000000-0000-4000-8000-000000000001", requestType: "sav",
     deviceId: deviceA, subject: "DEMO diagnostic", message: "DEMO commentaire", diagnosticContext: path };
   const send = (cookie: string, body: object) => app.inject({ method: "POST", url: "/api/client/requests",

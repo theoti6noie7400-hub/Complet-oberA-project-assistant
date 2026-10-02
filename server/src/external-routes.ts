@@ -104,7 +104,7 @@ export function registerExternalRoutes(app: FastifyInstance, db: Database, publi
       required: ["submissionKey", "requestType", "subject", "message"],
       properties: {
         submissionKey: uuid,
-        requestType: { type: "string", enum: role === "client" ? ["sav", "consumables", "maintenance_quote"] : ["general", "consumables"] },
+        requestType: { type: "string", enum: role === "client" ? ["sav", "maintenance_quote"] : ["general"] },
         ...(role === "client" ? { deviceId: uuid, deviceIds: { type: "array", items: uuid, maxItems: 100, uniqueItems: true },
           diagnosticContext: { type: "object", additionalProperties: false,
             required: ["version", "productId", "steps", "result"],

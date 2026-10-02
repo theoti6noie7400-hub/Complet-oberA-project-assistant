@@ -36,11 +36,14 @@ test("la commande explicite démarre Vite et l'API DEMO sur une seule origine", 
       assert.match(photo.headers.get("content-type"), /image\/png/);
       assert.ok((await photo.arrayBuffer()).byteLength > 40000);
     }
-    const login = await fetch(`${origin}/api/client/login`, { method: "POST",
+    assert.equal((await fetch(`${origin}/api/client/login`, { method: "POST",
       headers: { origin, "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier: "DEMO-CLIENT-A", pin: "1234" }) });
+      body: JSON.stringify({ identifier: "DEMO-CLIENT-A", pin: "1234" }) })).status, 410);
+    const login = await fetch(`${origin}/api/login`, { method: "POST",
+      headers: { origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: "DEMO-STAFF", pin: "1789" }) });
     assert.equal(login.status, 200);
-    const devices = await fetch(`${origin}/api/client/devices`, {
+    const devices = await fetch(`${origin}/api/sav/clients/a1000000-0000-4000-8000-000000000001/devices`, {
       headers: { cookie: login.headers.get("set-cookie").split(";")[0] } });
     assert.equal((await devices.json()).devices.length, 2);
   } finally {

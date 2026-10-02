@@ -46,7 +46,7 @@ test("comptes locaux privés, parcs distincts, notices et demandes sans données
   for (const source of noticeSources.slice(2)) await writeFile(join(noticeSourceDir, source.file), source.data);
   assert.equal((await importAvailableLocalNotices(noticeSourceDir, noticeRoot, noticeSources.slice(2))).count, 3);
   const handler = createLocalRecipeApi(join(dir, "state.json"), { privateClients,
-    noticeRoot, noticeSources });
+    noticeRoot, noticeSources, externalAccessEnabled: true });
   const server = createServer((req, res) => handler(req, res, () => { res.writeHead(404); res.end(); }));
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));

@@ -32,7 +32,6 @@ type StepId =
   | "serial"
   | "diagnostic"
   | "summary"
-  | "consumables"
   | "manual-sav"
   | "dashboard";
 
@@ -45,9 +44,9 @@ type DiagnosticOutcome = {
 const TARGET_OUTCOMES: Record<DiagnosticTarget, DiagnosticOutcome> = {
   filter: {
     id: "filter",
-    title: "Pièce consommable à commander",
+    title: "Pièce consommable en fin de vie",
     message:
-      "Le diagnostic indique un consommable en fin de vie. Ouvrez la demande de consommables."
+      "Le diagnostic indique un consommable en fin de vie. Consignez ce résultat dans le suivi SAV."
   },
   sav: {
     id: "sav",
@@ -149,12 +148,6 @@ function InternalSavPage({
   const [contactEmail, setContactEmail] = useState("");
   const [contactComment, setContactComment] = useState("");
   const [contactFormVisible, setContactFormVisible] = useState(false);
-
-  const [consName, setConsName] = useState("");
-  const [consEmail, setConsEmail] = useState("");
-  const [consProduct, setConsProduct] = useState("");
-  const [consSerial, setConsSerial] = useState("");
-  const [consMessage, setConsMessage] = useState("");
 
   const [manualSavSaved, setManualSavSaved] = useState(false);
   const [manualSavId, setManualSavId] = useState<string | null>(null);
@@ -261,11 +254,6 @@ function InternalSavPage({
     setContactEmail("");
     setContactComment("");
     setContactFormVisible(false);
-    setConsName("");
-    setConsEmail("");
-    setConsProduct("");
-    setConsSerial("");
-    setConsMessage("");
     setManualSavSaved(false);
     setManualSavRef("");
     setManualSavAppareil("");
@@ -322,12 +310,6 @@ function InternalSavPage({
     setDiagStack((prev) => prev.slice(0, -1));
   };
 
-  const openConsumablesFromSummary = () => {
-    setConsProduct(selectedProduct?.name ?? "");
-    setConsSerial(serialNumber);
-    setActiveStep("consumables");
-  };
-
   const buildContactMessage = () => {
     const base = diagOutcome?.message ?? "";
     return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}`;
@@ -354,19 +336,6 @@ function InternalSavPage({
       `Numéro de série: ${serialNumber || "-"}`,
       `Message: ${buildContactMessage()}`,
       `Commentaire: ${contactComment || "-"}`
-    ].join("\n");
-    sendMail(subject, body);
-  };
-
-  const submitConsumables = (e: React.FormEvent) => {
-    e.preventDefault();
-    const subject = `Demande consommables - ${consProduct || "Appareil"}`;
-    const body = [
-      `Nom: ${consName}`,
-      `Email: ${consEmail}`,
-      `Appareil: ${consProduct || "-"}`,
-      `Numéro de série: ${consSerial || "-"}`,
-      `Consommables: ${consMessage}`
     ].join("\n");
     sendMail(subject, body);
   };
@@ -489,10 +458,11 @@ function InternalSavPage({
             <div className="obera-header-text">
               <p className="mt-1 text-sm text-stone-500">Garant de la qualité de votre air</p>
               <p className="mt-4 text-lg text-stone-600" id="header-subtitle">
-                Diagnostiquez votre appareil ou commandez des consommables.
+                Diagnostic et suivi des appareils — outil interne SAV OberA.
               </p>
               {isAdmin && (
-                <div className="mt-4 flex justify-center">
+                <div className="mt-4 flex flex-wrap gap-3 justify-center">
+                  <Link to="/sav-maintenance/clients" className="px-4 py-2 rounded-lg text-sm text-white obera-blue obera-blue-hover shadow-md">Clients et parc appareils</Link>
                   <button
                     type="button"
                     className="px-4 py-2 rounded-lg text-sm text-white obera-red obera-red-hover shadow-md"
@@ -531,15 +501,6 @@ function InternalSavPage({
               </button>
             ))}
 
-            <button
-              id="consumables-btn"
-              className="p-6 rounded-lg shadow-md transition text-white flex items-center justify-center gap-3 obera-green obera-green-hover consumables-button"
-              type="button"
-              onClick={() => setActiveStep("consumables")}
-            >
-              <span className="text-2xl">🔧</span>
-              <p className="font-medium">Commander des consommables (Filtres, etc.)</p>
-            </button>
           </div>
 
           <div className="w-full mt-6 flex justify-center">
@@ -875,21 +836,6 @@ function InternalSavPage({
             </div>
           )}
 
-          {diagOutcome?.id === "filter" && (
-            <div
-              id="contact-buttons-container"
-              className="w-full mt-8 grid grid-cols-1 md:grid-cols-2 gap-4"
-            >
-              <button
-                className="px-6 py-2 text-white rounded-lg shadow-md transition obera-green obera-green-hover"
-                type="button"
-                onClick={openConsumablesFromSummary}
-              >
-                Commander des consommables
-              </button>
-            </div>
-          )}
-
           {contactFormVisible && (
             <form
               id="contact-form"
@@ -1012,111 +958,6 @@ function InternalSavPage({
               Changer d'appareil
             </button>
           </div>
-        </div>
-
-        <div
-          id="step-consumables"
-          className={`step-container ${activeStep === "consumables" ? "active" : ""}`}
-        >
-          <h2 className="text-2xl font-semibold text-stone-600 mb-6">
-            Commander des consommables
-          </h2>
-          <p className="mb-6 text-stone-500">
-            Pour commander des filtres ou d'autres consommables, veuillez remplir ce formulaire.
-            <br />
-            Votre demande sera envoyée à notre service dédié.
-          </p>
-
-          <form
-            id="consumables-form"
-            className="p-6 bg-stone-100 rounded-lg shadow-md w-full"
-            onSubmit={submitConsumables}
-          >
-            <h3 id="consumables-form-title" className="text-lg font-semibold mb-4 text-stone-700">
-              Demande de consommables (Service commercial)
-            </h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-600 text-left">Nom</label>
-              <input
-                type="text"
-                id="consumables-name"
-                className="mt-1 p-2 w-full rounded-md border border-stone-300"
-                required
-                value={consName}
-                onChange={(e) => setConsName(e.target.value)}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-600 text-left">Email</label>
-              <input
-                type="email"
-                id="consumables-email"
-                className="mt-1 p-2 w-full rounded-md border border-stone-300"
-                required
-                value={consEmail}
-                onChange={(e) => setConsEmail(e.target.value)}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-600 text-left">
-                Appareil (Ex: DUSTOMAT 10)
-              </label>
-              <input
-                type="text"
-                id="consumables-product"
-                className="mt-1 p-2 w-full rounded-md border border-stone-300"
-                value={consProduct}
-                onChange={(e) => setConsProduct(e.target.value)}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-600 text-left">
-                Numéro de série (si connu)
-              </label>
-              <input
-                type="text"
-                id="consumables-serial"
-                className="mt-1 p-2 w-full rounded-md border border-stone-300"
-                value={consSerial}
-                onChange={(e) => setConsSerial(e.target.value)}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-600 text-left">
-                Consommable(s) demandé(s)
-              </label>
-              <textarea
-                id="consumables-message"
-                rows={3}
-                className="mt-1 p-2 w-full rounded-md border border-stone-300"
-                placeholder="Ex: 1x Filtre principal H13, 3x Sacs collecteurs..."
-                required
-                value={consMessage}
-                onChange={(e) => setConsMessage(e.target.value)}
-              />
-            </div>
-            <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-400 text-yellow-700 rounded-r-lg text-left">
-              <p className="text-sm">
-                Pour joindre des photos (ex: étiquette filtre), veuillez les{" "}
-                <strong>ajouter manuellement</strong> à l'e-mail qui s'ouvrira.
-              </p>
-            </div>
-            <button
-              type="submit"
-              className="w-full px-4 py-2 text-white font-medium rounded-lg transition obera-green obera-green-hover"
-            >
-              Envoyer la demande
-            </button>
-          </form>
-
-          <button
-            id="back-to-category-consumables"
-            className="mt-8 px-6 py-2 text-stone-500 rounded-lg border border-stone-300 hover:bg-stone-200 transition"
-            type="button"
-            onClick={() => setActiveStep("category")}
-          >
-            Retour à l'accueil
-          </button>
         </div>
 
         <div

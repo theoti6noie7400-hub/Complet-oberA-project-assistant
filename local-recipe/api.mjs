@@ -57,7 +57,7 @@ const internalRequest = (item, devices) => {
 };
 
 export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
-  noticeSources = LOCAL_NOTICE_SOURCES, privateClients = [] } = {}) {
+  noticeSources = LOCAL_NOTICE_SOURCES, privateClients = [], externalAccessEnabled = false } = {}) {
   const sessions = new Map();
   const accounts = new Map(demoAccounts);
   const devices = [...demoDevices];
@@ -108,6 +108,9 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
       if (method === "GET" && path === "/api/local-recipe/info")
         return send(res, 200, { private_data_loaded: privateClients.length > 0 });
 
+      if (path === "/api/client/login" && !externalAccessEnabled)
+        return send(res, 410, { error: "client_access_closed" });
+
       if (method === "POST" && ["/api/client/login", "/api/login"].includes(path)) {
         const input = await body(req);
         const account = accounts.get(input.identifier);
@@ -129,10 +132,44 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         return send(res, 200, { ok: true }, { "Set-Cookie": `${cookieName}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` });
       }
       if (method === "GET" && path === "/api/session")
-        return principal ? send(res, 200, { role: principal.role,
+        return principal && (externalAccessEnabled || principal.role !== "client") ? send(res, 200, { role: principal.role,
           organizationIds: principal.organizationId ? [principal.organizationId] : [] }) :
           send(res, 401, { error: "authentication_required" });
       if (!principal) return send(res, 401, { error: "authentication_required" });
+      if (!externalAccessEnabled && path.startsWith("/api/client/"))
+        return send(res, 403, { error: "client_access_closed" });
+
+      if (path === "/api/sav/clients" || path.startsWith("/api/sav/clients/") ||
+          path.startsWith("/api/sav/devices/")) {
+        if (!staffRoles.has(principal.role)) return send(res, 403, { error: "access_denied" });
+        if (method === "GET" && path === "/api/sav/clients") {
+          const list = [...accounts.values()].filter(account => account.role === "client")
+            .map(account => ({ id: account.organizationId, name: account.organizationName,
+              external_reference: null, device_count: devices.filter(d => d.organizationId === account.organizationId).length }))
+            .filter((item, index, all) => all.findIndex(other => other.id === item.id) === index)
+            .sort((a, b) => a.name.localeCompare(b.name));
+          return send(res, 200, { clients: list.slice(0, 100) });
+        }
+        const match = path.match(/^\/api\/sav\/clients\/([^/]+)\/devices$/);
+        if (method === "GET" && match) {
+          const owner = [...accounts.values()].find(account => account.role === "client" &&
+            account.organizationId === match[1]);
+          if (!owner) return send(res, 404, { error: "not_found" });
+          return send(res, 200, { organization: { id: owner.organizationId, name: owner.organizationName },
+            devices: await Promise.all(devices.filter(item => item.organizationId === owner.organizationId)
+              .slice(0, 100).map(publicDevice)) });
+        }
+        const notice = path.match(/^\/api\/sav\/devices\/([^/]+)\/notice$/);
+        if (method === "GET" && notice) {
+          const found = devices.find(item => item.id === notice[1]);
+          const pdf = found && await localNotice(noticeRoot, found.model, noticeSources);
+          if (!pdf) return send(res, 404, { error: "not_found" });
+          res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
+            "Content-Disposition": 'attachment; filename="notice-obera.pdf"', "X-Content-Type-Options": "nosniff" });
+          return res.end(pdf);
+        }
+        return send(res, 404, { error: "not_found" });
+      }
 
       if (path.startsWith("/api/client/")) {
         if (principal.role !== "client") return send(res, 403, { error: "access_denied" });
@@ -171,7 +208,7 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         if (method === "POST" && path === "/api/client/requests") {
           const input = await body(req);
           if (!input || typeof input.submissionKey !== "string" || !/^[a-f\d-]{36}$/i.test(input.submissionKey) ||
-              !["sav", "consumables", "maintenance_quote"].includes(input.requestType) ||
+              !["sav", "maintenance_quote"].includes(input.requestType) ||
               typeof input.subject !== "string" || !input.subject.trim() || input.subject.length > 200 ||
               typeof input.message !== "string" || !input.message.trim() || input.message.length > 5000 ||
               (input.requestType === "sav" && !input.deviceId) ||

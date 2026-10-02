@@ -60,7 +60,7 @@ it("centers the owned devices, serials, actions and notice availability", () => 
   expect(view.queryByRole("img", { name: /Photo indisponible/ })).toBeNull();
   expect(view.getAllByRole("link", { name: "Diagnostic" })).toHaveLength(2);
   expect(view.getAllByRole("link", { name: "Créer une demande SAV" })).toHaveLength(2);
-  expect(view.getAllByRole("link", { name: "Demander des consommables" })).toHaveLength(2);
+  expect(view.queryByRole("link", { name: "Demander des consommables" })).toBeNull();
   expect(view.getAllByRole("link", { name: "Télécharger la notice" }).map(item => item.getAttribute("href")))
     .toEqual(["/api/client/devices/a/notice", "/api/client/devices/b/notice"]);
   expect(view.queryByText("Notice indisponible")).toBeNull();

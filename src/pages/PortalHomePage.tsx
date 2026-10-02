@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
 import { canUseInternalPath, useAdminAuth } from "../auth/adminAuth";
-import { CLIENT_SECTION } from "../portal/sections";
 
 const PORTAL_TILES = [
   {
@@ -10,24 +9,16 @@ const PORTAL_TILES = [
     description: "Diagnostic, tickets SAV et suivi maintenance.",
     icon: "🛠️",
     to: "/sav-maintenance"
-  },
-  {
-    id: CLIENT_SECTION.id,
-    title: CLIENT_SECTION.title,
-    description: CLIENT_SECTION.description,
-    icon: CLIENT_SECTION.icon,
-    to: CLIENT_SECTION.route
   }
 ];
 
 export default function PortalHomePage() {
-  const { isAuthenticated, role, externalRole } = useAdminAuth();
-  const tiles = externalRole ? PORTAL_TILES.filter(tile => externalRole === "client" && tile.to === "/client-space") :
-    isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
+  const { isAuthenticated, role } = useAdminAuth();
+  const tiles = isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
   return (
     <div className="portal-page">
-      <PortalTopBar subtitle="Accès SAV et service client"
-        showInternalLink={!externalRole && (!isAuthenticated || canUseInternalPath(role, "/sav-maintenance"))} />
+      <PortalTopBar subtitle="Outil interne SAV OberA"
+        showInternalLink={!isAuthenticated || canUseInternalPath(role, "/sav-maintenance")} />
 
       <main className="portal-main">
         <section className="portal-grid" aria-label="Sections du Portail OberA">
@@ -45,8 +36,7 @@ export default function PortalHomePage() {
           ))}
         </section>
         {tiles.length === 0 && <p className="obera-panel p-5">
-          Aucun espace disponible pour cette session dans le portail SAV / service client.
-          {externalRole === "reseller" && <> <Link to="/reseller-space" className="underline">Gérer la session</Link></>}
+          Aucun espace SAV disponible pour cette session.
         </p>}
       </main>
     </div>

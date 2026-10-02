@@ -1,4 +1,6 @@
-# Assistant OberA + Calculateur Charbon Actif
+# Portail OberA — V1 interne SAV
+
+La V1 est réservée au SAV OberA. Après connexion interne, « Clients et parc appareils » permet de rechercher un Client, consulter modèles et séries, ouvrir le diagnostic SAV et télécharger une notice privée disponible. Les demandes historiques, y compris celles de consommables et de Revendeurs, restent lisibles dans la file interne. Aucune nouvelle demande de consommables n'est admise. Le code Client est conservé pour une phase 2, mais ses pages affichent « Espace Client indisponible en V1 », sa connexion et ses API sont fermées sur le serveur V1.
 
 ## Recette métier locale sur Windows (données fictives uniquement)
 
@@ -13,18 +15,17 @@ La première exécution installe les dépendances dans le dossier du projet si n
 
 | Parcours | Identifiant | PIN fictif |
 | --- | --- | --- |
-| Client Alpha (IC 22 et DUSTOMAT 4-24) | `DEMO-CLIENT-A` | `1234` |
 | SAV administrateur | `DEMO-STAFF` | `1789` |
 | SAV responsable (contrôle des droits) | `DEMO-SAV-MANAGER` | `1789` |
 | SAV technicien (lecture seulement des demandes) | `DEMO-SAV-TECH` | `1789` |
 
-Un second compte `DEMO-CLIENT-B` / `1234` et son parc distinct permettent de vérifier l'isolation. Le bandeau **MODE RECETTE LOCALE — DONNÉES FICTIVES** reste visible en mode DEMO, et signale les données Client privées lorsqu'elles ont été importées. Il contient **Réinitialiser les données DEMO**. Les demandes et leurs statuts sont conservés dans `.local-recipe/data.json` après rechargement et redémarrage ; ce dossier est ignoré par Git. La réinitialisation efface ces demandes, les changements de statut et les sessions locales. Ne saisir que des demandes fictives pendant la recette.
+Les comptes Client DEMO sont conservés dans le moteur de recette pour les tests automatisés de phase 2 ; leur connexion est fermée dans le lanceur V1. Le bandeau **MODE RECETTE LOCALE — DONNÉES FICTIVES** reste visible en mode DEMO, et signale les données Client privées lorsqu'elles ont été importées. Il contient **Réinitialiser les données DEMO**. Les demandes et leurs statuts historiques sont conservés dans `.local-recipe/data.json` après rechargement et redémarrage ; ce dossier est ignoré par Git. La réinitialisation efface ces demandes, les changements de statut et les sessions locales. Ne saisir que des demandes fictives pendant la recette.
 
 Le diagnostic affiché utilise les arbres métier actuels du frontend et son résumé est validé par la même fonction de parcours que l'API réelle. Les écrans, photos, KPI et calculs restent ceux du portail. Les demandes et sessions sont **simulées** par un serveur local distinct, sans PostgreSQL. Les notices validées sont téléchargées depuis le stockage privé local lorsqu'elles ont été importées et vérifiées ; sans import, « Notice indisponible » s'affiche. Les statistiques SAV historiques restent des fixtures, séparées des demandes créées. La saisie manuelle SAV reste en mode simulation non persistante. Le rattachement à un dossier SAV réel, les autres documents privés, l'authentification et les garanties de sécurité du backend PostgreSQL se testent dans l'environnement complet, pas dans ce mode local.
 
 Le serveur de recette écoute uniquement sur `127.0.0.1`. Il ne s'active que par `npm.cmd run recette` : `npm run dev`, le build standard, le backend Fastify et les migrations PostgreSQL ne chargent pas ce module. Le bandeau et les identifiants DEMO sont absents du build normal.
 
-### Importer un parc Client privé pour la recette
+### Importer un parc Client privé pour consultation interne SAV
 
 Placer le fichier `obera-clients-recette.json` reçu séparément dans **Téléchargements**. Ce fichier contient des données privées : ne pas le copier dans le dépôt, ne pas le commiter, ne pas le partager publiquement. Fermer le serveur de recette avec Ctrl+C, puis exécuter depuis le projet :
 
@@ -35,7 +36,7 @@ Placer le fichier `obera-clients-recette.json` reçu séparément dans **Téléc
 
 L'import vérifie les modèles du catalogue, les champs autorisés et l'unicité des séries ; il refuse les données de maintenance, les notes ou les sites. Il stocke uniquement les identifiants, l'organisation, les modèles et les séries dans `%USERPROFILE%\.obera-local-recipe\private-data\clients.json`, hors du dépôt et des fichiers servis par Vite. Le PIN y est dérivé avec `scrypt`. Le fichier source peut être supprimé de Téléchargements après l'import. L'import à nouveau des mêmes données conserve les identifiants techniques des appareils. Après modification du parc, relancer le serveur de recette. Le bandeau indique la présence de données Client privées. **Réinitialiser les données DEMO** efface les demandes et les sessions de recette, mais préserve le parc et les notices importés ; il ne supprime pas le fichier source dans Téléchargements.
 
-Le format d'import est `{"version":1,"clients":[{"identifier":"TEST-CLIENT","pin":"1234","organizationName":"CLIENT TEST","devices":[{"model":"IC 22","serial":"TEST-SN-001"}]}]}`. Les vrais rapports de maintenance ne sont jamais importés ni rendus accessibles au Client. Ce mode local reste une simulation, sans sécurité ni stockage PostgreSQL de production.
+Le format d'import est `{"version":1,"clients":[{"identifier":"TEST-CLIENT","pin":"1234","organizationName":"CLIENT TEST","devices":[{"model":"IC 22","serial":"TEST-SN-001"}]}]}`. Les PIN importés restent inactifs en V1 ; seul le compte SAV accède au parc via l'API locale. Les vrais rapports de maintenance ne sont jamais importés. Ce mode local reste une simulation, sans sécurité ni stockage PostgreSQL de production.
 
 ### Installer les notices officielles pour la recette locale
 
@@ -50,10 +51,10 @@ Si les PDF se trouvent ailleurs, ajouter `-- "C:\chemin\vers\le\dossier"` à la 
 
 ## Bêta interne
 
-Les connexions internes, Client et Revendeur passent par le backend Fastify et PostgreSQL. Les demandes externes sont séparées des dossiers SAV internes et filtrées par organisation côté serveur. Le build frontend seul (Docker statique ou GitHub Pages) ne peut pas authentifier les utilisateurs : il faut servir `/api` sur la même origine avec un backend configuré. Voir [server/README.md](server/README.md) pour les comptes fictifs et [deploy/beta/README.md](deploy/beta/README.md) pour le profil HTTPS portable, les migrations et les sauvegardes. Ne pas utiliser de données réelles dans cette recette.
+La connexion interne passe par Fastify et PostgreSQL. Les accès Client et Revendeur sont suspendus en V1, sans supprimer leurs données ni les anciennes migrations. Le build frontend seul (Docker statique ou GitHub Pages) ne peut pas authentifier les utilisateurs : il faut servir `/api` sur la même origine avec un backend configuré. Voir [server/README.md](server/README.md) pour les comptes fictifs et [deploy/beta/README.md](deploy/beta/README.md) pour le profil HTTPS portable, les migrations et les sauvegardes.
 
 Intégration propre des deux modules fournis :
-- Assistant OberA (diagnostic + consommables + SAV)
+- Assistant OberA (diagnostic + SAV interne)
 - Calculateur de saturation du charbon actif (route `/charbon-actif`)
 
 ## Structure

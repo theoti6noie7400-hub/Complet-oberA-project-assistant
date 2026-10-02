@@ -4,7 +4,8 @@ import CharbonActifPage from "./pages/CharbonActifPage";
 import PortalHomePage from "./pages/PortalHomePage";
 import ServiceHubPage from "./pages/ServiceHubPage";
 import ResellerSpacePage from "./pages/ResellerSpacePage";
-import ExternalSpacePage from "./pages/ExternalSpacePage";
+import ClientSpaceUnavailablePage from "./pages/ClientSpaceUnavailablePage";
+import InternalClientParkPage from "./pages/InternalClientParkPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import { AdminAuthProvider } from "./auth/adminAuth";
 import RequireAdmin from "./components/RequireAdmin";
@@ -27,10 +28,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<PortalHomePage />} />
           <Route path="/admin-login" element={<AdminLoginPage />} />
-          <Route path="/client-space" element={<AssistantOberaPage />} />
-          <Route path="/client-space/devices/:id" element={<ExternalSpacePage role="client" view="device" />} />
-          <Route path="/client-space/diagnostic/:id" element={<ExternalSpacePage role="client" view="diagnostic" />} />
-          <Route path="/client-space/requests/:id" element={<ExternalSpacePage role="client" view="request" />} />
+          <Route path="/client-space/*" element={<ClientSpaceUnavailablePage />} />
           <Route path="/reseller-space" element={<ResellerSpacePage />} />
           <Route path="/reseller-space/requests/:id" element={<ResellerSpacePage />} />
           <Route
@@ -41,6 +39,7 @@ export default function App() {
               </RequireAdmin>
             }
           />
+          <Route path="/sav-maintenance/clients" element={<RequireAdmin><InternalClientParkPage /></RequireAdmin>} />
           <Route
             path="/charbon-actif"
             element={
