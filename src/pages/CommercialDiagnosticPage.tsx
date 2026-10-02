@@ -138,6 +138,9 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
   const terminalResolved = node?.type === "text" && !node.next && node.target === "resolved";
   const alreadyResolved = Boolean(node && FINAL_RESOLVED_NODE_IDS.has(node.id));
   const terminalNeedsSav = node?.type === "text" && !node.next && node.target !== "resolved";
+  const terminalSavMessage = node?.id === "pump-runs-still-no-cooling"
+    ? "Le circuit d’eau et la pompe ont déjà été contrôlés. Contactez le SAV pour conseil sur les panneaux évaporatifs ou les conditions d’utilisation."
+    : "Le problème nécessite une prise en charge par le SAV.";
 
   return <section className="obera-panel p-5 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -188,7 +191,7 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
         </>}
 
         {terminalNeedsSav && !contactVisible && <div className="space-y-2">
-          <p className="font-semibold">Le problème nécessite une prise en charge par le SAV.</p>
+          <p className="font-semibold">{terminalSavMessage}</p>
           <button className="obera-btn-primary" type="button" onClick={() => setContactVisible(true)}>Contacter le SAV</button>
         </div>}
 
