@@ -252,11 +252,11 @@ export const FINAL_RESOLVED_NODE_IDS = new Set([
   "pump-cooling-restored"
 ]);
 
+// La vidéo sert uniquement à montrer comment ouvrir l'appareil. Une fois l'accès
+// interne effectué, elle ne doit pas être répétée sur les étapes suivantes.
 export const IC22_VIDEO_HELP_NODE_IDS = new Set([
   "ic22-level-sensor-access",
-  "ic22-reposition-level-sensor",
-  "pump-connections-access",
-  "pump-reconnect"
+  "pump-connections-access"
 ]);
 
 export function commercialDiagnosticNode(nodeId: string, productId: string): DiagnosticNode | null {
