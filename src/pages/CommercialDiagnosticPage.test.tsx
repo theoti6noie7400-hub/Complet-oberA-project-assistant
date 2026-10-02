@@ -48,7 +48,7 @@ it("masque les anciens modèles invalidés et clarifie le contrôle d'alimentati
   expect(view.getByRole("heading", { name: "Après ces vérifications, l'appareil s'allume-t-il ?" })).toBeTruthy();
 });
 
-it("regroupe les châssis IC KM VL et retire les anciens DUSTOMAT du catalogue diagnostic", async () => {
+it("regroupe les familles identiques et retire les anciens appareils du catalogue diagnostic", async () => {
   const view = renderPage();
   await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
 
@@ -64,6 +64,21 @@ it("regroupe les châssis IC KM VL et retire les anciens DUSTOMAT du catalogue d
   expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "DUSTOMAT 10" } });
   expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ECOCLIM" } });
+  expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 1001" } });
+  expect(view.getByRole("heading", { name: "ePUR EX 1000 / 1001" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 3001" } });
+  expect(view.getByRole("heading", { name: "ePUR EX 3000 / 3001" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
+
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 5001" } });
+  expect(view.getByRole("heading", { name: "ePUR EX 5000 / 5001" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
 });
 
 it("laisse le formulaire SAV accessible immédiatement sans imposer le questionnaire", async () => {
