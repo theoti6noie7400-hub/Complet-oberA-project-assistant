@@ -26,7 +26,7 @@ function selectIc22(view: ReturnType<typeof renderPage>) {
 
 it("masque les anciens modèles invalidés et clarifie le contrôle d'alimentation", async () => {
   const view = renderPage();
-  await view.findByText("Rafraîchisseurs d'air");
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
 
   fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "Filtower" } });
   expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
@@ -45,7 +45,7 @@ it("masque les anciens modèles invalidés et clarifie le contrôle d'alimentati
 
 it("guide COOL clignotant vers niveau d'eau, capteur, vidéo puis formulaire SAV", async () => {
   const view = renderPage();
-  await view.findByText("Rafraîchisseurs d'air");
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
   selectIc22(view);
 
   fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
