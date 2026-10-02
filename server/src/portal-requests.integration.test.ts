@@ -62,7 +62,11 @@ integration("DEMO Client/Revendeur → file SAV → statut public et rattachemen
       submissionKey: randomUUID(), requestType: "consumables",
       subject: "DEMO consommables", message: "DEMO message revendeur"
     });
-    assert.equal(createdClient.statusCode, 201); assert.equal(createdReseller.statusCode, 401);
+    assert.equal(createdClient.statusCode, 201); assert.equal(createdReseller.statusCode, 400);
+    assert.equal((await send("POST", "/api/reseller/requests", undefined, {
+      submissionKey: randomUUID(), requestType: "general",
+      subject: "DEMO refus sans session", message: "DEMO interdit"
+    })).statusCode, 401);
     const id = createdClient.json().id as string;
     const resellerId = "f1000000-0000-4000-8000-000000000003"; // Historical DEMO archive.
     for (const role of roles.slice(0, 3)) {

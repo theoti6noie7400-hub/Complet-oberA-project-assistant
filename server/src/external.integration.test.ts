@@ -238,13 +238,16 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
       subject: "DEMO interdit", message: "DEMO interdit" })).statusCode, 400);
     assert.equal((await send("POST", "/api/reseller/requests", undefined, {
       submissionKey: randomUUID(), requestType: "consumables",
+      subject: "DEMO refus sans session", message: "DEMO interdit" })).statusCode, 400);
+    assert.equal((await send("POST", "/api/reseller/requests", undefined, {
+      submissionKey: randomUUID(), requestType: "general",
       subject: "DEMO refus sans session", message: "DEMO interdit" })).statusCode, 401);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM sav_cases")).rows[0].n, casesBefore);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM contracts")).rows[0].n, contractsBefore);
     assert.equal(Number((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE resource_kind='portal_request'")).rows[0].n),auditMaintenanceBefore+3);
     const resellerCreated = await send("POST", "/api/reseller/requests", undefined,
       { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO filtre", message: "DEMO quantité" });
-    assert.equal(resellerCreated.statusCode, 401);
+    assert.equal(resellerCreated.statusCode, 400);
     assert.equal(Number((await db.query("SELECT count(*) AS n FROM portal_requests WHERE kind='reseller'")).rows[0].n) >= 2, true);
     const tokenHash = createHash("sha256").update(a.split("=")[1]).digest("hex");
     await db.query("UPDATE sessions SET expires_at = now() - interval '1 second' WHERE token_hash = $1", [tokenHash]);
