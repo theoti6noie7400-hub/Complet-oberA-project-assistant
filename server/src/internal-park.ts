@@ -6,13 +6,19 @@ import { noticeAvailable, verifiedNotice, type NoticeAsset } from "./client-noti
 const uuid = { type: "string", format: "uuid" } as const;
 const idParams = { params: { type: "object", required: ["id"], properties: { id: uuid } } } as const;
 const savRoles = new Set(["global_admin", "sav_manager", "sav_technician"]);
-const parkRoles = new Set([...savRoles, "commercial"]);
 
 export function registerInternalParkRoutes(app: FastifyInstance, db: Database) {
   async function staff(request: FastifyRequest, reply: FastifyReply) {
     const principal = await findPrincipal(db, request.headers.cookie);
     if (!principal) { reply.code(401).send({ error: "authentication_required" }); return false; }
-    if (!parkRoles.has(principal.role)) { reply.code(403).send({ error: "access_denied" }); return false; }
+    if (!savRoles.has(principal.role)) { reply.code(403).send({ error: "access_denied" }); return false; }
+    return principal;
+  }
+
+  async function commercial(request: FastifyRequest, reply: FastifyReply) {
+    const principal = await findPrincipal(db, request.headers.cookie);
+    if (!principal) { reply.code(401).send({ error: "authentication_required" }); return false; }
+    if (principal.role !== "commercial") { reply.code(403).send({ error: "access_denied" }); return false; }
     return principal;
   }
 
@@ -20,6 +26,11 @@ export function registerInternalParkRoutes(app: FastifyInstance, db: Database) {
     kind: string, id: string) {
     await db.query(`INSERT INTO audit_events(actor_user_id,action,resource_kind,resource_id)
       VALUES ($1,$2,$3,$4)`, [actor.userId, `${action}:${actor.role}`, kind, id]);
+  }
+
+  async function auditCatalog(actor: { userId: string; role: string }, model: string) {
+    await db.query(`INSERT INTO audit_events(actor_user_id,action,resource_kind,resource_id)
+      VALUES ($1,$2,$3,NULL)`, [actor.userId, `catalog_notice_download:${actor.role}`, `catalog_model:${model}`]);
   }
 
   app.get("/api/sav/clients", async (request, reply) => {
@@ -50,7 +61,6 @@ export function registerInternalParkRoutes(app: FastifyInstance, db: Database) {
     return { organization: organization.rows[0], devices };
   });
 
-  // A scoped detail endpoint prevents a forged organization/device pair from leaking another client's device.
   app.get("/api/sav/clients/:id/devices/:deviceId", { schema: { params: {
     type: "object", required: ["id", "deviceId"], properties: { id: uuid, deviceId: uuid }
   } } }, async (request, reply) => {
@@ -86,6 +96,36 @@ export function registerInternalParkRoutes(app: FastifyInstance, db: Database) {
     const data = await verifiedNotice(process.env.PRIVATE_DOCUMENT_ROOT, asset);
     if (!data) return reply.code(404).send({ error: "not_found" });
     await audit(actor, "client_notice_download", "device", result.rows[0].id);
+    return reply.header("Cache-Control", "no-store")
+      .header("Content-Disposition", 'attachment; filename="notice-obera.pdf"')
+      .type("application/pdf").send(data);
+  });
+
+  app.get("/api/internal/catalog/notices", async (request, reply) => {
+    if (!await commercial(request, reply)) return reply;
+    const result = await db.query(`SELECT m.model, n.sha256, n.storage_key, n.size_bytes
+      FROM client_model_notices m JOIN client_notice_assets n ON n.sha256 = m.asset_sha256
+      ORDER BY m.model`);
+    const models: string[] = [];
+    for (const row of result.rows) {
+      if (await noticeAvailable(process.env.PRIVATE_DOCUMENT_ROOT, row as NoticeAsset)) models.push(row.model);
+    }
+    return { models };
+  });
+
+  app.get("/api/internal/catalog/notices/:model", { schema: { params: { type: "object", required: ["model"],
+    properties: { model: { type: "string", minLength: 1, maxLength: 120 } } } } }, async (request, reply) => {
+    const actor = await commercial(request, reply);
+    if (!actor) return reply;
+    const model = (request.params as { model: string }).model;
+    const result = await db.query(`SELECT n.sha256, n.storage_key, n.size_bytes
+      FROM client_model_notices m JOIN client_notice_assets n ON n.sha256 = m.asset_sha256
+      WHERE m.model = $1`, [model]);
+    const asset = result.rows[0] as NoticeAsset | undefined;
+    if (!asset?.storage_key) return reply.code(404).send({ error: "not_found" });
+    const data = await verifiedNotice(process.env.PRIVATE_DOCUMENT_ROOT, asset);
+    if (!data) return reply.code(404).send({ error: "not_found" });
+    await auditCatalog(actor, model);
     return reply.header("Cache-Control", "no-store")
       .header("Content-Disposition", 'attachment; filename="notice-obera.pdf"')
       .type("application/pdf").send(data);

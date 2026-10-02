@@ -29,9 +29,10 @@ const emptySession: AdminSession = { isLoading: false, isAuthenticated: false, r
 
 export function canUseInternalPath(role: InternalRole | null, pathname: string): boolean {
   if (!role) return false;
+  if (pathname === "/diagnostic-client") return role === "commercial";
   if (pathname === "/sav-maintenance/client-preview" || pathname === "/sav-maintenance/clients" ||
     /^\/sav-maintenance\/clients\/[^/]+\/devices\/[^/]+$/.test(pathname))
-    return ["global_admin", "sav_manager", "sav_technician", "commercial"].includes(role);
+    return ["global_admin", "sav_manager", "sav_technician"].includes(role);
   if (role === "global_admin") return ["/sav-maintenance", "/sav-maintenance/clients"].includes(pathname) ||
     pathname === "/charbon-actif" ||
     ["marketing", "commercial", "adv", "logistique"].some(key => pathname === `/service/${key}`);

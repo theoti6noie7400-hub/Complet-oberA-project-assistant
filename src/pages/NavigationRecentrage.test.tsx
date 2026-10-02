@@ -39,27 +39,29 @@ beforeEach(() => {
     if (url === `/api/sav/clients/${clientId}/devices/${deviceId}`)
       return Promise.resolve(Response.json({ organization: { id: clientId, name: "CLIENT DEMO ALPHA" },
         device: { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false } }));
+    if (url === "/api/internal/catalog/notices") return Promise.resolve(Response.json({ models: ["IC 22"] }));
     throw new Error(`Unexpected request ${url}`);
   }));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-it("présente uniquement le SAV interne à l'accueil", async () => {
+it("présente uniquement le SAV interne à l'accueil sans session", async () => {
   const view = renderAt("/");
   await view.findByRole("heading", { name: "SAV / Maintenance" });
   const targets = Array.from(view.container.querySelectorAll("a.portal-card-cta"), link => link.getAttribute("href"));
   expect(targets).toEqual(["/sav-maintenance"]);
   expect(view.getByText("Outil interne SAV OberA")).toBeTruthy();
-  expect(view.queryByText("Espace Client")).toBeNull();
+  expect(view.queryByText("Assistant diagnostic")).toBeNull();
   expect(view.queryByText("Marketing")).toBeNull();
   expect(view.queryByText("Espace Revendeur")).toBeNull();
 });
 
-it("garde les espaces SAV et calculateur pour le SAV interne", async () => {
+it("garde les espaces SAV et le parc Client pour le SAV interne", async () => {
   role = "sav_manager";
   const home = renderAt("/");
   await home.findByRole("heading", { name: "SAV / Maintenance" });
   expect(home.container.querySelectorAll("a.portal-card-cta")).toHaveLength(3);
+  expect(home.getByRole("heading", { name: "Parc clients" })).toBeTruthy();
   home.unmount();
   const sav = renderAt("/sav-maintenance");
   await sav.findByText("Que souhaitez-vous faire ?");
@@ -70,27 +72,30 @@ it("garde les espaces SAV et calculateur pour le SAV interne", async () => {
   await calculator.findByRole("heading", { name: "Calculateur de saturation du charbon actif" });
 });
 
-it("autorise le Commercial à consulter le parc puis le diagnostic Client du bon appareil, sans SAV ni API externe", async () => {
+it("limite le Commercial au catalogue diagnostic sans exposer client, parc ni numéro de série", async () => {
   role = "commercial";
   const home = renderAt("/");
-  await home.findByRole("heading", { name: "Parc clients" });
-  expect(home.getByRole("heading", { name: "Tester l’espace Client" })).toBeTruthy();
+  await home.findByRole("heading", { name: "Assistant diagnostic" });
+  expect(home.queryByRole("heading", { name: "Parc clients" })).toBeNull();
+  expect(home.queryByRole("heading", { name: "Tester l’espace Client" })).toBeNull();
   expect(home.queryByRole("heading", { name: "SAV / Maintenance" })).toBeNull();
   home.unmount();
-  const park = renderAt("/sav-maintenance/client-preview");
-  await park.findByRole("button", { name: /CLIENT DEMO ALPHA/ });
-  fireEvent.click(park.getByRole("button", { name: /CLIENT DEMO ALPHA/ }));
-  const previewLink = await park.findByRole("link", { name: "Tester l’espace Client" });
-  expect(previewLink.getAttribute("href")).toBe(`/sav-maintenance/clients/${clientId}/devices/${deviceId}`);
-  park.unmount();
-  const preview = renderAt(`/sav-maintenance/clients/${clientId}/devices/${deviceId}`);
-  await preview.findByRole("heading", { name: "Diagnostic : IC 22" });
-  expect(preview.getByText("APERÇU CLIENT — USAGE INTERNE OBERA")).toBeTruthy();
-  expect(preview.getAllByText(/DEMO-SN-A-001/)).toHaveLength(2);
-  expect(calls.some(url => url.startsWith("/api/client/") || url === "/api/sav/cases")).toBe(false);
-  preview.unmount();
-  const blocked = renderAt("/sav-maintenance");
+
+  const diagnostic = renderAt("/diagnostic-client");
+  await diagnostic.findByRole("heading", { name: "Assistant diagnostic" });
+  expect(diagnostic.getByText(/aucune donnée Client, aucun parc et aucun numéro de série/i)).toBeTruthy();
+  fireEvent.change(diagnostic.getByLabelText("Rechercher un appareil"), { target: { value: "IC 22" } });
+  const launch = await diagnostic.findByRole("button", { name: "Lancer le diagnostic" });
+  fireEvent.click(launch);
+  await diagnostic.findByRole("heading", { name: "Quel est le problème principal ?" });
+  expect(diagnostic.getByText("MODE DIAGNOSTIC CLIENT — USAGE INTERNE OBERA")).toBeTruthy();
+  expect(calls).toContain("/api/internal/catalog/notices");
+  expect(calls.some(url => url.startsWith("/api/sav/clients") || url.startsWith("/api/client/"))).toBe(false);
+  diagnostic.unmount();
+
+  const blocked = renderAt("/sav-maintenance/clients");
   await blocked.findByRole("heading", { name: "Accès refusé" });
+  expect(calls.filter(url => url === "/api/sav/clients")).toEqual([]);
 });
 
 it.each(["marketing", "commercial", "adv", "logistique"])("résout /service/%s avec une page indisponible", async key => {

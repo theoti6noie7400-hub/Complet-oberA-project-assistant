@@ -145,7 +145,6 @@ test("recette locale : Client, SAV, droits, persistance et remise à zéro", asy
   assert.equal((await call("GET", "/api/client/requests", b)).data.requests.length, 0);
   assert.equal((await call("GET", "/api/portal/requests", staff)).data.requests.length, 3);
 
-  // Restart the mock server to prove the DEMO request history survives more than a page reload.
   await api.close();
   api = await serve(file, options);
   const afterRestartA = await api.login("/api/client/login", "DEMO-CLIENT-A", "1234");
@@ -161,45 +160,59 @@ test("recette locale : Client, SAV, droits, persistance et remise à zéro", asy
   assert.deepEqual((await api.call("GET", "/api/client/requests", fresh)).data.requests, []);
 });
 
-test("recette V1 par défaut : parc interne accessible, accès Client fermé, historique conservé", async t => {
+test("recette V1 : le Commercial utilise le catalogue diagnostic sans données Client", async t => {
   const dir = await mkdtemp(join(tmpdir(), "obera-v1-recipe-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, "state.json");
+  const sourceDir = join(dir, "source");
+  const noticeRoot = join(dir, "private");
+  await mkdir(sourceDir);
+  const data = Buffer.from("%PDF-1.4\n% NOTICE COMMERCIAL TEST IC22\n%%EOF\n");
+  const noticeSources = [{ model: "IC 22", file: "DEMO-COMMERCIAL-IC22.pdf",
+    sha256: createHash("sha256").update(data).digest("hex"), data }];
+  await writeFile(join(sourceDir, noticeSources[0].file), data);
+  await importLocalNotices(sourceDir, noticeRoot, noticeSources);
   const item = { id: randomUUID(), kind: "client", organization_id: "a1000000-0000-4000-8000-000000000001",
     organization_name: "CLIENT DEMO ALPHA", author_identifier: "DEMO-CLIENT-A",
     request_type: "consumables", device_id: null, device_ids: [], subject: "DEMO archive",
     message: "DEMO historique", public_status: "received", created_at: new Date().toISOString(),
     diagnostic_context: null };
   await writeFile(file, JSON.stringify({ requests: [item], audit: [] }));
-  const api = await serve(file);
+  const api = await serve(file, { noticeRoot, noticeSources });
   t.after(() => api.close());
+
   assert.equal((await api.call("POST", "/api/client/login", null,
     { identifier: "DEMO-CLIENT-A", pin: "1234" })).status, 410);
   const staff = await api.login("/api/login", "DEMO-STAFF", "1789");
   const technician = await api.login("/api/login", "DEMO-SAV-TECH", "1789");
   const commercial = await api.login("/api/login", "DEMO-COMMERCIAL", "2468");
+
   const clients = await api.call("GET", "/api/sav/clients", technician);
   assert.equal(clients.status, 200);
   assert.equal(clients.data.clients.find(client => client.name === "CLIENT DEMO ALPHA").device_count, 2);
   const park = await api.call("GET", "/api/sav/clients/a1000000-0000-4000-8000-000000000001/devices", staff);
   assert.deepEqual(park.data.devices.map(device => device.serial), ["DEMO-SN-A-001", "DEMO-SN-A-002"]);
+
   assert.equal((await api.call("GET", "/api/session", commercial)).data.role, "commercial");
-  assert.equal((await api.call("GET", "/api/sav/clients", commercial)).status, 200);
-  const detail = await api.call("GET", `/api/sav/clients/a1000000-0000-4000-8000-000000000001/devices/${ic22}`, commercial);
-  assert.deepEqual(detail.data.device, { id: ic22, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false });
-  assert.equal((await api.call("GET", `/api/sav/clients/a1000000-0000-4000-8000-000000000002/devices/${ic22}`, commercial)).status, 404);
+  assert.equal((await api.call("GET", "/api/sav/clients", commercial)).status, 403);
+  assert.equal((await api.call("GET", `/api/sav/clients/a1000000-0000-4000-8000-000000000001/devices/${ic22}`, commercial)).status, 403);
+  assert.equal((await api.call("GET", `/api/sav/devices/${ic22}/notice`, commercial)).status, 403);
   assert.equal((await api.call("GET", "/api/portal/requests", commercial)).status, 403);
   assert.equal((await api.call("GET", `/api/portal/requests/${item.id}`, commercial)).status, 403);
   assert.equal((await api.call("GET", "/api/client/devices", commercial)).status, 403);
+
+  const catalog = await api.call("GET", "/api/internal/catalog/notices", commercial);
+  assert.equal(catalog.status, 200);
+  assert.deepEqual(catalog.data.models, ["IC 22"]);
+  const notice = await api.call("GET", "/api/internal/catalog/notices/IC%2022", commercial);
+  assert.equal(notice.status, 200);
+  assert.equal(notice.headers.get("content-type"), "application/pdf");
+  assert.equal(notice.data, data.toString());
+  assert.equal((await api.call("GET", "/api/internal/catalog/notices", staff)).status, 403);
+
   const views = (JSON.parse(await readFile(file, "utf8"))).audit;
-  assert.ok(views.some(item => item.actor === "DEMO-COMMERCIAL" &&
-    item.action === "client_device_view" && item.device_id === ic22));
-  assert.equal((await api.call("GET", "/api/client/devices", staff)).status, 403);
-  assert.equal((await api.call("GET", "/api/sav/clients", null)).status, 401);
-  const archive = await api.call("GET", `/api/portal/requests/${item.id}`, staff);
-  assert.equal(archive.data.request_type, "consumables");
-  assert.equal((await api.call("GET", "/api/portal/requests?requestType=consumables", technician)).data.requests.length, 1);
-  assert.equal((await api.call("POST", "/api/client/requests", staff,
-    { submissionKey: randomUUID(), requestType: "consumables", subject: "DEMO", message: "DEMO" })).status, 403);
+  assert.ok(views.some(entry => entry.actor === "DEMO-COMMERCIAL" &&
+    entry.action === "catalog_notice_download" && entry.model === "IC 22"));
+  assert.equal(views.some(entry => entry.actor === "DEMO-COMMERCIAL" && entry.organization_id), false);
   assert.equal((JSON.parse(await readFile(file, "utf8"))).requests.length, 1);
 });

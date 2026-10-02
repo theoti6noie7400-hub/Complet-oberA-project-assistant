@@ -7,6 +7,7 @@ import ResellerSpacePage from "./pages/ResellerSpacePage";
 import ClientSpaceUnavailablePage from "./pages/ClientSpaceUnavailablePage";
 import InternalClientParkPage from "./pages/InternalClientParkPage";
 import InternalClientPreviewPage from "./pages/InternalClientPreviewPage";
+import CommercialDiagnosticPage from "./pages/CommercialDiagnosticPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import { AdminAuthProvider } from "./auth/adminAuth";
 import RequireAdmin from "./components/RequireAdmin";
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/sav-maintenance/client-preview" element={<RequireAdmin><InternalClientParkPage /></RequireAdmin>} />
           <Route path="/sav-maintenance/clients/:clientId/devices/:deviceId"
             element={<RequireAdmin><InternalClientPreviewPage /></RequireAdmin>} />
+          <Route path="/diagnostic-client" element={<RequireAdmin><CommercialDiagnosticPage /></RequireAdmin>} />
           <Route
             path="/charbon-actif"
             element={

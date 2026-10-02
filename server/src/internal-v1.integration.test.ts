@@ -13,7 +13,7 @@ const origin = "https://portail-demo.example.invalid";
 const clientA = "a1000000-0000-4000-8000-000000000001";
 const historical = "f1000000-0000-4000-8000-000000000002";
 
-integration("V1 PostgreSQL: internal park, private notice and historical consumables; external access closed", async () => {
+integration("V1 PostgreSQL: parc réservé au SAV, catalogue diagnostic commercial, notices privées et historique", async () => {
   assert.equal(new URL(process.env.EXTERNAL_TEST_DATABASE_URL!).pathname, "/obera_beta_demo");
   process.env.DATABASE_URL = process.env.EXTERNAL_TEST_DATABASE_URL;
   const db = openDatabase();
@@ -45,11 +45,13 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
     assert.equal((await send("POST", "/api/client/login", undefined,
       { identifier: "DEMO-CLIENT-A", pin: "1234" })).statusCode, 410);
     assert.equal((await send("GET", "/api/sav/clients")).statusCode, 401);
+
     const manager = await login("DEMO-V1-MANAGER", "9011");
     const technician = await login("DEMO-V1-TECH", "9012");
     const commercial = await login("DEMO-V1-COMMERCIAL", "9013");
     const before = (await db.query("SELECT count(*)::int AS n FROM portal_requests WHERE request_type='consumables'")).rows[0].n;
     assert.ok(before >= 2, "historical Client and reseller requests exist");
+
     await db.query("INSERT INTO devices(id,client_organization_id,model,serial) VALUES($1,$2,$3,'DEMO-SN-V1')", [deviceId, clientA, model]);
     await mkdir(join(root, "client-notices"), { recursive: true });
     await writeFile(file, pdf);
@@ -57,7 +59,8 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
       VALUES($1,$2,'DEMO-V1-test.pdf',$3) ON CONFLICT DO NOTHING`,
     [sha, `client-notices/${sha}.pdf`, pdf.length]);
     await db.query("INSERT INTO client_model_notices(model,asset_sha256) VALUES($1,$2)", [model, sha]);
-    for (const staff of [manager, technician, commercial]) {
+
+    for (const staff of [manager, technician]) {
       const listing = await send("GET", "/api/sav/clients", staff);
       assert.equal(listing.statusCode, 200);
       assert.deepEqual(listing.json().clients.map((item: { name: string }) => item.name).sort(),
@@ -76,14 +79,28 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
       assert.equal(notice.statusCode, 200);
       assert.equal(notice.headers["content-type"], "application/pdf");
       assert.deepEqual(notice.rawPayload, pdf);
-      if (staff !== commercial) {
-        const archive = await send("GET", `/api/portal/requests/${historical}`, staff);
-        assert.equal(archive.statusCode, 200);
-        assert.equal(archive.json().request_type, "consumables");
-      }
+      const archive = await send("GET", `/api/portal/requests/${historical}`, staff);
+      assert.equal(archive.statusCode, 200);
+      assert.equal(archive.json().request_type, "consumables");
       assert.equal((await send("GET", `/api/sav/devices/${randomUUID()}/notice`, staff)).statusCode, 404);
-      assert.equal((await send("GET", "/api/sav/cases", staff)).statusCode, staff === commercial ? 403 : 200);
+      assert.equal((await send("GET", "/api/sav/cases", staff)).statusCode, 200);
+      assert.equal((await send("GET", "/api/internal/catalog/notices", staff)).statusCode, 403);
     }
+
+    assert.equal((await send("GET", "/api/sav/clients", commercial)).statusCode, 403);
+    assert.equal((await send("GET", `/api/sav/clients/${clientA}/devices`, commercial)).statusCode, 403);
+    assert.equal((await send("GET", `/api/sav/clients/${clientA}/devices/${deviceId}`, commercial)).statusCode, 403);
+    assert.equal((await send("GET", `/api/sav/devices/${deviceId}/notice`, commercial)).statusCode, 403);
+
+    const catalog = await send("GET", "/api/internal/catalog/notices", commercial);
+    assert.equal(catalog.statusCode, 200);
+    assert.ok(catalog.json().models.includes(model));
+    const catalogNotice = await send("GET", `/api/internal/catalog/notices/${encodeURIComponent(model)}`, commercial);
+    assert.equal(catalogNotice.statusCode, 200);
+    assert.equal(catalogNotice.headers["content-type"], "application/pdf");
+    assert.deepEqual(catalogNotice.rawPayload, pdf);
+    assert.equal((await send("GET", `/api/internal/catalog/notices/${encodeURIComponent("UNKNOWN MODEL")}`, commercial)).statusCode, 404);
+
     assert.equal((await send("GET", `/api/portal/requests/${historical}`, commercial)).statusCode, 403);
     assert.equal((await send("POST", `/api/portal/requests/${historical}/status`, commercial,
       { status: "in_progress" })).statusCode, 403);
@@ -98,12 +115,14 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
     assert.equal((await send("GET", "/api/admin/users", commercial)).statusCode, 404);
     assert.equal((await send("GET", "/api/sav/contracts", commercial)).statusCode, 403);
     assert.equal((await send("GET", "/api/client/devices", commercial)).statusCode, 404);
+
     const actor = (await send("GET", "/api/session", commercial)).json().userId;
     const logs = await db.query(`SELECT action,resource_kind,resource_id FROM audit_events
       WHERE actor_user_id=$1 ORDER BY occurred_at`, [actor]);
-    assert.ok(logs.rows.some(row => row.action === "client_park_view:commercial" && row.resource_id === clientA));
-    assert.ok(logs.rows.some(row => row.action === "client_device_view:commercial" && row.resource_id === deviceId));
-    assert.ok(logs.rows.some(row => row.action === "client_notice_download:commercial" && row.resource_id === deviceId));
+    assert.ok(logs.rows.some(row => row.action === "catalog_notice_download:commercial" &&
+      row.resource_kind === `catalog_model:${model}` && row.resource_id === null));
+    assert.equal(logs.rows.some(row => row.action.startsWith("client_park_view") || row.action.startsWith("client_device_view")), false);
+
     assert.equal((await send("GET", `/api/sav/devices/${deviceId}/notice`, oldCookie)).statusCode, 403);
     assert.equal((await send("POST", "/api/client/requests", oldCookie,
       { requestType: "consumables" })).statusCode, 404);

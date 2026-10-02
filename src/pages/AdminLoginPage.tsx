@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
   const homeForRole: Record<InternalRole, string> = {
     global_admin: "/sav-maintenance", sav_manager: "/sav-maintenance",
     sav_technician: "/sav-maintenance", marketing: "/service/marketing",
-    commercial: "/sav-maintenance/clients", sales: "/service/commercial",
+    commercial: "/diagnostic-client", sales: "/service/commercial",
     adv: "/service/adv", logistics: "/service/logistique"
   };
 
@@ -35,10 +35,7 @@ export default function AdminLoginPage() {
     const verifiedRole = await login(adminId, pin);
     setSubmitting(false);
     setPin("");
-    if (!verifiedRole) {
-      setError(true);
-      return;
-    }
+    if (!verifiedRole) { setError(true); return; }
     setError(false);
     navigate(canUseInternalPath(verifiedRole, next) ? next : homeForRole[verifiedRole], { replace: true });
   };
@@ -48,70 +45,30 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md rounded-xl bg-white shadow-lg p-8">
         <div className="text-center mb-8">
           {!logoFailed ? (
-            <img
-              src={logoSrc}
-              alt="OberA"
-              className="logo-img mx-auto"
-              onError={() => setLogoFailed(true)}
-            />
+            <img src={logoSrc} alt="OberA" className="logo-img mx-auto" onError={() => setLogoFailed(true)} />
           ) : (
-            <div className="logo-fallback">
-              ober<span className="logo-fallback-accent">A</span>
-            </div>
+            <div className="logo-fallback">ober<span className="logo-fallback-accent">A</span></div>
           )}
           <p className="mt-3 text-sm text-stone-500">Connexion interne</p>
         </div>
-
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label htmlFor="internal-id" className="block text-sm font-medium text-stone-700 mb-1">
-              Identifiant interne
-            </label>
-            <input
-              type="text"
-              id="internal-id"
-              className="w-full p-3 rounded-md border border-stone-300"
-              placeholder="Votre identifiant"
-              value={adminId}
-              onChange={(e) => setAdminId(e.target.value)}
-              required
-            />
+            <label htmlFor="internal-id" className="block text-sm font-medium text-stone-700 mb-1">Identifiant interne</label>
+            <input type="text" id="internal-id" className="w-full p-3 rounded-md border border-stone-300"
+              placeholder="Votre identifiant" value={adminId} onChange={(e) => setAdminId(e.target.value)} required />
           </div>
           <div>
-            <label htmlFor="internal-pin" className="block text-sm font-medium text-stone-700 mb-1">
-              Code PIN
-            </label>
-            <input
-              type="password"
-              id="internal-pin"
-              className="w-full p-3 rounded-md border border-stone-300"
-              placeholder="••••"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              inputMode="numeric"
-              maxLength={12}
-              required
-            />
+            <label htmlFor="internal-pin" className="block text-sm font-medium text-stone-700 mb-1">Code PIN</label>
+            <input type="password" id="internal-pin" className="w-full p-3 rounded-md border border-stone-300"
+              placeholder="••••" value={pin} onChange={(e) => setPin(e.target.value)} inputMode="numeric" maxLength={12} required />
           </div>
-          {error && (
-            <p className="text-sm text-red-600">
-              Connexion refusée. Vérifiez vos informations ou réessayez plus tard.
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full px-6 py-3 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
-          >
+          {error && <p className="text-sm text-red-600">Connexion refusée. Vérifiez vos informations ou réessayez plus tard.</p>}
+          <button type="submit" disabled={submitting}
+            className="w-full px-6 py-3 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover">
             {submitting ? "Vérification…" : "Acceder"}
           </button>
         </form>
-
-        <div className="mt-5 text-center">
-          <Link to="/" className="text-sm text-stone-600 hover:underline">
-            Retour Portail
-          </Link>
-        </div>
+        <div className="mt-5 text-center"><Link to="/" className="text-sm text-stone-600 hover:underline">Retour Portail</Link></div>
       </div>
     </div>
   );

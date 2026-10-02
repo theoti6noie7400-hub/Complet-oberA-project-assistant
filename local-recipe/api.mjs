@@ -27,7 +27,8 @@ const demoAccounts = new Map([
   ["DEMO-COMMERCIAL", { pin: "2468", role: "commercial" }]
 ]);
 const staffRoles = new Set(["global_admin", "sav_manager", "sav_technician"]);
-const parkRoles = new Set([...staffRoles, "commercial"]);
+const internalRoles = new Set([...staffRoles, "commercial"]);
+const parkRoles = staffRoles;
 const managementRoles = new Set(["global_admin", "sav_manager"]);
 const cookieName = "obera_local_recipe_session";
 const empty = () => ({ requests: [], audit: [] });
@@ -102,7 +103,6 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
   return async function localRecipeApi(req, res, next) {
     if (!req.url?.startsWith("/api/")) return next();
     try {
-      // The launcher binds only to 127.0.0.1; reject non-loopback requests too.
       if (!(["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress)))
         return send(res, 403, { error: "local_only" });
       const path = new URL(req.url, "http://127.0.0.1").pathname;
@@ -124,7 +124,7 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         const input = await body(req);
         const account = accounts.get(input.identifier);
         if (!account || (account.pinHash ? !checkPrivatePin(account, input.pin) : account.pin !== input.pin) ||
-            (path === "/api/client/login" ? account.role !== "client" : !parkRoles.has(account.role)))
+            (path === "/api/client/login" ? account.role !== "client" : !internalRoles.has(account.role)))
           return send(res, 401, { error: "invalid_credentials" });
         if (token) sessions.delete(token);
         const fresh = randomBytes(32).toString("hex");
@@ -147,6 +147,29 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
       if (!principal) return send(res, 401, { error: "authentication_required" });
       if (!externalAccessEnabled && path.startsWith("/api/client/"))
         return send(res, 403, { error: "client_access_closed" });
+
+      if (path === "/api/internal/catalog/notices" || path.startsWith("/api/internal/catalog/notices/")) {
+        if (principal.role !== "commercial") return send(res, 403, { error: "access_denied" });
+        if (method === "GET" && path === "/api/internal/catalog/notices") {
+          const models = [];
+          for (const source of noticeSources) {
+            if (await localNotice(noticeRoot, source.model, noticeSources)) models.push(source.model);
+          }
+          return send(res, 200, { models: [...new Set(models)].sort((a, b) => a.localeCompare(b)) });
+        }
+        const match = path.match(/^\/api\/internal\/catalog\/notices\/(.+)$/);
+        if (method === "GET" && match) {
+          const model = decodeURIComponent(match[1]);
+          const pdf = await localNotice(noticeRoot, model, noticeSources);
+          if (!pdf) return send(res, 404, { error: "not_found" });
+          await mutate(state => { state.audit.push({ actor: principal.identifier, role: principal.role,
+            action: "catalog_notice_download", model, at: new Date().toISOString() }); return { changed: true }; });
+          res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
+            "Content-Disposition": 'attachment; filename="notice-obera.pdf"', "X-Content-Type-Options": "nosniff" });
+          return res.end(pdf);
+        }
+        return send(res, 404, { error: "not_found" });
+      }
 
       if (path === "/api/sav/clients" || path.startsWith("/api/sav/clients/") ||
           path.startsWith("/api/sav/devices/")) {
@@ -173,8 +196,7 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         if (method === "GET" && detail) {
           const owner = [...accounts.values()].find(account => account.role === "client" &&
             account.organizationId === detail[1]);
-          const found = owner && devices.find(item => item.id === detail[2] &&
-            item.organizationId === owner.organizationId);
+          const found = owner && devices.find(item => item.id === detail[2] && item.organizationId === owner.organizationId);
           if (!found) return send(res, 404, { error: "not_found" });
           await auditView(principal, "client_device_view", owner.organizationId, found.id);
           return send(res, 200, { organization: { id: owner.organizationId, name: owner.organizationName },
@@ -198,10 +220,8 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         const own = devices.filter(item => item.organizationId === principal.organizationId);
         const device = path.match(/^\/api\/client\/devices\/([^/]+)(\/notice)?$/);
         const request = path.match(/^\/api\/client\/requests\/([^/]+)$/);
-        if (method === "GET" && path === "/api/client/me")
-          return send(res, 200, { organization: { name: principal.organizationName }, role: "client" });
-        if (method === "GET" && path === "/api/client/devices")
-          return send(res, 200, { devices: await Promise.all(own.map(publicDevice)) });
+        if (method === "GET" && path === "/api/client/me") return send(res, 200, { organization: { name: principal.organizationName }, role: "client" });
+        if (method === "GET" && path === "/api/client/devices") return send(res, 200, { devices: await Promise.all(own.map(publicDevice)) });
         if (method === "GET" && device) {
           const found = own.find(item => item.id === device[1]);
           if (!found) return send(res, 404, { error: "not_found" });
@@ -210,8 +230,7 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
             if (!pdf) return send(res, 404, { error: "not_found" });
             const filename = `notice-${found.model.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
             res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
-              "Content-Disposition": `attachment; filename="${filename}"`,
-              "X-Content-Type-Options": "nosniff" });
+              "Content-Disposition": `attachment; filename="${filename}"`, "X-Content-Type-Options": "nosniff" });
             return res.end(pdf);
           }
           return send(res, 200, await publicDevice(found));
@@ -223,34 +242,28 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
             .slice(-100).reverse().map(publicRequest) });
         }
         if (method === "GET" && request) {
-          const item = (await snapshot()).requests.find(entry => entry.id === request[1] &&
-            entry.organization_id === principal.organizationId);
+          const item = (await snapshot()).requests.find(entry => entry.id === request[1] && entry.organization_id === principal.organizationId);
           return item ? send(res, 200, publicRequest(item)) : send(res, 404, { error: "not_found" });
         }
         if (method === "POST" && path === "/api/client/requests") {
           const input = await body(req);
           if (!input || typeof input.submissionKey !== "string" || !/^[a-f\d-]{36}$/i.test(input.submissionKey) ||
-              !["sav", "maintenance_quote"].includes(input.requestType) ||
-              typeof input.subject !== "string" || !input.subject.trim() || input.subject.length > 200 ||
+              !["sav", "maintenance_quote"].includes(input.requestType) || typeof input.subject !== "string" || !input.subject.trim() || input.subject.length > 200 ||
               typeof input.message !== "string" || !input.message.trim() || input.message.length > 5000 ||
-              (input.requestType === "sav" && !input.deviceId) ||
-              (input.requestType === "maintenance_quote" && input.deviceId) ||
-              (input.requestType !== "maintenance_quote" && input.deviceIds !== undefined) ||
-              (input.diagnosticContext && input.requestType !== "sav"))
+              (input.requestType === "sav" && !input.deviceId) || (input.requestType === "maintenance_quote" && input.deviceId) ||
+              (input.requestType !== "maintenance_quote" && input.deviceIds !== undefined) || (input.diagnosticContext && input.requestType !== "sav"))
             return send(res, 400, { error: "invalid_request" });
           const selected = input.deviceId ? own.find(item => item.id === input.deviceId) : null;
           if (input.deviceId && !selected) return send(res, 404, { error: "not_found" });
           const ids = input.deviceIds ?? [];
-          if (!Array.isArray(ids) || ids.length > 100 || new Set(ids).size !== ids.length ||
-              ids.some(id => !own.some(item => item.id === id))) return send(res, 404, { error: "not_found" });
+          if (!Array.isArray(ids) || ids.length > 100 || new Set(ids).size !== ids.length || ids.some(id => !own.some(item => item.id === id)))
+            return send(res, 404, { error: "not_found" });
           let diagnostic = null;
           if (input.diagnosticContext) {
             const pathSummary = selected && resolveDiagnosticPath(input.diagnosticContext, selected.model);
-            if (!pathSummary || JSON.stringify(input.diagnosticContext).length > 12000)
-              return send(res, 400, { error: "invalid_diagnostic_context" });
-            diagnostic = { version: 1, graphFingerprintVersion: 2,
-              graphFingerprint: fingerprintDiagnosticGraph(), productId: input.diagnosticContext.productId,
-              device: { id: selected.id, model: selected.model, serial: selected.serial },
+            if (!pathSummary || JSON.stringify(input.diagnosticContext).length > 12000) return send(res, 400, { error: "invalid_diagnostic_context" });
+            diagnostic = { version: 1, graphFingerprintVersion: 2, graphFingerprint: fingerprintDiagnosticGraph(),
+              productId: input.diagnosticContext.productId, device: { id: selected.id, model: selected.model, serial: selected.serial },
               symptom: pathSummary.symptom, steps: pathSummary.steps, result: "unresolved", comment: input.message };
           }
           const requestHash = createHash("sha256").update(JSON.stringify([input.requestType, input.deviceId ?? null,
@@ -261,15 +274,12 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
             if (previous) return { changed: false, item: previous, conflict: previous.request_hash !== requestHash };
             const item = { id: randomUUID(), kind: "client", organization_id: principal.organizationId,
               organization_name: principal.organizationName, author_identifier: principal.identifier,
-              submission_key: input.submissionKey, request_hash: requestHash,
-              request_type: input.requestType, device_id: input.deviceId ?? null,
-              device_ids: [...ids], subject: input.subject, message: input.message, public_status: "received",
-              created_at: new Date().toISOString(), diagnostic_context: diagnostic };
-            state.requests.push(item);
-            return { changed: true, item };
+              submission_key: input.submissionKey, request_hash: requestHash, request_type: input.requestType,
+              device_id: input.deviceId ?? null, device_ids: [...ids], subject: input.subject, message: input.message,
+              public_status: "received", created_at: new Date().toISOString(), diagnostic_context: diagnostic };
+            state.requests.push(item); return { changed: true, item };
           });
-          return outcome.conflict ? send(res, 409, { error: "submission_key_conflict" }) :
-            send(res, outcome.changed ? 201 : 200, publicRequest(outcome.item));
+          return outcome.conflict ? send(res, 409, { error: "submission_key_conflict" }) : send(res, outcome.changed ? 201 : 200, publicRequest(outcome.item));
         }
         return send(res, 404, { error: "not_found" });
       }
@@ -288,34 +298,27 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
           if (!item) return send(res, 404, { error: "not_found" });
           if (method === "GET" && !request[2]) return send(res, 200, internalRequest(item, devices));
           if (method === "GET" && request[2] === "compatible-cases") return send(res, 200, { cases: [] });
-          if (method === "POST" && request[2] === "sav-case")
-            return managementRoles.has(principal.role) ? send(res, 404, { error: "no_demo_sav_case" }) :
-              send(res, 403, { error: "access_denied" });
+          if (method === "POST" && request[2] === "sav-case") return managementRoles.has(principal.role) ? send(res, 404, { error: "no_demo_sav_case" }) : send(res, 403, { error: "access_denied" });
           if (method === "POST" && request[2] === "status") {
             if (!managementRoles.has(principal.role)) return send(res, 403, { error: "access_denied" });
             const input = await body(req);
             const outcome = await mutate(state => {
               const current = state.requests.find(entry => entry.id === request[1]);
               if (!current) return { changed: false, status: 404 };
-              if (!((current.public_status === "received" && input.status === "in_progress") ||
-                  (current.public_status === "in_progress" && input.status === "closed")))
+              if (!((current.public_status === "received" && input.status === "in_progress") || (current.public_status === "in_progress" && input.status === "closed")))
                 return { changed: false, status: 409 };
               const previous = current.public_status;
               current.public_status = input.status;
-              state.audit.push({ request_id: current.id, actor: principal.identifier,
-                action: `status:${previous}:${input.status}`, at: new Date().toISOString() });
+              state.audit.push({ request_id: current.id, actor: principal.identifier, action: `status:${previous}:${input.status}`, at: new Date().toISOString() });
               return { changed: true, item: current };
             });
-            return outcome.status ? send(res, outcome.status, { error: "invalid_status_transition" }) :
-              send(res, 200, { id: outcome.item.id, public_status: outcome.item.public_status });
+            return outcome.status ? send(res, outcome.status, { error: "invalid_status_transition" }) : send(res, 200, { id: outcome.item.id, public_status: outcome.item.public_status });
           }
         }
       }
-      // Do not emulate PostgreSQL SAV case persistence or privileged services.
       return send(res, 404, { error: "not_available_in_local_recipe" });
     } catch (error) {
-      if (error instanceof SyntaxError || error.message === "too_large")
-        return send(res, 400, { error: "invalid_json" });
+      if (error instanceof SyntaxError || error.message === "too_large") return send(res, 400, { error: "invalid_json" });
       console.error("[recette locale]", error);
       return send(res, 500, { error: "local_recipe_error" });
     }
