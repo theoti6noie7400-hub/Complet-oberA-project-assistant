@@ -24,7 +24,8 @@ export default function AdminLoginPage() {
   const homeForRole: Record<InternalRole, string> = {
     global_admin: "/sav-maintenance", sav_manager: "/sav-maintenance",
     sav_technician: "/sav-maintenance", marketing: "/service/marketing",
-    sales: "/service/commercial", adv: "/service/adv", logistics: "/service/logistique"
+    commercial: "/sav-maintenance/clients", sales: "/service/commercial",
+    adv: "/service/adv", logistics: "/service/logistique"
   };
 
   const submit = async (e: FormEvent) => {

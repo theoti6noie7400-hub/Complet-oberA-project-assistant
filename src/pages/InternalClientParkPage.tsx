@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import PortalTopBar from "../components/PortalTopBar";
 import { ClientDevicePhoto, type ClientDevice } from "../components/ClientPark";
+import { useAdminAuth } from "../auth/adminAuth";
 
 type Client = { id: string; name: string; external_reference: string | null; device_count: number };
 
@@ -20,6 +21,8 @@ export default function InternalClientParkPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const selection = useRef(0);
+  const { role } = useAdminAuth();
+  const preview = useLocation().pathname === "/sav-maintenance/client-preview";
 
   useEffect(() => {
     let active = true;
@@ -41,12 +44,14 @@ export default function InternalClientParkPage() {
 
   const found = clients.filter(client => [client.name, client.external_reference ?? ""]
     .some(text => text.toLocaleLowerCase("fr").includes(query.toLocaleLowerCase("fr"))));
-  return <div className="portal-page"><PortalTopBar subtitle="Parc Client — SAV interne" />
+  return <div className="portal-page"><PortalTopBar subtitle="Parc Client — usage interne"
+    showInternalLink={role !== "commercial"} />
     <main className="portal-main space-y-5">
-      <Link className="underline" to="/sav-maintenance">Retour au SAV</Link>
+      <Link className="underline" to="/">Retour au portail</Link>
+      {preview && <p className="obera-panel p-4 font-semibold">APERÇU CLIENT — USAGE INTERNE OBERA</p>}
       <section className="obera-panel p-5 space-y-3">
         <h1 className="text-2xl font-semibold">Clients et parc appareils</h1>
-        <p>Consultation interne SAV. Les notices sont accessibles uniquement après contrôle de la session.</p>
+        <p>Consultation interne OberA. Les notices sont accessibles uniquement après contrôle de la session.</p>
         <label className="block">Rechercher un client
           <input className="block w-full max-w-lg p-2 border rounded" value={query}
             onChange={event => setQuery(event.target.value)} /></label>
@@ -58,7 +63,6 @@ export default function InternalClientParkPage() {
             {client.name} — {client.device_count} appareil(s)
           </button>
         </li>)}</ul>
-        {clients.length === 100 && <p>Liste limitée aux 100 premiers clients.</p>}
       </section>
       {selected && <section className="obera-panel p-5 space-y-4">
         <h2 className="text-xl font-semibold">Parc de {selected.name}</h2>
@@ -68,14 +72,16 @@ export default function InternalClientParkPage() {
           <div className="space-y-2"><h3 className="font-semibold text-lg">{device.model}</h3>
             <p>Numéro de série : <strong>{device.serial}</strong></p>
             <div className="client-device-actions">
-              <Link className="obera-btn-outline" to="/sav-maintenance">Accéder au diagnostic SAV (choisir ce modèle)</Link>
+              <Link className="obera-btn-primary" to={`/sav-maintenance/clients/${selected.id}/devices/${device.id}`}>
+                Tester l’espace Client</Link>
+              {role !== "commercial" && <Link className="obera-btn-outline" to="/sav-maintenance">
+                Accéder au diagnostic SAV (choisir ce modèle)</Link>}
               {device.notice_available ? <a className="obera-btn-outline"
                 href={`/api/sav/devices/${device.id}/notice`}>Télécharger la notice</a> :
                 <span>Notice indisponible</span>}
             </div>
           </div>
         </li>)}</ul>
-        {devices.length === 100 && <p>Affichage limité aux 100 premiers appareils.</p>}
       </section>}
     </main>
   </div>;

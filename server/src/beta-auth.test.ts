@@ -10,6 +10,7 @@ const accountDefinitions: { identifier: string; pin: string; role: InternalRole 
   { identifier: "DEMO-ADMIN", pin: "1111", role: "global_admin" },
   { identifier: "DEMO-MANAGER", pin: "2222", role: "sav_manager" },
   { identifier: "DEMO-TECH", pin: "3333", role: "sav_technician" },
+  { identifier: "DEMO-COMMERCIAL", pin: "8888", role: "commercial" },
   { identifier: "DEMO-MARKETING", pin: "4444", role: "marketing" },
   { identifier: "DEMO-SALES", pin: "5555", role: "sales" },
   { identifier: "DEMO-ADV", pin: "6666", role: "adv" },
@@ -75,7 +76,7 @@ test("unknown identifier, wrong PIN and cross-origin requests never issue a sess
   } finally { await app.close(); }
 });
 
-test("only three SAV roles obtain new sessions; retired roles remain refused", async () => {
+test("SAV and commercial roles obtain sessions; commercial cannot read SAV cases", async () => {
   const { db } = fakeDatabase();
   const app = createApp(db, origin, loadBetaAccounts(JSON.stringify(accountDefinitions)));
   try {
@@ -92,7 +93,13 @@ test("only three SAV roles obtain new sessions; retired roles remain refused", a
       assert.equal(detail.statusCode, 200);
       assert.equal(contract.statusCode, 200);
     }
-    for (const account of accountDefinitions.slice(3))
+    const commercial = header((await login(app, "DEMO-COMMERCIAL", "8888")).headers["set-cookie"] as string);
+    assert.equal((await app.inject({ method: "GET", url: "/api/session", headers: { cookie: commercial } })).json().role,
+      "commercial");
+    assert.equal((await app.inject({ method: "GET", url: "/api/sav/cases", headers: { cookie: commercial } })).statusCode, 403);
+    assert.equal((await app.inject({ method: "GET", url: "/api/sav/contracts", headers: { cookie: commercial } })).statusCode, 403);
+    assert.equal((await app.inject({ method: "GET", url: "/api/portal/requests", headers: { cookie: commercial } })).statusCode, 403);
+    for (const account of accountDefinitions.slice(4))
       assert.equal((await login(app, account.identifier, account.pin)).statusCode, 401);
   } finally { await app.close(); }
 });
@@ -141,6 +148,6 @@ test("beta config rejects missing, duplicate or external roles", () => {
   assert.throws(() => loadBetaAccounts(undefined));
   assert.throws(() => loadBetaAccounts(JSON.stringify([...accountDefinitions, accountDefinitions[0]])));
   assert.throws(() => loadBetaAccounts(JSON.stringify([{ identifier: "CLIENT", pin: "1234", role: "client" }])));
-  assert.equal(loadBetaAccounts(JSON.stringify(accountDefinitions)).length, 3);
-  assert.throws(() => loadBetaAccounts(JSON.stringify(accountDefinitions.slice(3))));
+  assert.equal(loadBetaAccounts(JSON.stringify(accountDefinitions)).length, 4);
+  assert.throws(() => loadBetaAccounts(JSON.stringify(accountDefinitions.slice(4))));
 });

@@ -79,7 +79,7 @@ export function createApp(db: Database, publicOrigin: string, betaAccounts: Beta
 
     const account = realm === "internal" ? verifyBetaAccount(betaAccounts, identifier, pin)
       : verifyExternalAccount(externalAccounts, identifier, pin, realm);
-    if (!account || !["global_admin", "sav_manager", "sav_technician", "client"].includes(account.role)) {
+    if (!account || !["global_admin", "sav_manager", "sav_technician", "commercial", "client"].includes(account.role)) {
       for (const key of keys) {
         const previous = failedLogins.get(key);
         failedLogins.set(key, { count: previous && previous.resetAt > now ? previous.count + 1 : 1,

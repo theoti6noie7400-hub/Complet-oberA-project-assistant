@@ -2,11 +2,11 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 
 export type InternalRole =
   | "global_admin" | "sav_manager" | "sav_technician" | "marketing"
-  | "sales" | "adv" | "logistics";
+  | "commercial" | "sales" | "adv" | "logistics";
 export type ExternalRole = "client" | "reseller";
 
 const internalRoles = new Set<InternalRole>([
-  "global_admin", "sav_manager", "sav_technician", "marketing", "sales", "adv", "logistics"
+  "global_admin", "sav_manager", "sav_technician", "commercial", "marketing", "sales", "adv", "logistics"
 ]);
 
 export type AdminSession = {
@@ -29,6 +29,9 @@ const emptySession: AdminSession = { isLoading: false, isAuthenticated: false, r
 
 export function canUseInternalPath(role: InternalRole | null, pathname: string): boolean {
   if (!role) return false;
+  if (pathname === "/sav-maintenance/client-preview" || pathname === "/sav-maintenance/clients" ||
+    /^\/sav-maintenance\/clients\/[^/]+\/devices\/[^/]+$/.test(pathname))
+    return ["global_admin", "sav_manager", "sav_technician", "commercial"].includes(role);
   if (role === "global_admin") return ["/sav-maintenance", "/sav-maintenance/clients"].includes(pathname) ||
     pathname === "/charbon-actif" ||
     ["marketing", "commercial", "adv", "logistique"].some(key => pathname === `/service/${key}`);

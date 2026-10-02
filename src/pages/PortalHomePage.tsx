@@ -9,12 +9,18 @@ const PORTAL_TILES = [
     description: "Diagnostic, tickets SAV et suivi maintenance.",
     icon: "🛠️",
     to: "/sav-maintenance"
-  }
+  },
+  { id: "client-park", title: "Parc clients", description: "Recherche et consultation des appareils des clients.",
+    icon: "🔎", to: "/sav-maintenance/clients" },
+  { id: "client-preview", title: "Tester l’espace Client",
+    description: "Aperçu interne du parcours Client à partir d’un appareil du parc.",
+    icon: "🧪", to: "/sav-maintenance/client-preview" }
 ];
 
 export default function PortalHomePage() {
   const { isAuthenticated, role } = useAdminAuth();
-  const tiles = isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) : PORTAL_TILES;
+  const tiles = isAuthenticated ? PORTAL_TILES.filter(tile => canUseInternalPath(role, tile.to)) :
+    PORTAL_TILES.slice(0, 1);
   return (
     <div className="portal-page">
       <PortalTopBar subtitle="Outil interne SAV OberA"

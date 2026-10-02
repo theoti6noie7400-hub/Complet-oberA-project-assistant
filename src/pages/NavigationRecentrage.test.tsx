@@ -7,6 +7,7 @@ import App from "../App";
 
 const deviceId = "e1000000-0000-4000-8000-000000000001";
 const requestId = "f1000000-0000-4000-8000-000000000001";
+const clientId = "a1000000-0000-4000-8000-000000000001";
 let role: string | null;
 let calls: string[];
 
@@ -30,6 +31,14 @@ beforeEach(() => {
     if (url === `/api/client/requests/${requestId}`) return Promise.resolve(Response.json({ id: requestId, request_type: "sav", device_id: deviceId,
       subject: "DEMO panne", message: "DEMO problème", public_status: "received", created_at: "2026-09-29T00:00:00Z" }));
     if (url === "/api/client/documents") return Promise.resolve(Response.json({ documents: [] }));
+    if (url === "/api/sav/clients") return Promise.resolve(Response.json({ clients: [
+      { id: clientId, name: "CLIENT DEMO ALPHA", device_count: 1, external_reference: null }] }));
+    if (url === `/api/sav/clients/${clientId}/devices`) return Promise.resolve(Response.json({ organization: {
+      id: clientId, name: "CLIENT DEMO ALPHA" }, devices: [
+      { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false }] }));
+    if (url === `/api/sav/clients/${clientId}/devices/${deviceId}`)
+      return Promise.resolve(Response.json({ organization: { id: clientId, name: "CLIENT DEMO ALPHA" },
+        device: { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false } }));
     throw new Error(`Unexpected request ${url}`);
   }));
 });
@@ -50,7 +59,7 @@ it("garde les espaces SAV et calculateur pour le SAV interne", async () => {
   role = "sav_manager";
   const home = renderAt("/");
   await home.findByRole("heading", { name: "SAV / Maintenance" });
-  expect(home.container.querySelectorAll("a.portal-card-cta")).toHaveLength(1);
+  expect(home.container.querySelectorAll("a.portal-card-cta")).toHaveLength(3);
   home.unmount();
   const sav = renderAt("/sav-maintenance");
   await sav.findByText("Que souhaitez-vous faire ?");
@@ -59,6 +68,29 @@ it("garde les espaces SAV et calculateur pour le SAV interne", async () => {
   sav.unmount();
   const calculator = renderAt("/charbon-actif");
   await calculator.findByRole("heading", { name: "Calculateur de saturation du charbon actif" });
+});
+
+it("autorise le Commercial à consulter le parc puis le diagnostic Client du bon appareil, sans SAV ni API externe", async () => {
+  role = "commercial";
+  const home = renderAt("/");
+  await home.findByRole("heading", { name: "Parc clients" });
+  expect(home.getByRole("heading", { name: "Tester l’espace Client" })).toBeTruthy();
+  expect(home.queryByRole("heading", { name: "SAV / Maintenance" })).toBeNull();
+  home.unmount();
+  const park = renderAt("/sav-maintenance/client-preview");
+  await park.findByRole("button", { name: /CLIENT DEMO ALPHA/ });
+  fireEvent.click(park.getByRole("button", { name: /CLIENT DEMO ALPHA/ }));
+  const previewLink = await park.findByRole("link", { name: "Tester l’espace Client" });
+  expect(previewLink.getAttribute("href")).toBe(`/sav-maintenance/clients/${clientId}/devices/${deviceId}`);
+  park.unmount();
+  const preview = renderAt(`/sav-maintenance/clients/${clientId}/devices/${deviceId}`);
+  await preview.findByRole("heading", { name: "Diagnostic : IC 22" });
+  expect(preview.getByText("APERÇU CLIENT — USAGE INTERNE OBERA")).toBeTruthy();
+  expect(preview.getAllByText(/DEMO-SN-A-001/)).toHaveLength(2);
+  expect(calls.some(url => url.startsWith("/api/client/") || url === "/api/sav/cases")).toBe(false);
+  preview.unmount();
+  const blocked = renderAt("/sav-maintenance");
+  await blocked.findByRole("heading", { name: "Accès refusé" });
 });
 
 it.each(["marketing", "commercial", "adv", "logistique"])("résout /service/%s avec une page indisponible", async key => {

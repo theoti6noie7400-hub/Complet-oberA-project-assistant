@@ -3,9 +3,9 @@ import type { Database } from "./db.ts";
 import type { Role } from "./access.ts";
 
 export type InternalRole = Extract<Role,
-  "global_admin" | "sav_manager" | "sav_technician" | "marketing" | "sales" | "adv" | "logistics">;
+  "global_admin" | "sav_manager" | "sav_technician" | "commercial" | "marketing" | "sales" | "adv" | "logistics">;
 
-const internalRoles = new Set<InternalRole>(["global_admin", "sav_manager", "sav_technician"]);
+const internalRoles = new Set<InternalRole>(["global_admin", "sav_manager", "sav_technician", "commercial"]);
 const retiredRoles = new Set(["marketing", "sales", "adv", "logistics"]);
 const issuer = "urn:obera:beta:internal";
 const dummySalt = randomBytes(16);

@@ -177,11 +177,23 @@ test("recette V1 par défaut : parc interne accessible, accès Client fermé, hi
     { identifier: "DEMO-CLIENT-A", pin: "1234" })).status, 410);
   const staff = await api.login("/api/login", "DEMO-STAFF", "1789");
   const technician = await api.login("/api/login", "DEMO-SAV-TECH", "1789");
+  const commercial = await api.login("/api/login", "DEMO-COMMERCIAL", "2468");
   const clients = await api.call("GET", "/api/sav/clients", technician);
   assert.equal(clients.status, 200);
   assert.equal(clients.data.clients.find(client => client.name === "CLIENT DEMO ALPHA").device_count, 2);
   const park = await api.call("GET", "/api/sav/clients/a1000000-0000-4000-8000-000000000001/devices", staff);
   assert.deepEqual(park.data.devices.map(device => device.serial), ["DEMO-SN-A-001", "DEMO-SN-A-002"]);
+  assert.equal((await api.call("GET", "/api/session", commercial)).data.role, "commercial");
+  assert.equal((await api.call("GET", "/api/sav/clients", commercial)).status, 200);
+  const detail = await api.call("GET", `/api/sav/clients/a1000000-0000-4000-8000-000000000001/devices/${ic22}`, commercial);
+  assert.deepEqual(detail.data.device, { id: ic22, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false });
+  assert.equal((await api.call("GET", `/api/sav/clients/a1000000-0000-4000-8000-000000000002/devices/${ic22}`, commercial)).status, 404);
+  assert.equal((await api.call("GET", "/api/portal/requests", commercial)).status, 403);
+  assert.equal((await api.call("GET", `/api/portal/requests/${item.id}`, commercial)).status, 403);
+  assert.equal((await api.call("GET", "/api/client/devices", commercial)).status, 403);
+  const views = (JSON.parse(await readFile(file, "utf8"))).audit;
+  assert.ok(views.some(item => item.actor === "DEMO-COMMERCIAL" &&
+    item.action === "client_device_view" && item.device_id === ic22));
   assert.equal((await api.call("GET", "/api/client/devices", staff)).status, 403);
   assert.equal((await api.call("GET", "/api/sav/clients", null)).status, 401);
   const archive = await api.call("GET", `/api/portal/requests/${item.id}`, staff);

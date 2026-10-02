@@ -6,6 +6,7 @@ import ServiceHubPage from "./pages/ServiceHubPage";
 import ResellerSpacePage from "./pages/ResellerSpacePage";
 import ClientSpaceUnavailablePage from "./pages/ClientSpaceUnavailablePage";
 import InternalClientParkPage from "./pages/InternalClientParkPage";
+import InternalClientPreviewPage from "./pages/InternalClientPreviewPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import { AdminAuthProvider } from "./auth/adminAuth";
 import RequireAdmin from "./components/RequireAdmin";
@@ -18,12 +19,13 @@ import {
 } from "./i18n/language";
 
 export default function App() {
+  const localRecipe = import.meta.env.DEV && import.meta.env.VITE_LOCAL_RECIPE === "1";
   return (
     <LanguageProvider>
       <AdminAuthProvider>
-        {import.meta.env.DEV && import.meta.env.VITE_LOCAL_RECIPE === "1" && <LocalRecipeBanner />}
+        {localRecipe && <LocalRecipeBanner><LanguageSwitcher /></LocalRecipeBanner>}
         <RuntimeTextTranslator />
-        <LanguageSwitcher />
+        {!localRecipe && <LanguageSwitcher />}
         <AdminSessionBar />
         <Routes>
           <Route path="/" element={<PortalHomePage />} />
@@ -40,6 +42,9 @@ export default function App() {
             }
           />
           <Route path="/sav-maintenance/clients" element={<RequireAdmin><InternalClientParkPage /></RequireAdmin>} />
+          <Route path="/sav-maintenance/client-preview" element={<RequireAdmin><InternalClientParkPage /></RequireAdmin>} />
+          <Route path="/sav-maintenance/clients/:clientId/devices/:deviceId"
+            element={<RequireAdmin><InternalClientPreviewPage /></RequireAdmin>} />
           <Route
             path="/charbon-actif"
             element={

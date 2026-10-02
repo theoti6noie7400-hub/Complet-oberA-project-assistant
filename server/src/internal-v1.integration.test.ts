@@ -19,7 +19,8 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
   const db = openDatabase();
   const accounts = loadBetaAccounts(JSON.stringify([
     { identifier: "DEMO-V1-MANAGER", pin: "9011", role: "sav_manager" },
-    { identifier: "DEMO-V1-TECH", pin: "9012", role: "sav_technician" }
+    { identifier: "DEMO-V1-TECH", pin: "9012", role: "sav_technician" },
+    { identifier: "DEMO-V1-COMMERCIAL", pin: "9013", role: "commercial" }
   ]));
   const app = createApp(db, origin, accounts);
   const deviceId = randomUUID();
@@ -46,6 +47,7 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
     assert.equal((await send("GET", "/api/sav/clients")).statusCode, 401);
     const manager = await login("DEMO-V1-MANAGER", "9011");
     const technician = await login("DEMO-V1-TECH", "9012");
+    const commercial = await login("DEMO-V1-COMMERCIAL", "9013");
     const before = (await db.query("SELECT count(*)::int AS n FROM portal_requests WHERE request_type='consumables'")).rows[0].n;
     assert.ok(before >= 2, "historical Client and reseller requests exist");
     await db.query("INSERT INTO devices(id,client_organization_id,model,serial) VALUES($1,$2,$3,'DEMO-SN-V1')", [deviceId, clientA, model]);
@@ -55,7 +57,7 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
       VALUES($1,$2,'DEMO-V1-test.pdf',$3) ON CONFLICT DO NOTHING`,
     [sha, `client-notices/${sha}.pdf`, pdf.length]);
     await db.query("INSERT INTO client_model_notices(model,asset_sha256) VALUES($1,$2)", [model, sha]);
-    for (const staff of [manager, technician]) {
+    for (const staff of [manager, technician, commercial]) {
       const listing = await send("GET", "/api/sav/clients", staff);
       assert.equal(listing.statusCode, 200);
       assert.deepEqual(listing.json().clients.map((item: { name: string }) => item.name).sort(),
@@ -65,16 +67,36 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
       assert.deepEqual(park.json().devices.find((item: { id: string }) => item.id === deviceId),
         { id: deviceId, model, serial: "DEMO-SN-V1", notice_available: true });
       assert.equal((await send("GET", `/api/sav/clients/${randomUUID()}/devices`, staff)).statusCode, 404);
+      const scoped = await send("GET", `/api/sav/clients/${clientA}/devices/${deviceId}`, staff);
+      assert.equal(scoped.statusCode, 200);
+      assert.deepEqual(scoped.json().device, { id: deviceId, model, serial: "DEMO-SN-V1", notice_available: true });
+      assert.equal((await send("GET", `/api/sav/clients/${randomUUID()}/devices/${deviceId}`, staff)).statusCode, 404);
+      assert.equal((await send("GET", `/api/sav/clients/${clientA}/devices/${randomUUID()}`, staff)).statusCode, 404);
       const notice = await send("GET", `/api/sav/devices/${deviceId}/notice`, staff);
       assert.equal(notice.statusCode, 200);
       assert.equal(notice.headers["content-type"], "application/pdf");
       assert.deepEqual(notice.rawPayload, pdf);
-      const archive = await send("GET", `/api/portal/requests/${historical}`, staff);
-      assert.equal(archive.statusCode, 200);
-      assert.equal(archive.json().request_type, "consumables");
+      if (staff !== commercial) {
+        const archive = await send("GET", `/api/portal/requests/${historical}`, staff);
+        assert.equal(archive.statusCode, 200);
+        assert.equal(archive.json().request_type, "consumables");
+      }
       assert.equal((await send("GET", `/api/sav/devices/${randomUUID()}/notice`, staff)).statusCode, 404);
-      assert.equal((await send("GET", "/api/sav/cases", staff)).statusCode, 200);
+      assert.equal((await send("GET", "/api/sav/cases", staff)).statusCode, staff === commercial ? 403 : 200);
     }
+    assert.equal((await send("GET", `/api/portal/requests/${historical}`, commercial)).statusCode, 403);
+    assert.equal((await send("POST", `/api/portal/requests/${historical}/status`, commercial,
+      { status: "in_progress" })).statusCode, 403);
+    assert.equal((await send("POST", `/api/portal/requests/${historical}/sav-case`, commercial,
+      { savCaseId: randomUUID() })).statusCode, 403);
+    assert.equal((await send("GET", "/api/sav/contracts", commercial)).statusCode, 403);
+    assert.equal((await send("GET", "/api/client/devices", commercial)).statusCode, 404);
+    const actor = (await send("GET", "/api/session", commercial)).json().userId;
+    const logs = await db.query(`SELECT action,resource_kind,resource_id FROM audit_events
+      WHERE actor_user_id=$1 ORDER BY occurred_at`, [actor]);
+    assert.ok(logs.rows.some(row => row.action === "client_park_view:commercial" && row.resource_id === clientA));
+    assert.ok(logs.rows.some(row => row.action === "client_device_view:commercial" && row.resource_id === deviceId));
+    assert.ok(logs.rows.some(row => row.action === "client_notice_download:commercial" && row.resource_id === deviceId));
     assert.equal((await send("GET", `/api/sav/devices/${deviceId}/notice`, oldCookie)).statusCode, 403);
     assert.equal((await send("POST", "/api/client/requests", oldCookie,
       { requestType: "consumables" })).statusCode, 404);

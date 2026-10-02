@@ -69,11 +69,11 @@ async function snapshot(pool: pg.Pool) {
   return rows;
 }
 
-integration("PostgreSQL: empty 001–008, checksums and idempotent second run", async () => {
+integration("PostgreSQL: empty 001–009, checksums and idempotent second run", async () => {
   await withDisposableDatabase(async pool => {
     const files = await migrationFiles();
-    assert.equal(files.length, 8);
-    assert.deepEqual(files.map(name => name.slice(0, 3)), ["001", "002", "003", "004", "005", "006", "007", "008"]);
+    assert.equal(files.length, 9);
+    assert.deepEqual(files.map(name => name.slice(0, 3)), ["001", "002", "003", "004", "005", "006", "007", "008", "009"]);
     assert.deepEqual(await migrate(pool), files);
     const first = await checksums(pool, files);
     assert.deepEqual(await migrate(pool), []);
@@ -82,7 +82,7 @@ integration("PostgreSQL: empty 001–008, checksums and idempotent second run", 
   });
 });
 
-integration("PostgreSQL: populated 001–005 retains history through 006–008", async () => {
+integration("PostgreSQL: populated 001–005 retains history through 006–009", async () => {
   await withDisposableDatabase(async pool => {
     const files = await migrationFiles();
     assert.deepEqual(await migrate(pool, files[4]), files.slice(0, 5));
@@ -141,6 +141,10 @@ integration("PostgreSQL: populated 001–005 retains history through 006–008",
     assert.deepEqual(await migrate(pool), files.slice(5));
     const after = await snapshot(pool);
     assert.deepEqual(after, before, "All historical rows and values survive both migrations");
+    const commercial = randomUUID();
+    await pool.query(`INSERT INTO users(id,identity_issuer,identity_subject,role)
+      VALUES ($1,'urn:obera:demo','DEMO-COMMERCIAL-MIGRATION','commercial')`, [commercial]);
+    assert.equal((await pool.query("SELECT role FROM users WHERE id=$1", [commercial])).rows[0].role, "commercial");
     assert.deepEqual((await checksums(pool, files)).slice(0, 5), firstChecksums);
     for (const id of [ids.savRequest, ids.consumables, ids.resellerRequest, ids.resellerBRequest]) {
       const row = await pool.query("SELECT diagnostic_context FROM portal_requests WHERE id=$1", [id]);

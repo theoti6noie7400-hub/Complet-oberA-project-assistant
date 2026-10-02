@@ -23,9 +23,11 @@ const demoAccounts = new Map([
   ["DEMO-CLIENT-B", { pin: "1234", role: "client", organizationId: beta, organizationName: "CLIENT DEMO BETA" }],
   ["DEMO-STAFF", { pin: "1789", role: "global_admin" }],
   ["DEMO-SAV-MANAGER", { pin: "1789", role: "sav_manager" }],
-  ["DEMO-SAV-TECH", { pin: "1789", role: "sav_technician" }]
+  ["DEMO-SAV-TECH", { pin: "1789", role: "sav_technician" }],
+  ["DEMO-COMMERCIAL", { pin: "2468", role: "commercial" }]
 ]);
 const staffRoles = new Set(["global_admin", "sav_manager", "sav_technician"]);
+const parkRoles = new Set([...staffRoles, "commercial"]);
 const managementRoles = new Set(["global_admin", "sav_manager"]);
 const cookieName = "obera_local_recipe_session";
 const empty = () => ({ requests: [], audit: [] });
@@ -89,6 +91,13 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
     return result;
   }
   async function snapshot() { await pending; return load(); }
+  async function auditView(account, action, organizationId, deviceId = null) {
+    await mutate(state => {
+      state.audit.push({ actor: account.identifier, role: account.role,
+        action, organization_id: organizationId, device_id: deviceId, at: new Date().toISOString() });
+      return { changed: true };
+    });
+  }
 
   return async function localRecipeApi(req, res, next) {
     if (!req.url?.startsWith("/api/")) return next();
@@ -115,7 +124,7 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
         const input = await body(req);
         const account = accounts.get(input.identifier);
         if (!account || (account.pinHash ? !checkPrivatePin(account, input.pin) : account.pin !== input.pin) ||
-            (path === "/api/client/login" ? account.role !== "client" : !staffRoles.has(account.role)))
+            (path === "/api/client/login" ? account.role !== "client" : !parkRoles.has(account.role)))
           return send(res, 401, { error: "invalid_credentials" });
         if (token) sessions.delete(token);
         const fresh = randomBytes(32).toString("hex");
@@ -141,29 +150,42 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
 
       if (path === "/api/sav/clients" || path.startsWith("/api/sav/clients/") ||
           path.startsWith("/api/sav/devices/")) {
-        if (!staffRoles.has(principal.role)) return send(res, 403, { error: "access_denied" });
+        if (!parkRoles.has(principal.role)) return send(res, 403, { error: "access_denied" });
         if (method === "GET" && path === "/api/sav/clients") {
           const list = [...accounts.values()].filter(account => account.role === "client")
             .map(account => ({ id: account.organizationId, name: account.organizationName,
               external_reference: null, device_count: devices.filter(d => d.organizationId === account.organizationId).length }))
             .filter((item, index, all) => all.findIndex(other => other.id === item.id) === index)
             .sort((a, b) => a.name.localeCompare(b.name));
-          return send(res, 200, { clients: list.slice(0, 100) });
+          return send(res, 200, { clients: list });
         }
         const match = path.match(/^\/api\/sav\/clients\/([^/]+)\/devices$/);
         if (method === "GET" && match) {
           const owner = [...accounts.values()].find(account => account.role === "client" &&
             account.organizationId === match[1]);
           if (!owner) return send(res, 404, { error: "not_found" });
+          await auditView(principal, "client_park_view", owner.organizationId);
           return send(res, 200, { organization: { id: owner.organizationId, name: owner.organizationName },
             devices: await Promise.all(devices.filter(item => item.organizationId === owner.organizationId)
-              .slice(0, 100).map(publicDevice)) });
+              .map(publicDevice)) });
+        }
+        const detail = path.match(/^\/api\/sav\/clients\/([^/]+)\/devices\/([^/]+)$/);
+        if (method === "GET" && detail) {
+          const owner = [...accounts.values()].find(account => account.role === "client" &&
+            account.organizationId === detail[1]);
+          const found = owner && devices.find(item => item.id === detail[2] &&
+            item.organizationId === owner.organizationId);
+          if (!found) return send(res, 404, { error: "not_found" });
+          await auditView(principal, "client_device_view", owner.organizationId, found.id);
+          return send(res, 200, { organization: { id: owner.organizationId, name: owner.organizationName },
+            device: await publicDevice(found) });
         }
         const notice = path.match(/^\/api\/sav\/devices\/([^/]+)\/notice$/);
         if (method === "GET" && notice) {
           const found = devices.find(item => item.id === notice[1]);
           const pdf = found && await localNotice(noticeRoot, found.model, noticeSources);
           if (!pdf) return send(res, 404, { error: "not_found" });
+          await auditView(principal, "client_notice_download", found.organizationId, found.id);
           res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
             "Content-Disposition": 'attachment; filename="notice-obera.pdf"', "X-Content-Type-Options": "nosniff" });
           return res.end(pdf);

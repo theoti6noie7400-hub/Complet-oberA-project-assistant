@@ -28,7 +28,9 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 const pendingDiagnosticKey = (organizationId: string, deviceId: string) =>
   `obera:pending-diagnostic:${organizationId}:${deviceId}`;
 
-function ExternalDiagnostic({ device, base, organizationId }: { device: Device; base: string; organizationId: string }) {
+export function ExternalDiagnostic({ device, base, organizationId, preview = false, returnTo }: {
+  device: Device; base: string; organizationId: string; preview?: boolean; returnTo?: string
+}) {
   const product = PRODUCTS.find(item => item.name.toLocaleLowerCase("fr") === device.model.toLocaleLowerCase("fr"));
   const [history, setHistory] = useState<DiagnosticChoice[]>([]);
   useEffect(() => { setHistory(product ? [{ nodeId: getDiagnosticStartNode(product.id) }] : []); }, [device.id, product?.id]);
@@ -67,9 +69,11 @@ function ExternalDiagnostic({ device, base, organizationId }: { device: Device; 
             { nodeId: resolveDynamicNext(node.next!, product!.id) }])}>
           Continuer
         </button>}
-        {!node.next && <Link className="obera-btn-primary inline-flex"
-          onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
-          Contacter le SAV / créer une demande</Link>}
+        {!node.next && (preview ? <p role="status">Aperçu terminé. Pour transmettre ce résultat au SAV,
+          utilisez le parcours de traitement interne. Aucune demande Client n'a été créée.</p> :
+          <Link className="obera-btn-primary inline-flex"
+            onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
+            Contacter le SAV / créer une demande</Link>)}
       </>}
     </>}
     {history.length > 1 && <button className="obera-btn-outline" type="button"
@@ -79,7 +83,7 @@ function ExternalDiagnostic({ device, base, organizationId }: { device: Device; 
           ...(previous[previous.length - 1].confirmed === undefined ? {} :
             { confirmed: previous[previous.length - 1].confirmed }) }];
       })}>Étape précédente</button>}
-    <Link className="block underline" to={`${base}/devices/${device.id}`}>Retour à l'appareil</Link>
+    <Link className="block underline" to={returnTo ?? `${base}/devices/${device.id}`}>Retour à l'appareil</Link>
   </section>;
 }
 

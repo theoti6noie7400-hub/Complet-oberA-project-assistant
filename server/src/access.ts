@@ -2,6 +2,7 @@ export type Role =
   | "global_admin"
   | "sav_manager"
   | "sav_technician"
+  | "commercial"
   | "sales"
   | "adv"
   | "logistics"

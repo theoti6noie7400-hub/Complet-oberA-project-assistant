@@ -21,6 +21,7 @@ test("retired sessions have no principal and startup revokes only their tokens",
   await revokeLegacySessions(db);
   assert.match(queries.at(-1)!, /DELETE FROM sessions s USING users u/);
   assert.match(queries.at(-1)!, /u\.role NOT IN/);
+  assert.match(queries.at(-1)!, /'commercial'/);
   assert.doesNotMatch(queries.at(-1)!, /DELETE FROM users|DELETE FROM portal_requests|DELETE FROM documents/);
 });
 
