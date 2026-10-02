@@ -67,6 +67,10 @@ it("regroupe les familles identiques et retire les anciens appareils du catalogu
 
   fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ECOCLIM" } });
   expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Contacter le SAV" }));
+  expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
+  expect(view.getByText(/n'est pas proposé dans le diagnostic/)).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Revenir au diagnostic" }));
 
   fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 1001" } });
   expect(view.getByRole("heading", { name: "ePUR EX 1000 / 1001" })).toBeTruthy();
