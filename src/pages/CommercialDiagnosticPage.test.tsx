@@ -141,3 +141,29 @@ it("n'affiche la vidéo de démontage qu'au moment d'ouvrir l'appareil", async (
   expect(view.getByRole("heading", { name: "Repositionner le capteur" })).toBeTruthy();
   expect(view.queryByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeNull();
 });
+
+it("termine par un conseil SAV panneaux ou environnement quand la pompe fonctionne, y compris sur un autre rafraîchisseur", async () => {
+  const view = renderPage();
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "IC 12" } });
+  fireEvent.click(view.getByRole("button", { name: "Lancer le diagnostic" }));
+
+  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  fireEvent.click(view.getByRole("button", { name: "COOL fixe" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+
+  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+
+  expect(view.getByRole("heading", { name: "Pompe en fonctionnement" })).toBeTruthy();
+  expect(view.getByText(/Le circuit d'eau a déjà été contrôlé/)).toBeTruthy();
+  expect(view.getByText(/panneaux évaporatifs/)).toBeTruthy();
+  expect(view.getByText(/conditions d'utilisation et de l'environnement/)).toBeTruthy();
+  expect(view.getByText(/Contactez le SAV pour conseil sur les panneaux évaporatifs/)).toBeTruthy();
+  expect(view.getByRole("button", { name: "Contacter le SAV" })).toBeTruthy();
+});
