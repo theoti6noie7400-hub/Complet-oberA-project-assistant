@@ -89,6 +89,13 @@ integration("V1 PostgreSQL: internal park, private notice and historical consuma
       { status: "in_progress" })).statusCode, 403);
     assert.equal((await send("POST", `/api/portal/requests/${historical}/sav-case`, commercial,
       { savCaseId: randomUUID() })).statusCode, 403);
+    assert.equal((await send("POST", "/api/sav/cases", commercial, {
+      submissionKey: randomUUID(), savReference: "DEMO-SAV-DENIED", serialNumber: "DEMO-SN-DENIED",
+      clientName: "CLIENT DEMO ALPHA", clientNumber: "DEMO-CL-001", model: "IC 22",
+      site: "DEMO SITE", problem: "DEMO PROBLEM", cause: "DEMO CAUSE",
+      savAction: "DEMO ACTION", savType: "technique"
+    })).statusCode, 403);
+    assert.equal((await send("GET", "/api/admin/users", commercial)).statusCode, 404);
     assert.equal((await send("GET", "/api/sav/contracts", commercial)).statusCode, 403);
     assert.equal((await send("GET", "/api/client/devices", commercial)).statusCode, 404);
     const actor = (await send("GET", "/api/session", commercial)).json().userId;
