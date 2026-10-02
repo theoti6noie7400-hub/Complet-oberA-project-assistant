@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import React from "react";
+import React, { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -33,12 +33,17 @@ function fetchApi(url: string, init?: RequestInit) {
   throw new Error(`Unexpected request ${url}`);
 }
 
+function ProtectedSav() {
+  const [step, setStep] = useState(0);
+  return <><div>SAV autorisé</div><button onClick={() => setStep(value => value + 1)}>Étape {step}</button></>;
+}
+
 function appAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AdminAuthProvider>
     <AdminSessionBar />
     <Routes>
       <Route path="/admin-login" element={<AdminLoginPage />} />
-      <Route path="/sav-maintenance" element={<RequireAdmin><div>SAV autorisé</div></RequireAdmin>} />
+      <Route path="/sav-maintenance" element={<RequireAdmin><ProtectedSav /></RequireAdmin>} />
       <Route path="/service/marketing" element={<RequireAdmin><ServiceHubPage /></RequireAdmin>} />
       <Route path="/" element={<div>Portail</div>} />
       <Route path="/client-space" element={<AssistantOberaPage />} />
@@ -88,6 +93,16 @@ it("ne croit pas un rôle dans la réponse login et révoque la session lors de 
   await waitFor(() => expect(view.getByText("Connexion interne")).toBeTruthy());
   expect(logoutCalls).toBe(1);
   expect(role).toBeNull();
+});
+
+it("préserve l'écran protégé et son état lors d'un changement de focus", async () => {
+  role = "global_admin";
+  const view = appAt("/sav-maintenance");
+  const button = await view.findByRole("button", { name: "Étape 0" });
+  fireEvent.click(button);
+  expect(view.getByRole("button", { name: "Étape 1" })).toBeTruthy();
+  window.dispatchEvent(new Event("focus"));
+  await waitFor(() => expect(view.getByRole("button", { name: "Étape 1" })).toBeTruthy());
 });
 
 it("préserve la connexion Client et affiche l'indisponibilité Revendeur, y compris sur une URL profonde", async () => {
