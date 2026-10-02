@@ -23,29 +23,33 @@ import {
 type Step = { nodeId: string; optionIndex?: number; confirmed?: boolean; continued?: boolean };
 
 type ContactFormProps = {
-  product: ProductCatalogItem;
-  history: Step[];
+  product?: ProductCatalogItem;
+  history?: Step[];
+  fallbackName?: string;
   onClose?: () => void;
 };
 
-function ContactSavForm({ product, history, onClose }: ContactFormProps) {
+function ContactSavForm({ product, history = [], fallbackName, onClose }: ContactFormProps) {
   const [company, setCompany] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
-  const displayName = commercialProductLabel(product);
+  const displayName = product ? commercialProductLabel(product) : fallbackName?.trim() || "Appareil non trouvé";
 
-  const trace = useMemo(() => history.map((step) => {
-    const node = commercialDiagnosticNode(step.nodeId, product.id);
-    if (!node) return null;
-    if (node.type === "question") {
-      const answer = step.optionIndex === undefined ? null : node.options[step.optionIndex]?.label;
-      return answer ? `${node.title} — Réponse : ${answer}` : node.title;
-    }
-    return `${node.title} — ${node.body}${step.confirmed ? " — contrôle effectué" : ""}`;
-  }).filter(Boolean).join("\n"), [history, product.id]);
+  const trace = useMemo(() => {
+    if (!product) return "";
+    return history.map((step) => {
+      const node = commercialDiagnosticNode(step.nodeId, product.id);
+      if (!node) return null;
+      if (node.type === "question") {
+        const answer = step.optionIndex === undefined ? null : node.options[step.optionIndex]?.label;
+        return answer ? `${node.title} — Réponse : ${answer}` : node.title;
+      }
+      return `${node.title} — ${node.body}${step.confirmed ? " — contrôle effectué" : ""}`;
+    }).filter(Boolean).join("\n");
+  }, [history, product]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -66,9 +70,7 @@ function ContactSavForm({ product, history, onClose }: ContactFormProps) {
       `E-mail : ${email.trim() || "-"}`,
       `Appareil : ${displayName}`,
       "",
-      "Parcours diagnostic :",
-      trace || "Aucune étape enregistrée.",
-      "",
+      ...(product ? ["Parcours diagnostic :", trace || "Aucune étape enregistrée.", ""] : []),
       `Commentaire : ${comment.trim() || "-"}`
     ].join("\n");
     window.location.href = `mailto:sav@obera.fr?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -77,7 +79,9 @@ function ContactSavForm({ product, history, onClose }: ContactFormProps) {
   return <form onSubmit={submit} className="border-t pt-4 space-y-3" aria-label="Contacter le SAV">
     <div>
       <h4 className="text-lg font-semibold">Contacter le SAV</h4>
-      <p className="text-sm text-slate-600">Si vous préférez ne pas poursuivre le diagnostic, vous pouvez transmettre directement la demande. Le parcours déjà effectué sera ajouté au message.</p>
+      <p className="text-sm text-slate-600">{product
+        ? "Si vous préférez ne pas poursuivre le diagnostic, vous pouvez transmettre directement la demande. Le parcours déjà effectué sera ajouté au message."
+        : "Cet appareil n'est pas proposé dans le diagnostic. Vous pouvez transmettre directement la demande au SAV."}</p>
     </div>
     <div className="grid gap-3 md:grid-cols-2">
       <label className="block">Société / client
@@ -215,6 +219,7 @@ export default function CommercialDiagnosticPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<ProductCatalogItem | null>(null);
   const [noticeModels, setNoticeModels] = useState<Set<string>>(new Set());
+  const [directContactVisible, setDirectContactVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -241,7 +246,7 @@ export default function CommercialDiagnosticPage() {
           <p>Choisissez directement le modèle dont vous parle le client. Cet espace n’affiche aucune donnée Client, aucun parc et aucun numéro de série.</p>
           <label className="block">Rechercher un appareil
             <input className="block w-full max-w-lg p-2 border rounded" value={query}
-              onChange={event => setQuery(event.target.value)} placeholder="Ex. IC 22, KM 22, VL 220, Clearbox…" />
+              onChange={event => { setQuery(event.target.value); setDirectContactVisible(false); }} placeholder="Ex. IC 22, KM 22, VL 220, Clearbox…" />
           </label>
         </section>
         {CATEGORIES.map(category => {
@@ -263,7 +268,12 @@ export default function CommercialDiagnosticPage() {
             </li>)}</ul>
           </section>;
         })}
-        {filtered.length === 0 && <p className="obera-panel p-5">Aucun appareil trouvé.</p>}
+        {filtered.length === 0 && <section className="obera-panel p-5 space-y-3">
+          <p className="font-semibold">Aucun appareil trouvé.</p>
+          <p className="text-sm text-slate-600">Si l’appareil n’est pas proposé dans le diagnostic, transmettez directement la demande au SAV.</p>
+          {!directContactVisible && <button className="obera-btn-primary" type="button" onClick={() => setDirectContactVisible(true)}>Contacter le SAV</button>}
+          {directContactVisible && <ContactSavForm fallbackName={query} onClose={() => setDirectContactVisible(false)} />}
+        </section>}
       </>}
     </main>
   </div>;
