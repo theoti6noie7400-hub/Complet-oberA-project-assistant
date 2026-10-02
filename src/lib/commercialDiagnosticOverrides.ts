@@ -62,6 +62,112 @@ const GLOBAL_OVERRIDES: Record<string, DiagnosticNode> = {
     title: "Problème résolu",
     body: "L'appareil s'allume après la vérification de son alimentation électrique.",
     target: "resolved"
+  },
+  "full-tank": {
+    id: "full-tank",
+    type: "question",
+    maxSteps: 10,
+    title: "Le réservoir contient-il suffisamment d'eau ?",
+    options: [
+      { label: "Oui", next: "pump-connections-access" },
+      { label: "Non", next: "pump-fill-water" }
+    ]
+  },
+  "pump-fill-water": {
+    id: "pump-fill-water",
+    type: "text",
+    maxSteps: 10,
+    title: "Remplir le réservoir",
+    body: "Ajoutez suffisamment d'eau dans le réservoir puis remettez l'appareil en fonctionnement.",
+    next: "pump-after-fill"
+  },
+  "pump-after-fill": {
+    id: "pump-after-fill",
+    type: "question",
+    maxSteps: 10,
+    title: "Après remplissage et remise en service, l'appareil produit-il à nouveau de l'air rafraîchi ?",
+    options: [
+      { label: "Oui", next: "pump-cooling-restored" },
+      { label: "Non", next: "pump-connections-access" }
+    ]
+  },
+  "pump-connections-access": {
+    id: "pump-connections-access",
+    type: "text",
+    maxSteps: 10,
+    title: "Contrôle du raccordement de la pompe",
+    body: "Éteignez et débranchez l'appareil avant de l'ouvrir. Accédez à la pompe puis vérifiez que son connecteur électrique est correctement enfiché et que les tuyaux sont correctement raccordés, sans raccord visiblement débranché.",
+    next: "pump-connections-ok"
+  },
+  "pump-connections-ok": {
+    id: "pump-connections-ok",
+    type: "question",
+    maxSteps: 10,
+    title: "Les raccordements électriques et hydrauliques de la pompe sont-ils corrects ?",
+    options: [
+      { label: "Oui", next: "pump-live-safety" },
+      { label: "Non", next: "pump-reconnect" }
+    ]
+  },
+  "pump-reconnect": {
+    id: "pump-reconnect",
+    type: "text",
+    maxSteps: 10,
+    title: "Remettre les raccordements en place",
+    body: "Appareil débranché, remettez correctement en place le connecteur électrique et/ou les tuyaux concernés. Refermez complètement l'appareil avant de le rebrancher, puis remettez-le en service.",
+    next: "pump-after-reconnect"
+  },
+  "pump-after-reconnect": {
+    id: "pump-after-reconnect",
+    type: "question",
+    maxSteps: 10,
+    title: "Après remontage et remise en service, le refroidissement fonctionne-t-il correctement ?",
+    options: [
+      { label: "Oui", next: "pump-cooling-restored" },
+      { label: "Non", next: "pump-live-safety" }
+    ]
+  },
+  "pump-live-safety": {
+    id: "pump-live-safety",
+    type: "text",
+    maxSteps: 10,
+    title: "Contrôle sous tension — sécuriser la zone",
+    body: "Pour observer la pompe en fonctionnement, l'appareil devra rester ouvert et alimenté. Avant de le rebrancher, sécurisez complètement la zone : personne ne doit pouvoir accéder à l'intérieur de l'appareil ; ne mettez jamais les mains, un outil ou un objet dans l'appareil lorsqu'il est alimenté ; éloignez cheveux, vêtements et objets des pièces en mouvement. Une fois la zone sécurisée, remettez l'appareil en fonctionnement et restez uniquement en observation.",
+    next: "pump-running-observation"
+  },
+  "pump-running-observation": {
+    id: "pump-running-observation",
+    type: "question",
+    maxSteps: 10,
+    title: "La pompe fonctionne-t-elle lorsque l'appareil est en marche ?",
+    options: [
+      { label: "Oui", next: "pump-runs-still-no-cooling" },
+      { label: "Non", next: "pump-not-running" }
+    ]
+  },
+  "pump-not-running": {
+    id: "pump-not-running",
+    type: "text",
+    maxSteps: 10,
+    title: "Pompe non fonctionnelle",
+    body: "Arrêtez puis débranchez l'appareil. La pompe ne fonctionne pas malgré des raccordements corrects : une prise en charge SAV est nécessaire.",
+    target: "sav-pump"
+  },
+  "pump-runs-still-no-cooling": {
+    id: "pump-runs-still-no-cooling",
+    type: "text",
+    maxSteps: 10,
+    title: "Pompe en fonctionnement",
+    body: "La pompe fonctionne mais le refroidissement reste insuffisant. Le circuit d'eau doit être contrôlé plus loin ; en attendant la validation de la procédure correspondante, transmettez le cas au SAV.",
+    target: "sav"
+  },
+  "pump-cooling-restored": {
+    id: "pump-cooling-restored",
+    type: "text",
+    maxSteps: 10,
+    title: "Problème résolu",
+    body: "Le refroidissement fonctionne à nouveau après la vérification du niveau d'eau ou des raccordements de la pompe.",
+    target: "resolved"
   }
 };
 
@@ -140,14 +246,17 @@ const IC22_OVERRIDES: Record<string, DiagnosticNode> = {
   }
 };
 
-export const FINAL_RESOLVED_NODE_IDS = new Set(["power-restored", "ic22-problem-resolved"]);
+export const FINAL_RESOLVED_NODE_IDS = new Set([
+  "power-restored",
+  "ic22-problem-resolved",
+  "pump-cooling-restored"
+]);
 
 export const IC22_VIDEO_HELP_NODE_IDS = new Set([
   "ic22-level-sensor-access",
   "ic22-reposition-level-sensor",
-  "check-pump",
-  "pump-check-advice",
-  "clean-nozzles-advice"
+  "pump-connections-access",
+  "pump-reconnect"
 ]);
 
 export function commercialDiagnosticNode(nodeId: string, productId: string): DiagnosticNode | null {
