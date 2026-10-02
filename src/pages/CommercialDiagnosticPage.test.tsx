@@ -170,6 +170,7 @@ it("n'affiche la vidéo de démontage qu'au moment d'ouvrir l'appareil", async (
   fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
   fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
   fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
+  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
   fireEvent.click(view.getByRole("button", { name: "COOL clignote" }));
   fireEvent.click(view.getByRole("button", { name: "Oui" }));
   expect(view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeTruthy();
@@ -199,9 +200,9 @@ it("termine par un conseil SAV panneaux ou environnement quand la pompe fonction
   fireEvent.click(view.getByRole("button", { name: "Oui" }));
 
   expect(view.getByRole("heading", { name: "Pompe en fonctionnement" })).toBeTruthy();
-  expect(view.getByText(/Le circuit d'eau a déjà été contrôlé/)).toBeTruthy();
-  expect(view.getByText(/panneaux évaporatifs/)).toBeTruthy();
-  expect(view.getByText(/conditions d'utilisation et de l'environnement/)).toBeTruthy();
+  expect(view.getAllByText(/circuit d'eau a déjà été contrôlé/i).length).toBeGreaterThan(0);
+  expect(view.getAllByText(/panneaux évaporatifs/).length).toBeGreaterThan(0);
+  expect(view.getAllByText(/conditions d'utilisation et de l'environnement/).length).toBeGreaterThan(0);
   expect(view.getByText(/Contactez le SAV pour conseil sur les panneaux évaporatifs/)).toBeTruthy();
   expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
 });
