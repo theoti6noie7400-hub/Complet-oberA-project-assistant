@@ -10,15 +10,22 @@ export const COMMERCIAL_EXCLUDED_PRODUCT_IDS = new Set([
   "filtower",
   "jumbo",
   "epur-ex-2000",
-  "ecoclim20",
   "epur150",
   "dosseret-aspirant",
   "dustomat-410",
   "dustomat-10",
+  // ECOCLIM : anciens appareils, prise en charge via le formulaire SAV si le modèle n'est pas trouvé.
+  "ecoclim12",
+  "ecoclim20",
+  "ecoclim30",
   // Les VL ci-dessous partagent le même châssis et le même diagnostic que leur IC/KM correspondant.
   "vl120",
   "vl220",
-  "vl300"
+  "vl300",
+  // Les variantes x001 partagent le même appareil et le même diagnostic que leur variante x000.
+  "epur-ex-1001",
+  "epur-ex-3001",
+  "epur-ex-5001"
 ]);
 
 export const COMMERCIAL_CATEGORY_LABELS: Record<CategoryId, string> = {
@@ -28,26 +35,32 @@ export const COMMERCIAL_CATEGORY_LABELS: Record<CategoryId, string> = {
   "tables-aspirantes": "Tables aspirantes"
 };
 
-const CHASSIS_LABELS: Record<string, string> = {
+const PRODUCT_FAMILY_LABELS: Record<string, string> = {
   ic12: "IC 12 / KM 12 / VL 120",
   ic22: "IC 22 / KM 22 / VL 220",
-  ic30: "IC 30 / KM 30 / VL 300"
+  ic30: "IC 30 / KM 30 / VL 300",
+  "epur-ex-1000": "ePUR EX 1000 / 1001",
+  "epur-ex-3000": "ePUR EX 3000 / 3001",
+  "epur-ex-5000": "ePUR EX 5000 / 5001"
 };
 
-const CHASSIS_SEARCH_ALIASES: Record<string, string[]> = {
+const PRODUCT_FAMILY_SEARCH_ALIASES: Record<string, string[]> = {
   ic12: ["IC12", "IC 12", "KM12", "KM 12", "VL120", "VL 120"],
   ic22: ["IC22", "IC 22", "KM22", "KM 22", "VL220", "VL 220"],
-  ic30: ["IC30", "IC 30", "KM30", "KM 30", "VL300", "VL 300"]
+  ic30: ["IC30", "IC 30", "KM30", "KM 30", "VL300", "VL 300"],
+  "epur-ex-1000": ["ePUR EX 1000", "ePUR EX1000", "ePUR EX 1001", "ePUR EX1001"],
+  "epur-ex-3000": ["ePUR EX 3000", "ePUR EX3000", "ePUR EX 3001", "ePUR EX3001"],
+  "epur-ex-5000": ["ePUR EX 5000", "ePUR EX5000", "ePUR EX 5001", "ePUR EX5001"]
 };
 
 export function commercialProductLabel(product: ProductCatalogItem): string {
-  return CHASSIS_LABELS[product.id] ?? product.name;
+  return PRODUCT_FAMILY_LABELS[product.id] ?? product.name;
 }
 
 export function commercialProductMatchesQuery(product: ProductCatalogItem, query: string): boolean {
   const normalized = query.trim().toLocaleLowerCase("fr");
   if (!normalized) return true;
-  const values = [product.name, commercialProductLabel(product), ...(CHASSIS_SEARCH_ALIASES[product.id] ?? [])];
+  const values = [product.name, commercialProductLabel(product), ...(PRODUCT_FAMILY_SEARCH_ALIASES[product.id] ?? [])];
   return values.some(value => value.toLocaleLowerCase("fr").includes(normalized));
 }
 
