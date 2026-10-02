@@ -158,7 +158,7 @@ const GLOBAL_OVERRIDES: Record<string, DiagnosticNode> = {
     type: "text",
     maxSteps: 10,
     title: "Pompe en fonctionnement",
-    body: "La pompe fonctionne mais le refroidissement reste insuffisant. Le circuit d'eau doit être contrôlé plus loin ; en attendant la validation de la procédure correspondante, transmettez le cas au SAV.",
+    body: "La pompe fonctionne et le circuit d'eau a déjà été contrôlé. Si le refroidissement reste insuffisant, la cause peut venir des panneaux évaporatifs ou des conditions d'utilisation et de l'environnement. Contactez le SAV pour conseil.",
     target: "sav"
   },
   "pump-cooling-restored": {
