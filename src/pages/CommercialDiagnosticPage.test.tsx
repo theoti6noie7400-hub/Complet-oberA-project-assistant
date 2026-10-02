@@ -111,3 +111,33 @@ it("guide COOL fixe vers niveau d'eau, raccordements et observation sécurisée 
   expect(view.getByRole("heading", { name: "Pompe non fonctionnelle" })).toBeTruthy();
   expect(view.getByRole("button", { name: "Contacter le SAV" })).toBeTruthy();
 });
+
+it("n'affiche la vidéo de démontage qu'au moment d'ouvrir l'appareil", async () => {
+  const view = renderPage();
+  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
+  selectIc22(view);
+
+  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  fireEvent.click(view.getByRole("button", { name: "COOL fixe" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  expect(view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeTruthy();
+
+  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  fireEvent.click(view.getByRole("button", { name: "Non" }));
+  expect(view.getByRole("heading", { name: "Remettre les raccordements en place" })).toBeTruthy();
+  expect(view.queryByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeNull();
+
+  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
+  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
+  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
+  fireEvent.click(view.getByRole("button", { name: "COOL clignote" }));
+  fireEvent.click(view.getByRole("button", { name: "Oui" }));
+  expect(view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeTruthy();
+  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  fireEvent.click(view.getByRole("button", { name: "Non / il est à l'envers" }));
+  expect(view.getByRole("heading", { name: "Repositionner le capteur" })).toBeTruthy();
+  expect(view.queryByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeNull();
+});
