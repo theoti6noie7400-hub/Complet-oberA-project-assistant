@@ -15,6 +15,8 @@ import {
   IC22_KM22_DISMANTLING_VIDEO_URL,
   IC22_VIDEO_HELP_NODE_IDS,
   commercialDiagnosticNode,
+  commercialProductLabel,
+  commercialProductMatchesQuery,
   resolveCommercialNext
 } from "../lib/commercialDiagnosticOverrides";
 
@@ -33,6 +35,7 @@ function ContactSavForm({ product, history, onClose }: ContactFormProps) {
   const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
+  const displayName = commercialProductLabel(product);
 
   const trace = useMemo(() => history.map((step) => {
     const node = commercialDiagnosticNode(step.nodeId, product.id);
@@ -55,13 +58,13 @@ function ContactSavForm({ product, history, onClose }: ContactFormProps) {
       return;
     }
     setError("");
-    const subject = `Transmission diagnostic - ${product.name} - ${company.trim()}`;
+    const subject = `Transmission diagnostic - ${displayName} - ${company.trim()}`;
     const body = [
       `Société : ${company.trim()}`,
       `Contact : ${contactName.trim()}`,
       `Téléphone : ${phone.trim() || "-"}`,
       `E-mail : ${email.trim() || "-"}`,
-      `Appareil : ${product.name}`,
+      `Appareil : ${displayName}`,
       "",
       "Parcours diagnostic :",
       trace || "Aucune étape enregistrée.",
@@ -74,7 +77,7 @@ function ContactSavForm({ product, history, onClose }: ContactFormProps) {
   return <form onSubmit={submit} className="border-t pt-4 space-y-3" aria-label="Contacter le SAV">
     <div>
       <h4 className="text-lg font-semibold">Contacter le SAV</h4>
-      <p className="text-sm text-slate-600">Le parcours diagnostic sera ajouté automatiquement au message. Aucune donnée Client n’est recherchée dans le portail.</p>
+      <p className="text-sm text-slate-600">Si vous préférez ne pas poursuivre le diagnostic, vous pouvez transmettre directement la demande. Le parcours déjà effectué sera ajouté au message.</p>
     </div>
     <div className="grid gap-3 md:grid-cols-2">
       <label className="block">Société / client
@@ -97,7 +100,7 @@ function ContactSavForm({ product, history, onClose }: ContactFormProps) {
     {error && <p role="alert" className="text-red-700">{error}</p>}
     <div className="flex flex-wrap gap-2">
       <button className="obera-btn-primary" type="submit">Préparer le message au SAV</button>
-      {onClose && <button className="obera-btn-outline" type="button" onClick={onClose}>Annuler</button>}
+      {onClose && <button className="obera-btn-outline" type="button" onClick={onClose}>Revenir au diagnostic</button>}
     </div>
   </form>;
 }
@@ -108,6 +111,7 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
   const [resolved, setResolved] = useState(false);
   const current = history[history.length - 1];
   const node = current ? commercialDiagnosticNode(current.nodeId, product.id) : null;
+  const displayName = commercialProductLabel(product);
 
   useEffect(() => {
     setHistory([{ nodeId: getDiagnosticStartNode(product.id) }]);
@@ -146,10 +150,14 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <p className="text-sm font-semibold">MODE DIAGNOSTIC CLIENT — USAGE INTERNE OBERA</p>
-        <h2 className="text-2xl font-semibold">{product.name}</h2>
+        <h2 className="text-2xl font-semibold">{displayName}</h2>
       </div>
-      <button className="obera-btn-outline" type="button" onClick={onBack}>Changer d’appareil</button>
+      <div className="flex flex-wrap gap-2">
+        <button className="obera-btn-outline" type="button" onClick={() => setContactVisible(true)}>Contacter le SAV</button>
+        <button className="obera-btn-outline" type="button" onClick={onBack}>Changer d’appareil</button>
+      </div>
     </div>
+    <p className="text-sm text-slate-600">Le diagnostic permet souvent de remettre l’appareil en service rapidement. Le formulaire SAV reste accessible à tout moment si vous préférez transmettre directement la demande.</p>
     <ClientDevicePhoto model={product.name} detail />
     {!node && <p role="alert">Diagnostic indisponible pour ce modèle.</p>}
     {node && <>
@@ -194,10 +202,9 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
           <p className="font-semibold">{terminalSavMessage}</p>
           <button className="obera-btn-primary" type="button" onClick={() => setContactVisible(true)}>Contacter le SAV</button>
         </div>}
-
-        {contactVisible && <ContactSavForm product={product} history={history} onClose={() => setContactVisible(false)} />}
       </>}
     </>}
+    {contactVisible && <ContactSavForm product={product} history={history} onClose={() => setContactVisible(false)} />}
     {history.length > 1 && <button className="obera-btn-outline" type="button" onClick={() => {
       setContactVisible(false); setResolved(false); setHistory(value => value.slice(0, -1));
     }}>Étape précédente</button>}
@@ -219,9 +226,8 @@ export default function CommercialDiagnosticPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("fr");
     return PRODUCTS.filter(product => !COMMERCIAL_EXCLUDED_PRODUCT_IDS.has(product.id))
-      .filter(product => !normalized || product.name.toLocaleLowerCase("fr").includes(normalized));
+      .filter(product => commercialProductMatchesQuery(product, query));
   }, [query]);
 
   return <div className="portal-page">
@@ -235,7 +241,7 @@ export default function CommercialDiagnosticPage() {
           <p>Choisissez directement le modèle dont vous parle le client. Cet espace n’affiche aucune donnée Client, aucun parc et aucun numéro de série.</p>
           <label className="block">Rechercher un appareil
             <input className="block w-full max-w-lg p-2 border rounded" value={query}
-              onChange={event => setQuery(event.target.value)} placeholder="Ex. IC 22, Clearbox, DUSTOMAT…" />
+              onChange={event => setQuery(event.target.value)} placeholder="Ex. IC 22, KM 22, VL 220, Clearbox…" />
           </label>
         </section>
         {CATEGORIES.map(category => {
@@ -246,7 +252,7 @@ export default function CommercialDiagnosticPage() {
             <ul className="client-device-grid">{products.map(product => <li className="client-device-card" key={product.id}>
               <ClientDevicePhoto model={product.name} />
               <div className="space-y-2 min-w-0">
-                <h3 className="font-semibold text-lg">{product.name}</h3>
+                <h3 className="font-semibold text-lg">{commercialProductLabel(product)}</h3>
                 <div className="client-device-actions">
                   <button className="obera-btn-primary" type="button" onClick={() => setSelected(product)}>Lancer le diagnostic</button>
                   {noticeModels.has(product.name) && <a className="obera-btn-outline"
