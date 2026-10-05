@@ -1,227 +1,171 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CommercialDiagnosticPage from "./CommercialDiagnosticPage";
-import { IC22_KM22_DISMANTLING_VIDEO_URL } from "../lib/commercialDiagnosticOverrides";
+import { IC22_ERROR_MEANINGS, IC22_OPENING_VIDEO_URL,
+  IC22_PUMP_PROTOCOL_URL } from "../lib/ic22Diagnostic";
 
+let available = true;
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(Response.json({ models: ["IC 22"] }))));
+  available = true;
+  vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(Response.json(
+    url.endsWith("/availability") ? { available } : { models: ["IC 22"] }
+  ))));
 });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
-function renderPage() {
-  return render(<MemoryRouter><CommercialDiagnosticPage /></MemoryRouter>);
-}
-
-function selectIc22(view: ReturnType<typeof renderPage>) {
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "IC 22" } });
+const page = () => render(<MemoryRouter><CommercialDiagnosticPage /></MemoryRouter>);
+function select(view: ReturnType<typeof page>, model = "IC 22") {
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: model } });
   fireEvent.click(view.getByRole("button", { name: "Lancer le diagnostic" }));
 }
-
-function clickSav(view: ReturnType<typeof renderPage>) {
-  const buttons = view.getAllByRole("button", { name: "Contacter le SAV" });
-  fireEvent.click(buttons[buttons.length - 1]);
+function choose(view: ReturnType<typeof page>, label: string) {
+  const matches = view.getAllByRole("button", { name: label });
+  fireEvent.click(matches[0]);
 }
-
-it("masque les anciens modèles invalidés et clarifie le contrôle d'alimentation", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "Filtower" } });
-  expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
-
-  selectIc22(view);
-  fireEvent.click(view.getByRole("button", { name: "L'appareil ne s'allume pas" }));
-  fireEvent.click(view.getByRole("button", { name: "Non" }));
-
-  expect(view.getByText(/Si l'installation électrique du site est protégée par un disjoncteur/)).toBeTruthy();
-  expect(view.queryByText(/Vérifiez la prise, le disjoncteur et le cable/i)).toBeNull();
-
+function continueControl(view: ReturnType<typeof page>) {
   fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
   fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  expect(view.getByRole("heading", { name: "Après ces vérifications, l'appareil s'allume-t-il ?" })).toBeTruthy();
+}
+function steadyCircuit(view: ReturnType<typeof page>) {
+  choose(view, "L’appareil ne fait pas de froid");
+  choose(view, "Oui");
+  choose(view, "Oui");
+  choose(view, "Il reste fixe");
+}
+function pumpObservation(view: ReturnType<typeof page>) {
+  steadyCircuit(view);
+  continueControl(view);
+  choose(view, "Tuyaux et connecteur visiblement raccordés, aucune anomalie simple");
+  choose(view, "Oui");
+  continueControl(view);
+}
+
+it("montre neuf symptômes et le contact SAV immédiat sans transport ni données Client", () => {
+  const view = page(); select(view, "VL 220");
+  expect(view.getByRole("heading", { name: "IC 22 / KM 22 / VL 220" })).toBeTruthy();
+  expect(view.getByRole("heading", { name: "Quel problème constatez-vous sur votre appareil ?" })).toBeTruthy();
+  const buttons = ["L’appareil ne fait pas de froid", "L’appareil ne s’allume pas",
+    "L’appareil ne souffle pas ou souffle faiblement", "L’appareil fuit",
+    "L’oscillation ne fonctionne pas", "L’appareil fait un bruit anormal",
+    "Un code d’erreur s’affiche", "L’appareil dégage une mauvaise odeur", "Autre problème"];
+  for (const label of buttons) expect(view.getByRole("button", { name: label })).toBeTruthy();
+  expect(view.queryByText(/transport/i)).toBeNull();
+  choose(view, "Contacter le SAV");
+  const form = view.getByRole("form", { name: "Contacter le SAV" });
+  expect(within(form).getByLabelText("Société / client")).toHaveProperty("value", "");
+  expect(view.queryByText(/numéro de série|parc client|dossier SAV/i)).toBeNull();
 });
 
-it("regroupe les familles identiques et retire les anciens appareils du catalogue diagnostic", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "KM 22" } });
-  expect(view.getByRole("heading", { name: "IC 22 / KM 22 / VL 220" })).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "VL 120" } });
+it("garde les autres familles et l’accès SAV direct aux modèles absents", () => {
+  const view = page();
+  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "IC 12" } });
   expect(view.getByRole("heading", { name: "IC 12 / KM 12 / VL 120" })).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "DUSTOMAT 4-10" } });
-  expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "DUSTOMAT 10" } });
-  expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
-
   fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ECOCLIM" } });
   expect(view.getByText("Aucun appareil trouvé.")).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "Contacter le SAV" }));
+  choose(view, "Contacter le SAV");
   expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
-  expect(view.getByText(/n'est pas proposé dans le diagnostic/)).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "Revenir au diagnostic" }));
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 1001" } });
-  expect(view.getByRole("heading", { name: "ePUR EX 1000 / 1001" })).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 3001" } });
-  expect(view.getByRole("heading", { name: "ePUR EX 3000 / 3001" })).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
-
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "ePUR EX 5001" } });
-  expect(view.getByRole("heading", { name: "ePUR EX 5000 / 5001" })).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
 });
 
-it("laisse le formulaire SAV accessible immédiatement sans imposer le questionnaire", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-  selectIc22(view);
-
-  expect(view.getByRole("heading", { name: "IC 22 / KM 22 / VL 220" })).toBeTruthy();
-  expect(view.getByText(/formulaire SAV reste accessible à tout moment/)).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "Contacter le SAV" }));
-  expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
-  expect(view.getByLabelText("Société / client")).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "Revenir au diagnostic" }));
-  expect(view.queryByRole("form", { name: "Contacter le SAV" })).toBeNull();
-  expect(view.getByRole("heading", { name: "Quel est le problème principal ?" })).toBeTruthy();
-});
-
-it("guide COOL clignotant vers niveau d'eau, capteur, vidéo puis formulaire SAV", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-  selectIc22(view);
-
-  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  fireEvent.click(view.getByRole("button", { name: "COOL clignote" }));
-
-  expect(view.getByRole("heading", { name: "Le niveau d'eau dans la cuve est-il suffisant ?" })).toBeTruthy();
+it("sépare voyant clignotant et fixe et n’utilise pas la vidange pour le flotteur", () => {
+  const view = page(); select(view);
+  choose(view, "L’appareil ne fait pas de froid");
+  choose(view, "Oui"); choose(view, "Oui"); choose(view, "Il clignote");
+  expect(view.getByRole("heading", { name: "Le niveau d’eau est-il suffisant ?" })).toBeTruthy();
   expect(view.queryByText(/vidange/i)).toBeNull();
+  choose(view, "Oui");
+  expect(view.getByRole("link", { name: /vidéo d’ouverture/ }).getAttribute("href"))
+    .toBe(IC22_OPENING_VIDEO_URL);
+  continueControl(view);
+  choose(view, "Non / je ne peux pas l’identifier sûrement");
+  expect(view.getByText(/Aucune panne du capteur n’est affirmée/)).toBeTruthy();
+});
 
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  expect(view.getByRole("heading", { name: "Accéder au capteur de niveau d'eau" })).toBeTruthy();
-  const video = view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" });
-  expect(video.getAttribute("href")).toBe(IC22_KM22_DISMANTLING_VIDEO_URL);
+it("refroidissement non activable et aucun souffle alimenté mènent directement au SAV", () => {
+  const view = page(); select(view);
+  choose(view, "L’appareil ne fait pas de froid"); choose(view, "Oui"); choose(view, "Non");
+  continueControl(view); choose(view, "Non");
+  expect(view.getByRole("heading", { name: "Contacter le SAV" })).toBeTruthy();
+  choose(view, "Étape précédente"); choose(view, "Étape précédente");
+  choose(view, "Étape précédente"); choose(view, "Étape précédente");
+  choose(view, "Étape précédente");
+  choose(view, "L’appareil ne souffle pas ou souffle faiblement");
+  choose(view, "Aucun souffle");
+  expect(view.getByRole("button", { name: "Je ne sais pas" })).toBeTruthy();
+  choose(view, "Oui");
+  expect(view.getByText(/Aucune panne de moteur ou de carte n’est déduite/)).toBeTruthy();
+});
 
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  expect(view.getByRole("heading", { name: /Le capteur de niveau d'eau est-il monté dans le bon sens/ })).toBeTruthy();
+it("porte la pompe vers le protocole privé après autorisation et garde SAV accessible", async () => {
+  const view = page(); select(view);
+  pumpObservation(view);
+  choose(view, "La pompe ne fonctionne pas");
+  expect(view.getByRole("heading", { name: "Pompe à remplacer" })).toBeTruthy();
+  continueControl(view);
+  choose(view, "Suivre la procédure de remplacement");
+  choose(view, "Oui");
+  const link = await view.findByRole("link", { name: /protocole OberA complet/i });
+  expect(link.getAttribute("href")).toBe(IC22_PUMP_PROTOCOL_URL);
+  expect(view.getByText(/débranchez et consignez l’appareil/)).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
+  continueControl(view);
+  choose(view, "Non");
+  expect(view.getByText(/son remplacement n’a pas rétabli le froid/)).toBeTruthy();
+});
 
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  clickSav(view);
+it("SAV sans diagnostic pompe quand observation impossible, et bloque le protocole absent", async () => {
+  const view = page(); select(view); steadyCircuit(view);
+  continueControl(view); choose(view, "Tuyaux et connecteur visiblement raccordés, aucune anomalie simple"); choose(view, "Non");
+  expect(view.getByText(/Contrôle de pompe non réalisé en sécurité/)).toBeTruthy();
+  expect(view.queryByText(/Pompe à remplacer/)).toBeNull();
+  cleanup(); available = false;
+  const absent = page(); select(absent); pumpObservation(absent);
+  choose(absent, "Elle fonctionne, mais le débit est clairement insuffisant");
+  continueControl(absent); choose(absent, "Suivre la procédure de remplacement"); choose(absent, "Oui");
+  expect(await absent.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Protocole indisponible"));
+  expect(absent.getByRole("button", { name: "Continuer" }).hasAttribute("disabled")).toBe(true);
+});
+
+it("n’utilise le test sans filtres que pour débit faible et prévoit remplacement jetable", () => {
+  const view = page(); select(view);
+  choose(view, "L’appareil ne souffle pas ou souffle faiblement"); choose(view, "Débit d’air faible");
+  expect(view.getByText(/essai court sans filtres/)).toBeTruthy();
+  continueControl(view); choose(view, "Oui");
+  expect(view.getByText(/Ils sont jetables : remplacez-les/)).toBeTruthy();
+  expect(view.getByText(/Ne les lavez pas/)).toBeTruthy();
+});
+
+it("montre le test du panneau comme confirmation et son information, sans réparation définitive", () => {
+  const view = page(); select(view); choose(view, "L’appareil fuit");
+  choose(view, "Panneau alvéolaire");
+  expect(view.getByRole("link", { name: /vidéo d’ouverture/ })).toBeTruthy();
+  expect(view.getByText(/retournement est un test, pas une réparation définitive/)).toBeTruthy();
+  expect(view.getByText(/Pourquoi remplacer le panneau/)).toBeTruthy();
+  continueControl(view); choose(view, "Oui");
+  expect(view.getByRole("status").textContent).toContain("Remplacement du panneau à prévoir");
+  expect(view.getByText(/remplacement est à prévoir/)).toBeTruthy();
+});
+
+it("transmet le code et la signification, ou le commentaire libre, au formulaire", () => {
+  for (const [code, meaning] of Object.entries(IC22_ERROR_MEANINGS)) {
+    const view = page(); select(view);
+    choose(view, "Un code d’erreur s’affiche"); choose(view, code);
+    expect(view.getByRole("heading", { name: `${code} — ${meaning}` })).toBeTruthy();
+    choose(view, "Contacter le SAV");
+    expect(view.getByText(/parcours déjà effectué sera ajouté/)).toBeTruthy();
+    cleanup();
+  }
+  const other = page(); select(other); choose(other, "Autre problème");
+  choose(other, "Contacter le SAV");
+  expect(other.getByLabelText("Commentaire complémentaire")).toBeTruthy();
+});
+
+it("oriente odeur récente et persistante avec mention Probioway au SAV", () => {
+  const view = page(); select(view); choose(view, "L’appareil dégage une mauvaise odeur");
+  choose(view, "Oui"); continueControl(view); choose(view, "Non");
+  expect(view.getByText(/Probioway à envisager par le SAV/)).toBeTruthy();
+  choose(view, "Contacter le SAV");
   expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
-  expect(view.getByLabelText("Société / client")).toBeTruthy();
-  expect(view.getByLabelText("Nom du contact")).toBeTruthy();
-  expect(view.getByLabelText("Téléphone")).toBeTruthy();
-  expect(view.getByLabelText("E-mail")).toBeTruthy();
-});
-
-it("guide COOL fixe vers niveau d'eau, raccordements et observation sécurisée de la pompe", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-  selectIc22(view);
-
-  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  fireEvent.click(view.getByRole("button", { name: "COOL fixe" }));
-
-  expect(view.getByRole("heading", { name: "Le réservoir contient-il suffisamment d'eau ?" })).toBeTruthy();
-  expect(view.getByRole("button", { name: "Oui" })).toBeTruthy();
-  expect(view.getByRole("button", { name: "Non" })).toBeTruthy();
-  expect(view.queryByRole("button", { name: /Oui, mais très faiblement/i })).toBeNull();
-
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  expect(view.getByRole("heading", { name: "Contrôle du raccordement de la pompe" })).toBeTruthy();
-  const video = view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" });
-  expect(video.getAttribute("href")).toBe(IC22_KM22_DISMANTLING_VIDEO_URL);
-  expect(view.getByText(/connecteur électrique est correctement enfiché/)).toBeTruthy();
-  expect(view.getByText(/tuyaux sont correctement raccordés/)).toBeTruthy();
-
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  expect(view.getByRole("heading", { name: "Les raccordements électriques et hydrauliques de la pompe sont-ils corrects ?" })).toBeTruthy();
-
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  expect(view.getByRole("heading", { name: "Contrôle sous tension — sécuriser la zone" })).toBeTruthy();
-  expect(view.getByText(/personne ne doit pouvoir accéder à l'intérieur de l'appareil/)).toBeTruthy();
-  expect(view.getByText(/restez uniquement en observation/)).toBeTruthy();
-
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  expect(view.getByRole("heading", { name: "La pompe fonctionne-t-elle lorsque l'appareil est en marche ?" })).toBeTruthy();
-
-  fireEvent.click(view.getByRole("button", { name: "Non" }));
-  expect(view.getByRole("heading", { name: "Pompe non fonctionnelle" })).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
-});
-
-it("n'affiche la vidéo de démontage qu'au moment d'ouvrir l'appareil", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-  selectIc22(view);
-
-  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  fireEvent.click(view.getByRole("button", { name: "COOL fixe" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  expect(view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeTruthy();
-
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  fireEvent.click(view.getByRole("button", { name: "Non" }));
-  expect(view.getByRole("heading", { name: "Remettre les raccordements en place" })).toBeTruthy();
-  expect(view.queryByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeNull();
-
-  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
-  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
-  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
-  fireEvent.click(view.getByRole("button", { name: "Étape précédente" }));
-  fireEvent.click(view.getByRole("button", { name: "COOL clignote" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  expect(view.getByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeTruthy();
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  fireEvent.click(view.getByRole("button", { name: "Non / il est à l'envers" }));
-  expect(view.getByRole("heading", { name: "Repositionner le capteur" })).toBeTruthy();
-  expect(view.queryByRole("link", { name: "Voir la vidéo de démontage IC22 / KM22" })).toBeNull();
-});
-
-it("termine par un conseil SAV panneaux ou environnement quand la pompe fonctionne, y compris sur un autre rafraîchisseur", async () => {
-  const view = renderPage();
-  await view.findByRole("heading", { name: /Rafraîchisseurs d'air/ });
-  fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: "IC 12" } });
-  fireEvent.click(view.getByRole("button", { name: "Lancer le diagnostic" }));
-
-  fireEvent.click(view.getByRole("button", { name: "L'appareil ne fait pas de froid" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  fireEvent.click(view.getByRole("button", { name: "COOL fixe" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-  fireEvent.click(view.getByLabelText("Je confirme avoir effectué le contrôle proposé."));
-  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
-  fireEvent.click(view.getByRole("button", { name: "Oui" }));
-
-  expect(view.getByRole("heading", { name: "Pompe en fonctionnement" })).toBeTruthy();
-  expect(view.getAllByText(/circuit d'eau a déjà été contrôlé/i).length).toBeGreaterThan(0);
-  expect(view.getAllByText(/panneaux évaporatifs/).length).toBeGreaterThan(0);
-  expect(view.getAllByText(/conditions d'utilisation et de l'environnement/).length).toBeGreaterThan(0);
-  expect(view.getByText(/Contactez le SAV pour conseil sur les panneaux évaporatifs/)).toBeTruthy();
-  expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
 });

@@ -19,6 +19,9 @@ import SavDashboard from "../dashboard/SavDashboard";
 import { savData } from "../data/savData";
 import { createManualSavRecipeClient, type SavedManualSav } from "../lib/manualSavRecipe";
 import { RECIPE_API_ENABLED } from "../lib/recipeConfig";
+import { IC22_BASIN_ANNOTATED_IMAGE_URL, IC22_BASIN_IMAGE_NODE_IDS,
+  IC22_CHASSIS_IDS, IC22_OPENING_NODES, IC22_OPENING_VIDEO_URL, IC22_PANEL_INFO,
+  IC22_PUMP_PROTOCOL_NODE, IC22_PUMP_PROTOCOL_URL } from "../lib/ic22Diagnostic";
 
 const RECIPE_MODE_KEY = "obera_manual_sav_recipe_mode";
 
@@ -138,11 +141,23 @@ function InternalSavPage({
   const [serialError, setSerialError] = useState("");
 
   const [diagStack, setDiagStack] = useState<string[]>([]);
+  const [diagSelections, setDiagSelections] = useState<(number | null)[]>([]);
+  const [pumpProtocolAvailable, setPumpProtocolAvailable] = useState(false);
   const [diagOutcome, setDiagOutcome] = useState<DiagnosticOutcome | null>(null);
   const [feedbackState, setFeedbackState] = useState<"idle" | "yes" | "no">("idle");
   const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
   const [diagnosticError, setDiagnosticError] = useState("");
   const [fallbackWarning, setFallbackWarning] = useState(false);
+
+  useEffect(() => {
+    if (!selectedProduct || !IC22_CHASSIS_IDS.has(selectedProduct.id)) return;
+    let active = true;
+    fetch(`${IC22_PUMP_PROTOCOL_URL}/availability`, { credentials: "same-origin", cache: "no-store" })
+      .then(async response => response.ok ? response.json() as Promise<{ available: boolean }> : { available: false })
+      .then(data => { if (active) setPumpProtocolAvailable(data.available); })
+      .catch(() => { if (active) setPumpProtocolAvailable(false); });
+    return () => { active = false; };
+  }, [selectedProduct?.id]);
 
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -215,6 +230,7 @@ function InternalSavPage({
     if (!diagStack.length) return null;
     return DIAGNOSTIC_NODES[diagStack[diagStack.length - 1]] ?? null;
   }, [diagStack]);
+  const panelFlipPositive = diagStack[diagStack.length - 1] === "ic22-leak-panel-positive";
 
   const progressPct = useMemo(() => {
     if (!currentDiagNode) return 0;
@@ -245,6 +261,7 @@ function InternalSavPage({
     setSerialNumber("");
     setSerialError("");
     setDiagStack([]);
+    setDiagSelections([]);
     setDiagOutcome(null);
     setFeedbackState("idle");
     setSelectedOptionIdx(null);
@@ -280,6 +297,7 @@ function InternalSavPage({
     setSerialError("");
     const startNode = getDiagnosticStartNode(selectedProduct.id);
     setDiagStack([startNode]);
+    setDiagSelections([null]);
     setFallbackWarning(
       startNode === "start" && selectedProduct.category !== "rafraichisseurs"
     );
@@ -297,8 +315,9 @@ function InternalSavPage({
     setActiveStep("summary");
   };
 
-  const handleDiagnosticNext = (nextId: string) => {
+  const handleDiagnosticNext = (nextId: string, optionIndex: number | null = null) => {
     const resolved = resolveDynamicNext(nextId, selectedProduct?.id ?? "");
+    setDiagSelections(prev => [...prev.slice(0, diagStack.length - 1), optionIndex, null]);
     setDiagStack((prev) => [...prev, resolved]);
   };
 
@@ -308,11 +327,19 @@ function InternalSavPage({
       return;
     }
     setDiagStack((prev) => prev.slice(0, -1));
+    setDiagSelections(prev => prev.slice(0, -1));
   };
 
   const buildContactMessage = () => {
     const base = diagOutcome?.message ?? "";
-    return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}`;
+    const trace = diagStack.map((id, index) => {
+      const step = DIAGNOSTIC_NODES[id];
+      if (!step) return "";
+      const answer = step.type === "question" && diagSelections[index] !== null
+        ? step.options[diagSelections[index]!]?.label : undefined;
+      return `${step.title}${answer ? ` — Réponse : ${answer}` : ""}${step.type === "text" ? ` — ${step.body}` : ""}`;
+    }).filter(Boolean).join("\n");
+    return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}\nParcours diagnostic :\n${trace || "Aucun contrôle enregistré."}`;
   };
 
   const sendMail = (subject: string, body: string) => {
@@ -715,6 +742,21 @@ function InternalSavPage({
                   <p className="text-sm text-stone-600 whitespace-pre-line">
                     {currentDiagNode.body}
                   </p>
+                  {selectedProduct && IC22_CHASSIS_IDS.has(selectedProduct.id) &&
+                    IC22_OPENING_NODES.has(currentDiagNode.id) &&
+                    !diagStack.slice(0, -1).some(id => IC22_OPENING_NODES.has(id)) &&
+                    <a className="underline" href={IC22_OPENING_VIDEO_URL} target="_blank" rel="noreferrer">
+                      Voir la vidéo d’ouverture IC22 / KM22 / VL220</a>}
+                  {IC22_BASIN_ANNOTATED_IMAGE_URL && IC22_BASIN_IMAGE_NODE_IDS.has(currentDiagNode.id) &&
+                    <img src={IC22_BASIN_ANNOTATED_IMAGE_URL} alt="Éléments du bac identifiés par OberA"
+                      className="max-w-full object-contain" />}
+                  {(currentDiagNode.id === "ic22-leak-panel-access" || currentDiagNode.id === "ic22-leak-panel-positive") &&
+                    <details className="text-sm border rounded p-2"><summary aria-label="Pourquoi remplacer le panneau ?">
+                      ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}
+                  {currentDiagNode.id === IC22_PUMP_PROTOCOL_NODE && (pumpProtocolAvailable ?
+                    <a className="underline" href={IC22_PUMP_PROTOCOL_URL} target="_blank" rel="noreferrer">
+                      Ouvrir le protocole OberA complet (PDF)</a> :
+                    <p role="alert">Protocole indisponible. Contactez le SAV ; ne commencez pas le remplacement.</p>)}
                 </div>
               )
             ) : (
@@ -745,6 +787,7 @@ function InternalSavPage({
               id="diagnostic-next"
               className="px-6 py-2 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
               type="button"
+              disabled={currentDiagNode?.id === IC22_PUMP_PROTOCOL_NODE && !pumpProtocolAvailable}
               onClick={() => {
                 if (!currentDiagNode) {
                   setDiagnosticError("Diagnostic indisponible.");
@@ -756,7 +799,7 @@ function InternalSavPage({
                     return;
                   }
                   const opt = currentDiagNode.options[selectedOptionIdx];
-                  handleDiagnosticNext(opt.next);
+                  handleDiagnosticNext(opt.next, selectedOptionIdx);
                   return;
                 }
                 if (currentDiagNode.target) {
@@ -770,11 +813,15 @@ function InternalSavPage({
                 goToSummary(buildOutcomeFromTarget("resolved", currentDiagNode));
               }}
             >
-              {currentDiagNode?.type === "text" && currentDiagNode.target
+              {currentDiagNode?.type === "text" && currentDiagNode.target && !IC22_CHASSIS_IDS.has(selectedProduct?.id ?? "")
                 ? "Terminer"
                 : "Suivant"}
             </button>
           </div>
+          {selectedProduct && IC22_CHASSIS_IDS.has(selectedProduct.id) &&
+            <button className="mt-3 underline" type="button" onClick={() =>
+              goToSummary(buildOutcomeFromTarget("sav", currentDiagNode ?? undefined))}>
+              Contacter le SAV</button>}
         </div>
 
         <div
@@ -785,7 +832,7 @@ function InternalSavPage({
             {diagOutcome?.title ?? "Diagnostic terminé"}
           </h2>
 
-          {diagOutcome?.id === "resolved" && feedbackState === "idle" && (
+          {diagOutcome?.id === "resolved" && feedbackState === "idle" && !panelFlipPositive && (
             <div id="feedback-container" className="w-full mb-6">
               <p className="text-lg text-stone-700 mb-4">
                 Ce guide vous a-t-il permis de résoudre le problème ?
@@ -814,6 +861,10 @@ function InternalSavPage({
             </div>
           )}
 
+          {panelFlipPositive && <p role="status" className="font-semibold text-green-700">
+            Diagnostic initial terminé. Le retournement du panneau est un test positif ; son remplacement reste à prévoir.
+          </p>}
+
           {feedbackState === "yes" && (
             <div
               id="feedback-thanks"
@@ -823,7 +874,7 @@ function InternalSavPage({
             </div>
           )}
 
-          {(feedbackState === "no" || (diagOutcome && diagOutcome.id !== "resolved")) && (
+          {(panelFlipPositive || feedbackState === "no" || (diagOutcome && diagOutcome.id !== "resolved")) && (
             <div
               id="summary-content"
               className="w-full p-4 bg-stone-50 rounded-lg text-left"

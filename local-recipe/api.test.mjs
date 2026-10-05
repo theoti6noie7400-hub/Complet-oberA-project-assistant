@@ -88,8 +88,9 @@ test("recette locale : Client, SAV, droits, persistance et remise à zéro", asy
   assert.equal((await call("GET", "/api/portal/requests", a)).status, 403);
 
   const diagnosticContext = { version: 1, productId: "ic22", result: "unresolved", steps: [
-    { nodeId: "start", optionIndex: 1 }, { nodeId: "no-power", optionIndex: 1 },
-    { nodeId: "power-check-advice", confirmed: true }
+    { nodeId: "ic22-start", optionIndex: 1 },
+    { nodeId: "ic22-power-check", confirmed: true, continued: true },
+    { nodeId: "ic22-power-result", optionIndex: 2 }, { nodeId: "ic22-power-sav" }
   ] };
   const sav = { submissionKey: randomUUID(), requestType: "sav", deviceId: ic22,
     subject: "DEMO souci de démarrage", message: "DEMO vérification client", diagnosticContext };
@@ -102,7 +103,7 @@ test("recette locale : Client, SAV, droits, persistance et remise à zéro", asy
   assert.equal((await call("GET", `/api/client/requests/${id}`, a)).data.diagnostic_context, undefined);
   const internal = await call("GET", `/api/portal/requests/${id}`, staff);
   assert.equal(internal.data.device_model, "IC 22");
-  assert.equal(internal.data.diagnostic_context.steps[2].clientConfirmed, true);
+  assert.equal(internal.data.diagnostic_context.steps[1].clientConfirmed, true);
   assert.equal(internal.data.diagnostic_context.device.serial, "DEMO-SN-A-001");
   assert.equal(internal.data.diagnostic_context.graphFingerprintVersion, 2);
   assert.equal(Object.hasOwn(internal.data.diagnostic_context, "cause"), false);
@@ -200,6 +201,11 @@ test("recette V1 : le Commercial utilise le catalogue diagnostic sans données C
   assert.equal((await api.call("GET", "/api/portal/requests", commercial)).status, 403);
   assert.equal((await api.call("GET", `/api/portal/requests/${item.id}`, commercial)).status, 403);
   assert.equal((await api.call("GET", "/api/client/devices", commercial)).status, 403);
+  assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump")).status, 401);
+  assert.deepEqual((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump/availability", commercial)).data,
+    { available: false });
+  assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump", commercial)).status, 404);
+  assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump", staff)).status, 404);
 
   const catalog = await api.call("GET", "/api/internal/catalog/notices", commercial);
   assert.equal(catalog.status, 200);

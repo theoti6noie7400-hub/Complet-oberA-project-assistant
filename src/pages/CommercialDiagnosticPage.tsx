@@ -19,6 +19,8 @@ import {
   commercialProductMatchesQuery,
   resolveCommercialNext
 } from "../lib/commercialDiagnosticOverrides";
+import { IC22_BASIN_ANNOTATED_IMAGE_URL, IC22_BASIN_IMAGE_NODE_IDS,
+  IC22_PANEL_INFO, IC22_PUMP_PROTOCOL_NODE, IC22_PUMP_PROTOCOL_URL } from "../lib/ic22Diagnostic";
 
 type Step = { nodeId: string; optionIndex?: number; confirmed?: boolean; continued?: boolean };
 
@@ -113,6 +115,7 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
   const [history, setHistory] = useState<Step[]>([{ nodeId: getDiagnosticStartNode(product.id) }]);
   const [contactVisible, setContactVisible] = useState(false);
   const [resolved, setResolved] = useState(false);
+  const [protocolAvailable, setProtocolAvailable] = useState(false);
   const current = history[history.length - 1];
   const node = current ? commercialDiagnosticNode(current.nodeId, product.id) : null;
   const displayName = commercialProductLabel(product);
@@ -121,6 +124,16 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
     setHistory([{ nodeId: getDiagnosticStartNode(product.id) }]);
     setContactVisible(false);
     setResolved(false);
+  }, [product.id]);
+
+  useEffect(() => {
+    if (product.id !== "ic22") return;
+    let active = true;
+    fetch(`${IC22_PUMP_PROTOCOL_URL}/availability`, { credentials: "same-origin", cache: "no-store" })
+      .then(async response => response.ok ? response.json() as Promise<{ available: boolean }> : { available: false })
+      .then(data => { if (active) setProtocolAvailable(data.available); })
+      .catch(() => { if (active) setProtocolAvailable(false); });
+    return () => { active = false; };
   }, [product.id]);
 
   const goNext = (next: string) => {
@@ -142,7 +155,8 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
   };
 
   const confirmed = current?.confirmed === true;
-  const showVideo = product.id === "ic22" && node && IC22_VIDEO_HELP_NODE_IDS.has(node.id);
+  const showVideo = product.id === "ic22" && node && IC22_VIDEO_HELP_NODE_IDS.has(node.id) &&
+    !history.slice(0, -1).some(step => IC22_VIDEO_HELP_NODE_IDS.has(step.nodeId));
   const terminalResolved = node?.type === "text" && !node.next && node.target === "resolved";
   const alreadyResolved = Boolean(node && FINAL_RESOLVED_NODE_IDS.has(node.id));
   const terminalNeedsSav = node?.type === "text" && !node.next && node.target !== "resolved";
@@ -170,9 +184,18 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
         {node.options.map((option, index) => <button className="obera-btn-outline" type="button" key={option.label}
           onClick={() => choose(option.next, index)}>{option.label}</button>)}
       </div> : <>
-        <p>{node.body}</p>
+        <p className="whitespace-pre-line">{node.body}</p>
         {showVideo && <a className="obera-btn-outline inline-flex" href={IC22_KM22_DISMANTLING_VIDEO_URL}
-          target="_blank" rel="noreferrer">Voir la vidéo de démontage IC22 / KM22</a>}
+          target="_blank" rel="noreferrer">Voir la vidéo d’ouverture IC22 / KM22 / VL220</a>}
+        {IC22_BASIN_ANNOTATED_IMAGE_URL && IC22_BASIN_IMAGE_NODE_IDS.has(node.id) &&
+          <img src={IC22_BASIN_ANNOTATED_IMAGE_URL} alt="Éléments du bac identifiés par OberA" className="max-w-full object-contain" />}
+        {product.id === "ic22" && (node.id === "ic22-leak-panel-access" || node.id === "ic22-leak-panel-positive") &&
+          <details className="text-sm rounded border p-2"><summary className="cursor-pointer" aria-label="Pourquoi remplacer le panneau ?">
+            ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}
+        {node.id === IC22_PUMP_PROTOCOL_NODE && (protocolAvailable ?
+          <a className="obera-btn-outline inline-flex" href={IC22_PUMP_PROTOCOL_URL} target="_blank" rel="noreferrer">
+            Ouvrir le protocole OberA complet (PDF)</a> :
+          <p role="alert" className="text-amber-800">Protocole indisponible sur ce serveur. Contactez le SAV ; ne commencez pas le remplacement.</p>)}
 
         {node.next && <>
           <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
@@ -180,11 +203,12 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
               { ...value[value.length - 1], confirmed: event.target.checked }])} />
             Je confirme avoir effectué le contrôle proposé.
           </label>
-          <button className="obera-btn-outline" type="button" disabled={!confirmed}
+          <button className="obera-btn-outline" type="button" disabled={!confirmed || (node.id === IC22_PUMP_PROTOCOL_NODE && !protocolAvailable)}
             onClick={() => goNext(node.next!)}>Continuer</button>
         </>}
 
-        {terminalResolved && alreadyResolved && <p role="status" className="font-semibold text-green-700">Problème résolu.</p>}
+        {terminalResolved && alreadyResolved && <p role="status" className="font-semibold text-green-700">
+          {node.id === "ic22-leak-panel-positive" ? "Diagnostic initial terminé. Remplacement du panneau à prévoir." : "Problème résolu."}</p>}
 
         {terminalResolved && !alreadyResolved && <>
           <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}

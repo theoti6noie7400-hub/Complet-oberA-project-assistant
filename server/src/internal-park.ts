@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Database } from "./db.ts";
 import { findPrincipal } from "./session.ts";
 import { noticeAvailable, verifiedNotice, type NoticeAsset } from "./client-notices.ts";
+import { verifiedPumpProtocol } from "./pump-protocol.ts";
 
 const uuid = { type: "string", format: "uuid" } as const;
 const idParams = { params: { type: "object", required: ["id"], properties: { id: uuid } } } as const;
@@ -19,6 +20,15 @@ export function registerInternalParkRoutes(app: FastifyInstance, db: Database) {
     const principal = await findPrincipal(db, request.headers.cookie);
     if (!principal) { reply.code(401).send({ error: "authentication_required" }); return false; }
     if (principal.role !== "commercial") { reply.code(403).send({ error: "access_denied" }); return false; }
+    return principal;
+  }
+
+  async function diagnosticUser(request: FastifyRequest, reply: FastifyReply) {
+    const principal = await findPrincipal(db, request.headers.cookie);
+    if (!principal) { reply.code(401).send({ error: "authentication_required" }); return false; }
+    if (!savRoles.has(principal.role) && principal.role !== "commercial") {
+      reply.code(403).send({ error: "access_denied" }); return false;
+    }
     return principal;
   }
 
@@ -111,6 +121,22 @@ export function registerInternalParkRoutes(app: FastifyInstance, db: Database) {
       if (await noticeAvailable(process.env.PRIVATE_DOCUMENT_ROOT, row as NoticeAsset)) models.push(row.model);
     }
     return { models };
+  });
+
+  app.get("/api/internal/catalog/protocols/ic22-pump/availability", async (request, reply) => {
+    if (!await diagnosticUser(request, reply)) return reply;
+    return { available: Boolean(await verifiedPumpProtocol(process.env.PRIVATE_DOCUMENT_ROOT)) };
+  });
+
+  app.get("/api/internal/catalog/protocols/ic22-pump", async (request, reply) => {
+    const actor = await diagnosticUser(request, reply);
+    if (!actor) return reply;
+    const data = await verifiedPumpProtocol(process.env.PRIVATE_DOCUMENT_ROOT);
+    if (!data) return reply.code(404).send({ error: "not_found" });
+    await auditCatalog(actor, "IC22/KM22/VL220:pump-protocol");
+    return reply.header("Cache-Control", "no-store")
+      .header("Content-Disposition", 'attachment; filename="protocole-pompe-ic22-km22-vl220.pdf"')
+      .type("application/pdf").send(data);
   });
 
   app.get("/api/internal/catalog/notices/:model", { schema: { params: { type: "object", required: ["model"],

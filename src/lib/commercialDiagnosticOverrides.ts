@@ -5,6 +5,7 @@ import {
   type DiagnosticNode,
   type ProductCatalogItem
 } from "./assistantData";
+import { IC22_CONFIRMED_TERMINALS, IC22_OPENING_NODES, IC22_OPENING_VIDEO_URL } from "./ic22Diagnostic";
 
 export const COMMERCIAL_EXCLUDED_PRODUCT_IDS = new Set([
   "filtower",
@@ -66,8 +67,7 @@ export function commercialProductMatchesQuery(product: ProductCatalogItem, query
 
 // Ressource technique OberA fournie pour la V1 interne. Le fichier n'est pas
 // commité dans le portail ; le lien Drive permet de garder la vidéo hors du build.
-export const IC22_KM22_DISMANTLING_VIDEO_URL =
-  "https://drive.google.com/file/d/1KxEqO7RjJyehCXrjPndr9MVHgGGw_fA2/view?usp=drive_link";
+export const IC22_KM22_DISMANTLING_VIDEO_URL = IC22_OPENING_VIDEO_URL;
 
 const GLOBAL_OVERRIDES: Record<string, DiagnosticNode> = {
   "no-power": {
@@ -214,101 +214,23 @@ const GLOBAL_OVERRIDES: Record<string, DiagnosticNode> = {
   }
 };
 
-const IC22_OVERRIDES: Record<string, DiagnosticNode> = {
-  "ic22-water-level": {
-    id: "ic22-water-level",
-    type: "question",
-    maxSteps: 7,
-    title: "Le niveau d'eau dans la cuve est-il suffisant ?",
-    options: [
-      { label: "Oui", next: "ic22-level-sensor-access" },
-      { label: "Non", next: "ic22-fill-water" }
-    ]
-  },
-  "ic22-fill-water": {
-    id: "ic22-fill-water",
-    type: "text",
-    maxSteps: 7,
-    title: "Remplir la cuve",
-    body: "Remplissez la cuve jusqu'à un niveau suffisant, puis remettez l'appareil en fonctionnement.",
-    next: "ic22-after-fill"
-  },
-  "ic22-after-fill": {
-    id: "ic22-after-fill",
-    type: "question",
-    maxSteps: 7,
-    title: "Après remplissage et remise en service, le voyant COOL clignote-t-il toujours ?",
-    options: [
-      { label: "Oui", next: "ic22-level-sensor-access" },
-      { label: "Non", next: "ic22-problem-resolved" }
-    ]
-  },
-  "ic22-level-sensor-access": {
-    id: "ic22-level-sensor-access",
-    type: "text",
-    maxSteps: 7,
-    title: "Accéder au capteur de niveau d'eau",
-    body: "Éteignez et débranchez l'appareil avant de l'ouvrir. Accédez ensuite à l'intérieur de l'appareil pour contrôler la position du capteur de niveau d'eau.",
-    next: "ic22-level-sensor-position"
-  },
-  "ic22-level-sensor-position": {
-    id: "ic22-level-sensor-position",
-    type: "question",
-    maxSteps: 7,
-    title: "Le capteur de niveau d'eau est-il monté dans le bon sens, de façon à ce que son flotteur puisse remonter avec le niveau d'eau ?",
-    options: [
-      { label: "Oui", next: "contact-sav-general" },
-      { label: "Non / il est à l'envers", next: "ic22-reposition-level-sensor" }
-    ]
-  },
-  "ic22-reposition-level-sensor": {
-    id: "ic22-reposition-level-sensor",
-    type: "text",
-    maxSteps: 7,
-    title: "Repositionner le capteur",
-    body: "Remettez le capteur de niveau d'eau dans le bon sens. Refermez complètement l'appareil avant de le rebrancher, puis remettez-le en service.",
-    next: "ic22-after-sensor"
-  },
-  "ic22-after-sensor": {
-    id: "ic22-after-sensor",
-    type: "question",
-    maxSteps: 7,
-    title: "Après remontage et remise en service, le voyant COOL clignote-t-il toujours ?",
-    options: [
-      { label: "Oui", next: "contact-sav-general" },
-      { label: "Non", next: "ic22-problem-resolved" }
-    ]
-  },
-  "ic22-problem-resolved": {
-    id: "ic22-problem-resolved",
-    type: "text",
-    maxSteps: 7,
-    title: "Problème résolu",
-    body: "Le voyant COOL ne clignote plus. Le défaut est résolu.",
-    target: "resolved"
-  }
-};
 
 export const FINAL_RESOLVED_NODE_IDS = new Set([
   "power-restored",
-  "ic22-problem-resolved",
-  "pump-cooling-restored"
+  "pump-cooling-restored",
+  ...IC22_CONFIRMED_TERMINALS
 ]);
 
 // La vidéo sert uniquement à montrer comment ouvrir l'appareil. Une fois l'accès
 // interne effectué, elle ne doit pas être répétée sur les étapes suivantes.
-export const IC22_VIDEO_HELP_NODE_IDS = new Set([
-  "ic22-level-sensor-access",
-  "pump-connections-access"
-]);
+export const IC22_VIDEO_HELP_NODE_IDS = IC22_OPENING_NODES;
 
 export function commercialDiagnosticNode(nodeId: string, productId: string): DiagnosticNode | null {
-  if (productId === "ic22" && IC22_OVERRIDES[nodeId]) return IC22_OVERRIDES[nodeId];
+  if (productId === "ic22") return DIAGNOSTIC_NODES[nodeId] ?? null;
   return GLOBAL_OVERRIDES[nodeId] ?? DIAGNOSTIC_NODES[nodeId] ?? null;
 }
 
 export function resolveCommercialNext(currentNodeId: string, next: string, productId: string): string {
-  if (productId === "ic22" && currentNodeId === "check-cool-light" && next === "low-level-fix")
-    return "ic22-water-level";
+  void currentNodeId;
   return resolveDynamicNext(next, productId);
 }

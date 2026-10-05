@@ -40,6 +40,8 @@ beforeEach(() => {
       return Promise.resolve(Response.json({ organization: { id: clientId, name: "CLIENT DEMO ALPHA" },
         device: { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false } }));
     if (url === "/api/internal/catalog/notices") return Promise.resolve(Response.json({ models: ["IC 22"] }));
+    if (url === "/api/internal/catalog/protocols/ic22-pump/availability")
+      return Promise.resolve(Response.json({ available: false }));
     throw new Error(`Unexpected request ${url}`);
   }));
 });
@@ -87,7 +89,7 @@ it("limite le Commercial au catalogue diagnostic sans exposer client, parc ni nu
   fireEvent.change(diagnostic.getByLabelText("Rechercher un appareil"), { target: { value: "IC 22" } });
   const launch = await diagnostic.findByRole("button", { name: "Lancer le diagnostic" });
   fireEvent.click(launch);
-  await diagnostic.findByRole("heading", { name: "Quel est le problème principal ?" });
+  await diagnostic.findByRole("heading", { name: "Quel problème constatez-vous sur votre appareil ?" });
   expect(diagnostic.getByText("MODE DIAGNOSTIC CLIENT — USAGE INTERNE OBERA")).toBeTruthy();
   expect(calls).toContain("/api/internal/catalog/notices");
   expect(calls.some(url => url.startsWith("/api/sav/clients") || url.startsWith("/api/client/"))).toBe(false);

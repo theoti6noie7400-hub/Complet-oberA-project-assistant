@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { resolveDiagnosticPath } from "../src/lib/diagnosticContext.ts";
 import { fingerprintDiagnosticGraph } from "../server/src/diagnostic-fingerprint.ts";
 import { localNotice, LOCAL_NOTICE_ROOT, LOCAL_NOTICE_SOURCES } from "./notices.mjs";
+import { verifiedPumpProtocol } from "../server/src/pump-protocol.ts";
 import { checkPrivatePin } from "./private-clients.mjs";
 
 // This module is loaded only by the explicit local launcher. It is never
@@ -147,6 +148,21 @@ export function createLocalRecipeApi(dataFile, { noticeRoot = LOCAL_NOTICE_ROOT,
       if (!principal) return send(res, 401, { error: "authentication_required" });
       if (!externalAccessEnabled && path.startsWith("/api/client/"))
         return send(res, 403, { error: "client_access_closed" });
+
+      if (path === "/api/internal/catalog/protocols/ic22-pump" ||
+          path === "/api/internal/catalog/protocols/ic22-pump/availability") {
+        if (!internalRoles.has(principal.role)) return send(res, 403, { error: "access_denied" });
+        if (method !== "GET") return send(res, 404, { error: "not_found" });
+        const pdf = await verifiedPumpProtocol(noticeRoot);
+        if (path.endsWith("/availability")) return send(res, 200, { available: Boolean(pdf) });
+        if (!pdf) return send(res, 404, { error: "not_found" });
+        await mutate(state => { state.audit.push({ actor: principal.identifier, role: principal.role,
+          action: "pump_protocol_download", at: new Date().toISOString() }); return { changed: true }; });
+        res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store",
+          "Content-Disposition": 'attachment; filename="protocole-pompe-ic22-km22-vl220.pdf"',
+          "X-Content-Type-Options": "nosniff" });
+        return res.end(pdf);
+      }
 
       if (path === "/api/internal/catalog/notices" || path.startsWith("/api/internal/catalog/notices/")) {
         if (principal.role !== "commercial") return send(res, 403, { error: "access_denied" });

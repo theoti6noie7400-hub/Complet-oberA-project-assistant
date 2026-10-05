@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "recette": "node local-recipe/start.mjs",
     "recette:import-notices": "node local-recipe/import-notices.mjs",
+    "recette:import-pompe": "node local-recipe/import-pump.mjs",
     "recette:import-clients": "node local-recipe/import-clients.mjs",
     "test:recette": "node --test local-recipe/*.test.mjs"
   },

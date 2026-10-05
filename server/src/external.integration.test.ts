@@ -147,8 +147,9 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     const diagnosticPayload = { submissionKey: randomUUID(), requestType: "sav", deviceId: deviceA,
       subject: "DEMO diagnostic transmis", message: "DEMO commentaire final",
       diagnosticContext: { version: 1, productId: "ic22", result: "unresolved", steps: [
-        { nodeId: "start", optionIndex: 1 }, { nodeId: "no-power", optionIndex: 1 },
-        { nodeId: "power-check-advice", confirmed: true }
+        { nodeId: "ic22-start", optionIndex: 1 },
+        { nodeId: "ic22-power-check", confirmed: true, continued: true },
+        { nodeId: "ic22-power-result", optionIndex: 2 }, { nodeId: "ic22-power-sav" }
       ] } };
     const diagnosticRequest = await send("POST", "/api/client/requests", a, diagnosticPayload);
     assert.equal(diagnosticRequest.statusCode, 201, diagnosticRequest.body);
@@ -156,13 +157,13 @@ integration("PostgreSQL external isolation, projections, creation, sessions and 
     assert.equal((await send("POST", "/api/client/requests", a, diagnosticPayload)).statusCode, 200);
     assert.equal((await send("POST", "/api/client/requests", a, {
       ...diagnosticPayload, diagnosticContext: { ...diagnosticPayload.diagnosticContext,
-        steps: [{ nodeId: "start", optionIndex: 3 }, { nodeId: "contact-sav-general" }] }
+        steps: [{ nodeId: "ic22-start", optionIndex: 8 }, { nodeId: "ic22-other-sav" }] }
     })).statusCode, 409);
     assert.equal((await send("GET", `/api/client/requests/${diagnosticId}`, b)).statusCode, 404);
     const staffDiagnostic = (await send("GET", `/api/portal/requests/${diagnosticId}`, staff)).json();
     assert.equal(staffDiagnostic.diagnostic_context.device.serial, "DEMO-SN-A-001");
-    assert.equal(staffDiagnostic.diagnostic_context.symptom, "L'appareil ne s'allume pas");
-    assert.equal(staffDiagnostic.diagnostic_context.steps[2].clientConfirmed, true);
+    assert.equal(staffDiagnostic.diagnostic_context.symptom, "L’appareil ne s’allume pas");
+    assert.equal(staffDiagnostic.diagnostic_context.steps[1].clientConfirmed, true);
     assert.equal(staffDiagnostic.diagnostic_context.result, "unresolved");
     assert.equal(staffDiagnostic.diagnostic_context.graphFingerprintVersion, 2);
     assert.equal(staffDiagnostic.diagnostic_context.graphFingerprint, fingerprintDiagnosticGraph());

@@ -1,4 +1,5 @@
 import { OBERA_PRODUCT_IMAGES } from "../assets/oberaProductImages.ts";
+import { IC22_CHASSIS_IDS, IC22_DIAGNOSTIC_NODES, IC22_START } from "./ic22Diagnostic.ts";
 
 export type CategoryId =
   | "rafraichisseurs"
@@ -158,6 +159,7 @@ export function getImageUrl(imageFile?: string): string | null {
 }
 
 export function getDiagnosticStartNode(productId: string): string {
+  if (IC22_CHASSIS_IDS.has(productId)) return IC22_START;
   if (COMPLEX_DUST_DIRECT.has(productId)) return "complex-dust-direct";
   if (productId === "filtower") return "filtower-direct";
   if (productId === "table-aspirante" || productId === "dosseret-aspirant") return "table-direct-sav";
@@ -177,6 +179,7 @@ export function resolveDynamicNext(next: string, productId: string): string {
 }
 
 export const DIAGNOSTIC_NODES: Record<string, DiagnosticNode> = {
+  ...IC22_DIAGNOSTIC_NODES,
   start: {
     id: "start",
     type: "question",
