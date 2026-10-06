@@ -201,11 +201,8 @@ test("recette V1 : le Commercial utilise le catalogue diagnostic sans données C
   assert.equal((await api.call("GET", "/api/portal/requests", commercial)).status, 403);
   assert.equal((await api.call("GET", `/api/portal/requests/${item.id}`, commercial)).status, 403);
   assert.equal((await api.call("GET", "/api/client/devices", commercial)).status, 403);
-  assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump")).status, 401);
-  assert.deepEqual((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump/availability", commercial)).data,
-    { available: false });
   assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump", commercial)).status, 404);
-  assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump", staff)).status, 404);
+  assert.equal((await api.call("GET", "/api/internal/catalog/protocols/ic22-pump/availability", staff)).status, 404);
 
   const catalog = await api.call("GET", "/api/internal/catalog/notices", commercial);
   assert.equal(catalog.status, 200);

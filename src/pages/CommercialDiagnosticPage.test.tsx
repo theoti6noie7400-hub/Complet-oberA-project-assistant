@@ -4,14 +4,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CommercialDiagnosticPage from "./CommercialDiagnosticPage";
-import { IC22_ERROR_MEANINGS, IC22_OPENING_VIDEO_URL,
-  IC22_PUMP_PROTOCOL_URL } from "../lib/ic22Diagnostic";
+import { IC22_ERROR_MEANINGS, IC22_OPENING_VIDEO_URL } from "../lib/ic22Diagnostic";
 
-let available = true;
 beforeEach(() => {
-  available = true;
   vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(Response.json(
-    url.endsWith("/availability") ? { available } : { models: ["IC 22"] }
+    { models: ["IC 22"] }
   ))));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -39,8 +36,9 @@ function pumpObservation(view: ReturnType<typeof page>) {
   steadyCircuit(view);
   continueControl(view);
   choose(view, "Tuyaux et connecteur visiblement raccordés, aucune anomalie simple");
-  choose(view, "Oui");
-  continueControl(view);
+  expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  choose(view, "Oui, continuer");
 }
 
 it("montre neuf symptômes et le contact SAV immédiat sans transport ni données Client", () => {
@@ -98,34 +96,30 @@ it("refroidissement non activable et aucun souffle alimenté mènent directement
   expect(view.getByText(/Aucune panne de moteur ou de carte n’est déduite/)).toBeTruthy();
 });
 
-it("porte la pompe vers le protocole privé après autorisation et garde SAV accessible", async () => {
+it("propose la demande de pompe sans PDF et préremplit le parcours", () => {
   const view = page(); select(view);
   pumpObservation(view);
   choose(view, "La pompe ne fonctionne pas");
   expect(view.getByRole("heading", { name: "Pompe à remplacer" })).toBeTruthy();
-  continueControl(view);
-  choose(view, "Suivre la procédure de remplacement");
-  choose(view, "Oui");
-  const link = await view.findByRole("link", { name: /protocole OberA complet/i });
-  expect(link.getAttribute("href")).toBe(IC22_PUMP_PROTOCOL_URL);
-  expect(view.getByText(/débranchez et consignez l’appareil/)).toBeTruthy();
+  expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+  expect(view.queryByText(/PDF|personne autorisée|personne habilitée/i)).toBeNull();
   expect(view.getAllByRole("button", { name: "Contacter le SAV" }).length).toBeGreaterThan(0);
-  continueControl(view);
-  choose(view, "Non");
-  expect(view.getByText(/son remplacement n’a pas rétabli le froid/)).toBeTruthy();
+  choose(view, "Demander une pompe de remplacement");
+  const form = view.getByRole("form", { name: "Contacter le SAV" });
+  expect(within(form).getByLabelText("Contexte diagnostic prérempli")).toHaveProperty("value",
+    expect.stringContaining("Conclusion : pompe à remplacer"));
+  expect((within(form).getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value)
+    .toMatch(/IC 22 \/ KM 22 \/ VL 220.*Parcours|IC 22 \/ KM 22 \/ VL 220[\s\S]*pompe de remplacement/);
 });
 
-it("SAV sans diagnostic pompe quand observation impossible, et bloque le protocole absent", async () => {
+it("oriente au SAV sans conclure sur la pompe si le contrôle visuel sous tension est refusé", () => {
   const view = page(); select(view); steadyCircuit(view);
-  continueControl(view); choose(view, "Tuyaux et connecteur visiblement raccordés, aucune anomalie simple"); choose(view, "Non");
-  expect(view.getByText(/Contrôle de pompe non réalisé en sécurité/)).toBeTruthy();
+  continueControl(view); choose(view, "Tuyaux et connecteur visiblement raccordés, aucune anomalie simple");
+  expect(view.getByRole("heading", { name: "Contrôle visuel de la pompe sous tension" })).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+  choose(view, "Non, contacter le SAV");
+  expect(view.getByText(/Aucune panne de pompe n’est affirmée/)).toBeTruthy();
   expect(view.queryByText(/Pompe à remplacer/)).toBeNull();
-  cleanup(); available = false;
-  const absent = page(); select(absent); pumpObservation(absent);
-  choose(absent, "Elle fonctionne, mais le débit est clairement insuffisant");
-  continueControl(absent); choose(absent, "Suivre la procédure de remplacement"); choose(absent, "Oui");
-  expect(await absent.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Protocole indisponible"));
-  expect(absent.getByRole("button", { name: "Continuer" }).hasAttribute("disabled")).toBe(true);
 });
 
 it("n’utilise le test sans filtres que pour débit faible et prévoit remplacement jetable", () => {
@@ -164,8 +158,24 @@ it("transmet le code et la signification, ou le commentaire libre, au formulaire
 
 it("oriente odeur récente et persistante avec mention Probioway au SAV", () => {
   const view = page(); select(view); choose(view, "L’appareil dégage une mauvaise odeur");
-  choose(view, "Oui"); continueControl(view); choose(view, "Non");
+  choose(view, "Oui");
+  expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Continuer" })); choose(view, "Non");
   expect(view.getByText(/Probioway à envisager par le SAV/)).toBeTruthy();
   choose(view, "Contacter le SAV");
   expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
+});
+
+it("panneau âgé : information visible, aucune confirmation ni retest après remplacement", () => {
+  const view = page(); select(view);
+  choose(view, "L’appareil dégage une mauvaise odeur"); choose(view, "Non");
+  choose(view, "Oui"); choose(view, "Oui");
+  expect(view.getByRole("heading", { name: "Remplacement du panneau conseillé" })).toBeTruthy();
+  expect(view.getByText(/Pourquoi remplacer le panneau/)).toBeTruthy();
+  expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+  expect(view.queryByRole("button", { name: "Continuer" })).toBeNull();
+  choose(view, "Contacter le SAV");
+  expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
+  expect((view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value)
+    .toContain("Odeur persistante — panneau de plus d’un an — remplacement conseillé.");
 });

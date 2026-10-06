@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DIAGNOSTIC_NODES, getDiagnosticStartNode, PRODUCTS } from "./assistantData";
+import { resolveDiagnosticPath, type DiagnosticPath } from "./diagnosticContext";
 import { IC22_DIAGNOSTIC_NODES, IC22_ERROR_MEANINGS, IC22_START,
-  IC22_OPENING_NODES, IC22_PUMP_PROTOCOL_NODE } from "./ic22Diagnostic";
+  IC22_OPENING_NODES, IC22_PANEL_INFO, IC22_PANEL_INFO_NODES } from "./ic22Diagnostic";
 
 const nodes = IC22_DIAGNOSTIC_NODES;
 function path(...choices: number[]) {
@@ -70,7 +71,7 @@ describe("IC22 / KM22 / VL220 shared L1 graph", () => {
     expect(path(0, 0, 0, 0).join(" ")).not.toContain("drain");
   });
 
-  it("gates visual live observation and keeps uncertainty distinct from a diagnosed pump", () => {
+  it("explains the energized visual observation and keeps uncertainty distinct from a diagnosed pump", () => {
     const prefix = [0, 0, 0, 1, 2] as const; // cold, blows, cooling enabled, steady, circuit clear
     expect(path(...prefix, 1)).toContain("ic22-pump-unchecked-sav");
     expect(nodes["ic22-pump-unchecked-sav"]).not.toEqual(nodes["ic22-pump-replace"]);
@@ -78,20 +79,25 @@ describe("IC22 / KM22 / VL220 shared L1 graph", () => {
     expect(path(...prefix, 0, 1)).toContain("ic22-pump-replace");
     expect(path(...prefix, 0, 2)).toContain("ic22-panel-state");
     expect(path(...prefix, 0, 3)).toContain("ic22-pump-ambiguous-sav");
-    expect(path(...prefix, 0, 4)).toContain("ic22-pump-unchecked-sav");
     expect(nodes["ic22-pump-visual-safety"]).toMatchObject({ type: "text" });
     const safety = nodes["ic22-pump-visual-safety"];
-    if (safety.type === "text") expect(safety.body).toMatch(/aucune main.*aucun outil.*aucune manipulation/i);
+    if (safety.type === "text") {
+      expect(safety.title).toContain("sous tension");
+      expect(safety.body).toMatch(/uniquement visuel.*mains.*outil.*Toute manipulation.*arrêté et débranché/i);
+      expect(safety.body).not.toMatch(/personne (autorisée|habilitée)/i);
+      expect(safety.requiresActionConfirmation).toBe(false);
+    }
+    const consent = nodes["ic22-pump-visual-consent"];
+    if (consent.type === "question") expect(consent.options.map(option => option.label))
+      .toEqual(["Oui, continuer", "Non, contacter le SAV"]);
   });
 
-  it("offers protocol or SAV without electrical work under power", () => {
-    expect(path(0, 0, 0, 1, 2, 0, 0, 0, 0)).toContain(IC22_PUMP_PROTOCOL_NODE);
-    expect(path(0, 0, 0, 1, 2, 0, 1, 1)).toContain("ic22-pump-replacement-sav");
-    const protocol = nodes[IC22_PUMP_PROTOCOL_NODE];
-    if (protocol.type === "text") {
-      expect(protocol.body).toMatch(/débranchez et consignez/i);
-      expect(protocol.body).toMatch(/Remontez complètement avant toute remise sous tension/i);
-    }
+  it("asks for a pump instead of distributing a protocol or guiding replacement", () => {
+    const route = path(0, 0, 0, 1, 2, 0, 0);
+    expect(route[route.length - 1]).toBe("ic22-pump-replace");
+    expect(nodes["ic22-pump-replace"]).toMatchObject({ type: "text", target: "sav-pump",
+      requiresActionConfirmation: false });
+    expect(JSON.stringify(nodes)).not.toMatch(/PDF|personne autorisée|personne habilitée|consign|Wago/i);
   });
 
   it("replaces aging or scaled panels, and checks environment only at end", () => {
@@ -144,8 +150,47 @@ describe("IC22 / KM22 / VL220 shared L1 graph", () => {
     expect(path(7, 0, 1)).toContain("ic22-odor-probioway-sav");
     expect(path(7, 1, 1, 0)).toContain("ic22-odor-restored");
     expect(path(7, 1, 1, 1, 0)).toContain("ic22-odor-panel-replace");
+    const aging = nodes["ic22-odor-panel-replace"];
+    expect(aging).toMatchObject({ type: "text", target: "sav", requiresActionConfirmation: false });
+    if (aging.type === "text") expect(aging.traceSummary)
+      .toBe("Odeur persistante — panneau de plus d’un an — remplacement conseillé.");
+    expect(JSON.stringify(nodes)).not.toMatch(/Après remplacement, l’odeur a-t-elle disparu/);
+    expect(IC22_PANEL_INFO_NODES.has("ic22-odor-panel-replace")).toBe(true);
+    expect(IC22_PANEL_INFO).toMatch(/absorber et répartir.*ruissellement.*odeurs/);
     expect(path(7, 1, 0, 1, 1)).toContain("ic22-odor-probioway-sav");
     const advice = nodes["ic22-odor-drain-advice"];
     if (advice.type === "text") expect(advice.body).toMatch(/1 à 3 vidanges par semaine/);
+  });
+
+  it("requires confirmation for actual controls, not information or recommendations", () => {
+    for (const id of ["ic22-float-access", "ic22-reseat-hose", "ic22-filter-test",
+      "ic22-leak-panel-access", "ic22-odor-drain-advice", "ic22-power-check"])
+      expect(nodes[id]).toMatchObject({ requiresActionConfirmation: true });
+    for (const id of ["ic22-panel-replace", "ic22-odor-panel-replace", "ic22-pump-replace",
+      "ic22-leak-panel-positive", "ic22-odor-new-info"])
+      expect(nodes[id]).toMatchObject({ requiresActionConfirmation: false });
+  });
+
+  it("retains the exact aging-panel trace in the SAV snapshot and rejects forged confirmations", () => {
+    const path: DiagnosticPath = { version: 1, productId: "ic22", result: "unresolved", steps: [
+      { nodeId: "ic22-start", optionIndex: 7 },
+      { nodeId: "ic22-odor-new", optionIndex: 1 },
+      { nodeId: "ic22-odor-drains", optionIndex: 0 },
+      { nodeId: "ic22-odor-panel-age", optionIndex: 0 },
+      { nodeId: "ic22-odor-panel-replace" }
+    ] };
+    expect(resolveDiagnosticPath(path, "IC 22")?.steps[4].actionProposed)
+      .toContain("Odeur persistante — panneau de plus d’un an — remplacement conseillé.");
+    expect(resolveDiagnosticPath({ ...path, steps: [...path.steps.slice(0, -1),
+      { nodeId: "ic22-odor-panel-replace", confirmed: true }] }, "IC 22")).toBeNull();
+    const water: DiagnosticPath = { version: 1, productId: "ic22", result: "unresolved", steps: [
+      { nodeId: "ic22-start", optionIndex: 1 },
+      { nodeId: "ic22-power-check", continued: true },
+      { nodeId: "ic22-power-result", optionIndex: 2 },
+      { nodeId: "ic22-power-sav" }
+    ] };
+    expect(resolveDiagnosticPath(water, "IC 22")).toBeNull();
+    water.steps[1].confirmed = true;
+    expect(resolveDiagnosticPath(water, "IC 22")).not.toBeNull();
   });
 });

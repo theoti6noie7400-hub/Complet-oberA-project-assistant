@@ -20,7 +20,7 @@ import {
   resolveCommercialNext
 } from "../lib/commercialDiagnosticOverrides";
 import { IC22_BASIN_ANNOTATED_IMAGE_URL, IC22_BASIN_IMAGE_NODE_IDS,
-  IC22_PANEL_INFO, IC22_PUMP_PROTOCOL_NODE, IC22_PUMP_PROTOCOL_URL } from "../lib/ic22Diagnostic";
+  IC22_PANEL_INFO, IC22_PANEL_INFO_NODES } from "../lib/ic22Diagnostic";
 
 type Step = { nodeId: string; optionIndex?: number; confirmed?: boolean; continued?: boolean };
 
@@ -29,9 +29,10 @@ type ContactFormProps = {
   history?: Step[];
   fallbackName?: string;
   onClose?: () => void;
+  pumpRequested?: boolean;
 };
 
-function ContactSavForm({ product, history = [], fallbackName, onClose }: ContactFormProps) {
+function ContactSavForm({ product, history = [], fallbackName, onClose, pumpRequested = false }: ContactFormProps) {
   const [company, setCompany] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
@@ -49,6 +50,7 @@ function ContactSavForm({ product, history = [], fallbackName, onClose }: Contac
         const answer = step.optionIndex === undefined ? null : node.options[step.optionIndex]?.label;
         return answer ? `${node.title} — Réponse : ${answer}` : node.title;
       }
+      if (node.traceSummary) return node.traceSummary;
       return `${node.title} — ${node.body}${step.confirmed ? " — contrôle effectué" : ""}`;
     }).filter(Boolean).join("\n");
   }, [history, product]);
@@ -64,13 +66,14 @@ function ContactSavForm({ product, history = [], fallbackName, onClose }: Contac
       return;
     }
     setError("");
-    const subject = `Transmission diagnostic - ${displayName} - ${company.trim()}`;
+    const subject = `${pumpRequested ? "Demande de pompe de remplacement" : "Transmission diagnostic"} - ${displayName} - ${company.trim()}`;
     const body = [
       `Société : ${company.trim()}`,
       `Contact : ${contactName.trim()}`,
       `Téléphone : ${phone.trim() || "-"}`,
       `E-mail : ${email.trim() || "-"}`,
       `Appareil : ${displayName}`,
+      ...(pumpRequested ? ["Conclusion : pompe à remplacer", "Demande explicite : pompe de remplacement"] : []),
       "",
       ...(product ? ["Parcours diagnostic :", trace || "Aucune étape enregistrée.", ""] : []),
       `Commentaire : ${comment.trim() || "-"}`
@@ -99,6 +102,11 @@ function ContactSavForm({ product, history = [], fallbackName, onClose }: Contac
         <input className="block w-full p-2 border rounded" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength={200} />
       </label>
     </div>
+    {product && history.length > 0 && <label className="block">Contexte diagnostic prérempli
+      <textarea className="block w-full p-2 border rounded min-h-28" readOnly value={
+        `Appareil : ${displayName}\n${trace}${pumpRequested ? "\nConclusion : pompe à remplacer\nDemande explicite : pompe de remplacement" : ""}`
+      } />
+    </label>}
     <label className="block">Commentaire complémentaire
       <textarea className="block w-full p-2 border rounded min-h-24" value={comment}
         onChange={event => setComment(event.target.value)} maxLength={2000} />
@@ -115,7 +123,7 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
   const [history, setHistory] = useState<Step[]>([{ nodeId: getDiagnosticStartNode(product.id) }]);
   const [contactVisible, setContactVisible] = useState(false);
   const [resolved, setResolved] = useState(false);
-  const [protocolAvailable, setProtocolAvailable] = useState(false);
+  const [pumpRequested, setPumpRequested] = useState(false);
   const current = history[history.length - 1];
   const node = current ? commercialDiagnosticNode(current.nodeId, product.id) : null;
   const displayName = commercialProductLabel(product);
@@ -124,16 +132,7 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
     setHistory([{ nodeId: getDiagnosticStartNode(product.id) }]);
     setContactVisible(false);
     setResolved(false);
-  }, [product.id]);
-
-  useEffect(() => {
-    if (product.id !== "ic22") return;
-    let active = true;
-    fetch(`${IC22_PUMP_PROTOCOL_URL}/availability`, { credentials: "same-origin", cache: "no-store" })
-      .then(async response => response.ok ? response.json() as Promise<{ available: boolean }> : { available: false })
-      .then(data => { if (active) setProtocolAvailable(data.available); })
-      .catch(() => { if (active) setProtocolAvailable(false); });
-    return () => { active = false; };
+    setPumpRequested(false);
   }, [product.id]);
 
   const goNext = (next: string) => {
@@ -155,6 +154,7 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
   };
 
   const confirmed = current?.confirmed === true;
+  const needsConfirmation = node?.type === "text" && (node.requiresActionConfirmation ?? true);
   const showVideo = product.id === "ic22" && node && IC22_VIDEO_HELP_NODE_IDS.has(node.id) &&
     !history.slice(0, -1).some(step => IC22_VIDEO_HELP_NODE_IDS.has(step.nodeId));
   const terminalResolved = node?.type === "text" && !node.next && node.target === "resolved";
@@ -189,21 +189,17 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
           target="_blank" rel="noreferrer">Voir la vidéo d’ouverture IC22 / KM22 / VL220</a>}
         {IC22_BASIN_ANNOTATED_IMAGE_URL && IC22_BASIN_IMAGE_NODE_IDS.has(node.id) &&
           <img src={IC22_BASIN_ANNOTATED_IMAGE_URL} alt="Éléments du bac identifiés par OberA" className="max-w-full object-contain" />}
-        {product.id === "ic22" && (node.id === "ic22-leak-panel-access" || node.id === "ic22-leak-panel-positive") &&
+        {product.id === "ic22" && IC22_PANEL_INFO_NODES.has(node.id) &&
           <details className="text-sm rounded border p-2"><summary className="cursor-pointer" aria-label="Pourquoi remplacer le panneau ?">
             ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}
-        {node.id === IC22_PUMP_PROTOCOL_NODE && (protocolAvailable ?
-          <a className="obera-btn-outline inline-flex" href={IC22_PUMP_PROTOCOL_URL} target="_blank" rel="noreferrer">
-            Ouvrir le protocole OberA complet (PDF)</a> :
-          <p role="alert" className="text-amber-800">Protocole indisponible sur ce serveur. Contactez le SAV ; ne commencez pas le remplacement.</p>)}
 
         {node.next && <>
-          <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
+          {needsConfirmation && <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
             onChange={event => setHistory(value => [...value.slice(0, -1),
               { ...value[value.length - 1], confirmed: event.target.checked }])} />
             Je confirme avoir effectué le contrôle proposé.
-          </label>
-          <button className="obera-btn-outline" type="button" disabled={!confirmed || (node.id === IC22_PUMP_PROTOCOL_NODE && !protocolAvailable)}
+          </label>}
+          <button className="obera-btn-outline" type="button" disabled={needsConfirmation && !confirmed}
             onClick={() => goNext(node.next!)}>Continuer</button>
         </>}
 
@@ -211,12 +207,12 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
           {node.id === "ic22-leak-panel-positive" ? "Diagnostic initial terminé. Remplacement du panneau à prévoir." : "Problème résolu."}</p>}
 
         {terminalResolved && !alreadyResolved && <>
-          <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
+          {needsConfirmation && <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmed}
             onChange={event => setHistory(value => [...value.slice(0, -1),
               { ...value[value.length - 1], confirmed: event.target.checked }])} />
             Je confirme avoir effectué le contrôle proposé.
-          </label>
-          {confirmed && !resolved && !contactVisible && <div className="space-y-2">
+          </label>}
+          {(!needsConfirmation || confirmed) && !resolved && !contactVisible && <div className="space-y-2">
             <p className="font-semibold">Après ce contrôle, le problème est-il résolu ?</p>
             <div className="flex flex-wrap gap-2">
               <button className="obera-btn-primary" type="button" onClick={() => setResolved(true)}>Oui, le problème est résolu</button>
@@ -227,12 +223,16 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
         </>}
 
         {terminalNeedsSav && !contactVisible && <div className="space-y-2">
-          <p className="font-semibold">{terminalSavMessage}</p>
-          <button className="obera-btn-primary" type="button" onClick={() => setContactVisible(true)}>Contacter le SAV</button>
+          {node.id !== "ic22-pump-replace" && <p className="font-semibold">{terminalSavMessage}</p>}
+          {node.id === "ic22-pump-replace" && <button className="obera-btn-primary" type="button"
+            onClick={() => { setPumpRequested(true); setContactVisible(true); }}>Demander une pompe de remplacement</button>}
+          <button className={node.id === "ic22-pump-replace" ? "obera-btn-outline" : "obera-btn-primary"} type="button"
+            onClick={() => { setPumpRequested(false); setContactVisible(true); }}>Contacter le SAV</button>
         </div>}
       </>}
     </>}
-    {contactVisible && <ContactSavForm product={product} history={history} onClose={() => setContactVisible(false)} />}
+    {contactVisible && <ContactSavForm product={product} history={history} pumpRequested={pumpRequested}
+      onClose={() => setContactVisible(false)} />}
     {history.length > 1 && <button className="obera-btn-outline" type="button" onClick={() => {
       setContactVisible(false); setResolved(false); setHistory(value => value.slice(0, -1));
     }}>Étape précédente</button>}

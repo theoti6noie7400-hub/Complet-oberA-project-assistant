@@ -89,6 +89,8 @@ export type DiagnosticTextNode = {
   maxSteps: number;
   target?: DiagnosticTarget;
   next?: string;
+  requiresActionConfirmation?: boolean;
+  traceSummary?: string;
 };
 
 export type DiagnosticNode = DiagnosticQuestionNode | DiagnosticTextNode;

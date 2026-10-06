@@ -49,7 +49,10 @@ export function resolveDiagnosticPath(path: DiagnosticPath, deviceModel: string)
     } else {
       if (step.optionIndex !== undefined || (step.confirmed !== undefined &&
           typeof step.confirmed !== "boolean")) return null;
-      summary.push({ nodeId: node.id, title: node.title, actionProposed: node.body,
+      if (node.requiresActionConfirmation === true && step.confirmed !== true) return null;
+      if (node.requiresActionConfirmation === false && step.confirmed !== undefined) return null;
+      summary.push({ nodeId: node.id, title: node.title,
+        actionProposed: node.traceSummary ? `${node.body}\n${node.traceSummary}` : node.body,
         ...(step.confirmed === undefined ? {} : { clientConfirmed: step.confirmed }) });
       if (node.next) {
         if (step.continued !== true || index === path.steps.length - 1) return null;

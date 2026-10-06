@@ -30,3 +30,23 @@ it("adapte seulement le poids de référence lorsque le filtre change, et prése
   fireEvent.change(filter, { target: { value: "EPUREX_1000" } });
   expect(input.value).toBe("4,25");
 });
+
+it("cherche immédiatement l'éthanol G2 avec Tous les groupes, après reset et retour", () => {
+  const renderCalculator = () => render(<MemoryRouter><CharbonActifPage /></MemoryRouter>);
+  let view = renderCalculator();
+  const groupSelect = () => Array.from(view.container.querySelectorAll("select"))
+    .find(select => Array.from(select.options).some(option => option.value === "ALL"))!;
+  expect(groupSelect().value).toBe("ALL");
+  expect(groupSelect().selectedOptions[0].textContent).toBe("Tous les groupes");
+  fireEvent.change(view.getByPlaceholderText("Rechercher un polluant..."), { target: { value: "Ethyl alcohol" } });
+  const result = view.getByRole("button", { name: /Ethyl alcohol \(C2H6O\)/ });
+  expect(result.textContent).toMatch(/Groupe 2/);
+  fireEvent.click(result);
+  expect(groupSelect().value).toBe("ALL");
+  fireEvent.change(groupSelect(), { target: { value: "1" } });
+  fireEvent.click(view.getByRole("button", { name: /Reinitialiser/i }));
+  expect(groupSelect().value).toBe("ALL");
+  view.unmount();
+  view = renderCalculator();
+  expect(groupSelect().value).toBe("ALL");
+});

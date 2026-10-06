@@ -5,7 +5,7 @@ import { useAdminAuth, type ExternalRole } from "../auth/adminAuth";
 import { DIAGNOSTIC_NODES, PRODUCTS, getDiagnosticStartNode, resolveDynamicNext } from "../lib/assistantData";
 import { resolveDiagnosticPath, type DiagnosticChoice, type DiagnosticPath } from "../lib/diagnosticContext";
 import { IC22_CHASSIS_IDS, IC22_OPENING_NODES, IC22_OPENING_VIDEO_URL,
-  IC22_PUMP_PROTOCOL_NODE } from "../lib/ic22Diagnostic";
+  IC22_PANEL_INFO, IC22_PANEL_INFO_NODES } from "../lib/ic22Diagnostic";
 import { ClientPark, ClientDiagnosticSelector, ClientDevicePhoto, type ClientDevice } from "../components/ClientPark";
 
 type View = "home" | "device" | "diagnostic" | "request";
@@ -37,7 +37,7 @@ export function ExternalDiagnostic({ device, base, organizationId, preview = fal
   const [history, setHistory] = useState<DiagnosticChoice[]>([]);
   useEffect(() => { setHistory(product ? [{ nodeId: getDiagnosticStartNode(product.id) }] : []); }, [device.id, product?.id]);
   const node = history.length ? DIAGNOSTIC_NODES[history[history.length - 1].nodeId] : null;
-  const protocolNotAvailableHere = node?.id === IC22_PUMP_PROTOCOL_NODE;
+  const needsConfirmation = node?.type === "text" && (node.requiresActionConfirmation ?? true);
   function savePath() {
     if (!product || !node || node.type !== "text" || node.next) return;
     const path: DiagnosticPath = { version: 1, productId: product.id, steps: history, result: "unresolved" };
@@ -64,27 +64,31 @@ export function ExternalDiagnostic({ device, base, organizationId, preview = fal
           !history.slice(0, -1).some(step => IC22_OPENING_NODES.has(step.nodeId)) &&
           <a className="underline" href={IC22_OPENING_VIDEO_URL} target="_blank" rel="noreferrer">
             Voir la vidéo d’ouverture IC22 / KM22 / VL220</a>}
-        {protocolNotAvailableHere && <p role="alert">Le protocole pompe privé n’est pas disponible dans ce parcours de recette Client.
-          Contactez le SAV ; ne commencez pas le remplacement sans le document OberA complet.</p>}
-        <label className="flex gap-2 items-center text-sm"><input type="checkbox"
+        {IC22_PANEL_INFO_NODES.has(node.id) && <details className="text-sm border rounded p-2">
+          <summary>ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}
+        {needsConfirmation && <label className="flex gap-2 items-center text-sm"><input type="checkbox"
           checked={history[history.length - 1].confirmed === true}
           onChange={event => setHistory(value => [...value.slice(0, -1),
             { ...value[value.length - 1], confirmed: event.target.checked }])} />
-          Je confirme avoir effectué le contrôle proposé, s'il s'applique à cette étape.
-        </label>
-        {node.next && !protocolNotAvailableHere && <button className="obera-btn-outline" type="button"
+          Je confirme avoir effectué le contrôle proposé.
+        </label>}
+        {node.next && <button className="obera-btn-outline" type="button"
+          disabled={needsConfirmation && history[history.length - 1].confirmed !== true}
           onClick={() => setHistory(value => [...value.slice(0, -1),
             { ...value[value.length - 1], continued: true },
             { nodeId: resolveDynamicNext(node.next!, product!.id) }])}>
           Continuer
         </button>}
-        {protocolNotAvailableHere && !preview && <Link className="obera-btn-primary inline-flex"
-          to={`${base}?type=sav&device=${device.id}`}>Contacter le SAV</Link>}
         {!node.next && (preview ? <p role="status">Aperçu terminé. Pour transmettre ce résultat au SAV,
           utilisez le parcours de traitement interne. Aucune demande Client n'a été créée.</p> :
-          <Link className="obera-btn-primary inline-flex"
-            onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
-            Contacter le SAV / créer une demande</Link>)}
+          <div className="flex flex-wrap gap-2">
+            {node.id === "ic22-pump-replace" && <Link className="obera-btn-primary inline-flex"
+              onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
+              Demander une pompe de remplacement</Link>}
+            <Link className={node.id === "ic22-pump-replace" ? "obera-btn-outline inline-flex" : "obera-btn-primary inline-flex"}
+              onClick={savePath} to={`${base}?type=sav&device=${device.id}&diagnostic=1`}>
+              Contacter le SAV / créer une demande</Link>
+          </div>)}
       </>}
     </>}
     {history.length > 1 && <button className="obera-btn-outline" type="button"
@@ -156,7 +160,8 @@ export default function ExternalSpacePage({ role, view = "home" }: { role: Exter
     if (!pendingDiagnostic || !devices.length) return;
     const selected = devices.find(item => item.id === deviceId);
     const summary = selected && resolveDiagnosticPath(pendingDiagnostic, selected.model);
-    if (summary) setSubject(previous => previous || `Diagnostic : ${summary.symptom}`);
+    if (summary) setSubject(previous => previous || (pendingDiagnostic.steps[pendingDiagnostic.steps.length - 1]?.nodeId === "ic22-pump-replace"
+      ? "Demande de pompe de remplacement — diagnostic : pompe à remplacer" : `Diagnostic : ${summary.symptom}`));
   }, [pendingDiagnostic, devices, deviceId]);
 
   useEffect(() => {

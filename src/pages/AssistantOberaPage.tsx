@@ -21,7 +21,7 @@ import { createManualSavRecipeClient, type SavedManualSav } from "../lib/manualS
 import { RECIPE_API_ENABLED } from "../lib/recipeConfig";
 import { IC22_BASIN_ANNOTATED_IMAGE_URL, IC22_BASIN_IMAGE_NODE_IDS,
   IC22_CHASSIS_IDS, IC22_OPENING_NODES, IC22_OPENING_VIDEO_URL, IC22_PANEL_INFO,
-  IC22_PUMP_PROTOCOL_NODE, IC22_PUMP_PROTOCOL_URL } from "../lib/ic22Diagnostic";
+  IC22_PANEL_INFO_NODES } from "../lib/ic22Diagnostic";
 
 const RECIPE_MODE_KEY = "obera_manual_sav_recipe_mode";
 
@@ -59,9 +59,9 @@ const TARGET_OUTCOMES: Record<DiagnosticTarget, DiagnosticOutcome> = {
   },
   "sav-pump": {
     id: "sav-pump",
-    title: "Protocole pompe et contact SAV",
+    title: "Pompe à remplacer",
     message:
-      "Le diagnostic indique un défaut probable de pompe. Un dossier SAV doit être ouvert."
+      "Conclusion : pompe à remplacer. Demande explicite : pompe de remplacement."
   },
   resolved: {
     id: "resolved",
@@ -78,7 +78,7 @@ function buildOutcomeFromTarget(target: DiagnosticTarget, node?: DiagnosticNode)
   return {
     id: base.id,
     title: node.title || base.title,
-    message: node.body || base.message
+    message: target === "sav-pump" ? `${node.body}\n${base.message}` : node.body || base.message
   };
 }
 
@@ -142,22 +142,12 @@ function InternalSavPage({
 
   const [diagStack, setDiagStack] = useState<string[]>([]);
   const [diagSelections, setDiagSelections] = useState<(number | null)[]>([]);
-  const [pumpProtocolAvailable, setPumpProtocolAvailable] = useState(false);
+  const [actionConfirmed, setActionConfirmed] = useState(false);
   const [diagOutcome, setDiagOutcome] = useState<DiagnosticOutcome | null>(null);
   const [feedbackState, setFeedbackState] = useState<"idle" | "yes" | "no">("idle");
   const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
   const [diagnosticError, setDiagnosticError] = useState("");
   const [fallbackWarning, setFallbackWarning] = useState(false);
-
-  useEffect(() => {
-    if (!selectedProduct || !IC22_CHASSIS_IDS.has(selectedProduct.id)) return;
-    let active = true;
-    fetch(`${IC22_PUMP_PROTOCOL_URL}/availability`, { credentials: "same-origin", cache: "no-store" })
-      .then(async response => response.ok ? response.json() as Promise<{ available: boolean }> : { available: false })
-      .then(data => { if (active) setPumpProtocolAvailable(data.available); })
-      .catch(() => { if (active) setPumpProtocolAvailable(false); });
-    return () => { active = false; };
-  }, [selectedProduct?.id]);
 
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -251,6 +241,7 @@ function InternalSavPage({
   useEffect(() => {
     setSelectedOptionIdx(null);
     setDiagnosticError("");
+    setActionConfirmed(false);
   }, [currentDiagNode?.id]);
 
   const resetAll = () => {
@@ -337,6 +328,7 @@ function InternalSavPage({
       if (!step) return "";
       const answer = step.type === "question" && diagSelections[index] !== null
         ? step.options[diagSelections[index]!]?.label : undefined;
+      if (step.type === "text" && step.traceSummary) return step.traceSummary;
       return `${step.title}${answer ? ` — Réponse : ${answer}` : ""}${step.type === "text" ? ` — ${step.body}` : ""}`;
     }).filter(Boolean).join("\n");
     return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}\nParcours diagnostic :\n${trace || "Aucun contrôle enregistré."}`;
@@ -354,7 +346,7 @@ function InternalSavPage({
     e.preventDefault();
     const subject =
       diagOutcome?.id === "sav-pump"
-        ? `Demande SAV pompe - ${selectedProduct?.name ?? "Appareil"}`
+        ? `Demande de pompe de remplacement - ${selectedProduct?.name ?? "Appareil"}`
         : `Demande SAV - ${selectedProduct?.name ?? "Appareil"}`;
     const body = [
       `Nom: ${contactName}`,
@@ -750,13 +742,13 @@ function InternalSavPage({
                   {IC22_BASIN_ANNOTATED_IMAGE_URL && IC22_BASIN_IMAGE_NODE_IDS.has(currentDiagNode.id) &&
                     <img src={IC22_BASIN_ANNOTATED_IMAGE_URL} alt="Éléments du bac identifiés par OberA"
                       className="max-w-full object-contain" />}
-                  {(currentDiagNode.id === "ic22-leak-panel-access" || currentDiagNode.id === "ic22-leak-panel-positive") &&
+                  {IC22_PANEL_INFO_NODES.has(currentDiagNode.id) &&
                     <details className="text-sm border rounded p-2"><summary aria-label="Pourquoi remplacer le panneau ?">
                       ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}
-                  {currentDiagNode.id === IC22_PUMP_PROTOCOL_NODE && (pumpProtocolAvailable ?
-                    <a className="underline" href={IC22_PUMP_PROTOCOL_URL} target="_blank" rel="noreferrer">
-                      Ouvrir le protocole OberA complet (PDF)</a> :
-                    <p role="alert">Protocole indisponible. Contactez le SAV ; ne commencez pas le remplacement.</p>)}
+                  {currentDiagNode.requiresActionConfirmation && <label className="flex gap-2 items-center text-sm">
+                    <input type="checkbox" checked={actionConfirmed} onChange={e => setActionConfirmed(e.target.checked)} />
+                    Je confirme avoir effectué le contrôle proposé.
+                  </label>}
                 </div>
               )
             ) : (
@@ -787,7 +779,7 @@ function InternalSavPage({
               id="diagnostic-next"
               className="px-6 py-2 text-white rounded-lg shadow-md transition obera-blue obera-blue-hover"
               type="button"
-              disabled={currentDiagNode?.id === IC22_PUMP_PROTOCOL_NODE && !pumpProtocolAvailable}
+              disabled={currentDiagNode?.type === "text" && currentDiagNode.requiresActionConfirmation === true && !actionConfirmed}
               onClick={() => {
                 if (!currentDiagNode) {
                   setDiagnosticError("Diagnostic indisponible.");
@@ -813,9 +805,10 @@ function InternalSavPage({
                 goToSummary(buildOutcomeFromTarget("resolved", currentDiagNode));
               }}
             >
-              {currentDiagNode?.type === "text" && currentDiagNode.target && !IC22_CHASSIS_IDS.has(selectedProduct?.id ?? "")
-                ? "Terminer"
-                : "Suivant"}
+              {currentDiagNode?.type === "text" && currentDiagNode.target === "sav-pump"
+                ? "Demander une pompe de remplacement"
+                : currentDiagNode?.type === "text" && currentDiagNode.target && !IC22_CHASSIS_IDS.has(selectedProduct?.id ?? "")
+                  ? "Terminer" : "Suivant"}
             </button>
           </div>
           {selectedProduct && IC22_CHASSIS_IDS.has(selectedProduct.id) &&

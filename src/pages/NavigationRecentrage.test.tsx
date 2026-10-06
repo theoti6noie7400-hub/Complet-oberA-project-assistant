@@ -40,8 +40,6 @@ beforeEach(() => {
       return Promise.resolve(Response.json({ organization: { id: clientId, name: "CLIENT DEMO ALPHA" },
         device: { id: deviceId, model: "IC 22", serial: "DEMO-SN-A-001", notice_available: false } }));
     if (url === "/api/internal/catalog/notices") return Promise.resolve(Response.json({ models: ["IC 22"] }));
-    if (url === "/api/internal/catalog/protocols/ic22-pump/availability")
-      return Promise.resolve(Response.json({ available: false }));
     throw new Error(`Unexpected request ${url}`);
   }));
 });

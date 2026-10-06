@@ -42,7 +42,7 @@ integration("V1 PostgreSQL: parc réservé au SAV, catalogue diagnostic commerci
     assert.equal((await send("GET", "/api/session", oldCookie)).statusCode, 401);
     assert.equal((await send("GET", "/api/client/devices", oldCookie)).statusCode, 404);
     assert.equal((await send("GET", "/api/sav/clients", oldCookie)).statusCode, 403);
-    assert.equal((await send("GET", "/api/internal/catalog/protocols/ic22-pump", oldCookie)).statusCode, 403);
+    assert.equal((await send("GET", "/api/internal/catalog/protocols/ic22-pump", oldCookie)).statusCode, 404);
     assert.equal((await send("POST", "/api/client/login", undefined,
       { identifier: "DEMO-CLIENT-A", pin: "1234" })).statusCode, 410);
     assert.equal((await send("GET", "/api/sav/clients")).statusCode, 401);
@@ -50,14 +50,10 @@ integration("V1 PostgreSQL: parc réservé au SAV, catalogue diagnostic commerci
     const manager = await login("DEMO-V1-MANAGER", "9011");
     const technician = await login("DEMO-V1-TECH", "9012");
     const commercial = await login("DEMO-V1-COMMERCIAL", "9013");
-    assert.equal((await send("GET", "/api/internal/catalog/protocols/ic22-pump")).statusCode, 401);
-    const protocolStatus = (await send("GET", "/api/internal/catalog/protocols/ic22-pump/availability", commercial))
-      .json().available;
-    assert.equal(typeof protocolStatus, "boolean");
+    assert.equal((await send("GET", "/api/internal/catalog/protocols/ic22-pump")).statusCode, 404);
     for (const role of [commercial, technician]) {
       const result = await send("GET", "/api/internal/catalog/protocols/ic22-pump", role);
-      assert.equal(result.statusCode, protocolStatus ? 200 : 404);
-      if (protocolStatus) assert.equal(result.headers["content-type"], "application/pdf");
+      assert.equal(result.statusCode, 404);
     }
     const before = (await db.query("SELECT count(*)::int AS n FROM portal_requests WHERE request_type='consumables'")).rows[0].n;
     assert.ok(before >= 2, "historical Client and reseller requests exist");

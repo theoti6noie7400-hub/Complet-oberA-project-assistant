@@ -140,30 +140,13 @@ Dans GitHub :
 - [ ] Diagnostic : sélection d'une réponse + progression + résumé
 - [ ] Bouton “Calculateur saturation charbon actif” -> `/charbon-actif`
 - [ ] Calculateur : saisie poids + polluant -> saturation cohérente
-# Diagnostic IC 22 / KM 22 / VL 220 — protocole pompe privé
+# Diagnostic IC 22 / KM 22 / VL 220
 
 Ces trois appellations utilisent le même arbre de diagnostic de premier niveau. La
 vidéo d’ouverture validée est proposée uniquement au premier accès intérieur du
 parcours. La photo annotée du bac (flotteur, pompe, tuyaux et raccords) reste à
 fournir par OberA ; aucune position n’est inventée dans l’interface.
 
-Le PDF `PROTOCOLE POMPE IC22 12.pdf` fourni par OberA n’est **pas** commité,
-copié dans `public/` ni inclus dans le build. Pour la recette locale Windows,
-placez le PDF fourni dans un dossier privé, puis depuis la racine du dépôt :
-
-```powershell
-npm.cmd run recette:import-pompe -- "C:\chemin\vers\PROTOCOLE POMPE IC22 12.pdf"
-npm.cmd run recette
-```
-
-L’import vérifie le SHA-256 officiel et range le PDF dans
-`~/.obera-local-recipe/private-documents/protocols/689d8a6e37908bdb073cbbcb689445a6eee3870772dd3fa99e5db9eb0005df00.pdf`.
-La réinitialisation DEMO n’efface pas ce stockage. Dans le backend PostgreSQL,
-le prestataire doit déposer **ce même fichier vérifié** sous
-`$PRIVATE_DOCUMENT_ROOT/protocols/<SHA-256>.pdf`. Seules les sessions internes
-SAV/Commercial autorisées peuvent consulter sa disponibilité et le télécharger
-par `/api/internal/catalog/protocols/ic22-pump`. Si le document manque ou a
-été modifié, l’interface interdit de poursuivre le remplacement et oriente
-vers le SAV. En V1, les comptes Client externes restent fermés ; leur accès
-éventuel au protocole privé demanderait une route liée à leur appareil et à
-leur organisation avant toute ouverture de la phase 2.
+Une pompe identifiée comme à remplacer donne lieu à une demande au SAV.
+OberA traite la garantie ou le devis et transmet lui-même la procédure de
+remplacement. Le portail ne distribue pas ce document.
