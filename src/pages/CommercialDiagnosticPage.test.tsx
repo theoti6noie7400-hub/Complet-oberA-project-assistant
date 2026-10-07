@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CommercialDiagnosticPage from "./CommercialDiagnosticPage";
-import { IC22_ERROR_MEANINGS, IC22_OPENING_VIDEO_URL } from "../lib/ic22Diagnostic";
+import { IC22_ERROR_MEANINGS, IC22_OPENING_VIDEO_URL, IC22_NOISE_TYPES } from "../lib/ic22Diagnostic";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(Response.json(
@@ -178,4 +178,92 @@ it("panneau âgé : information visible, aucune confirmation ni retest après re
   expect(view.getByRole("form", { name: "Contacter le SAV" })).toBeTruthy();
   expect((view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value)
     .toContain("Odeur persistante — panneau de plus d’un an — remplacement conseillé.");
+});
+
+it("retrouve la famille commune avec les six alias IC22, KM22 et VL220", () => {
+  const view = page();
+  for (const alias of ["IC22", "IC 22", "KM22", "KM 22", "VL220", "VL 220"]) {
+    fireEvent.change(view.getByLabelText("Rechercher un appareil"), { target: { value: alias } });
+    expect(view.getByRole("heading", { name: "IC 22 / KM 22 / VL 220" })).toBeTruthy();
+    expect(view.getAllByRole("button", { name: "Lancer le diagnostic" })).toHaveLength(1);
+  }
+});
+
+it("Swing : confirme la remise en place hors tension et termine si le mouvement revient", () => {
+  const view = page(); select(view); choose(view, "L’oscillation ne fonctionne pas");
+  expect(view.getByRole("heading", { name: "Vérifier la liaison du swing" })).toBeTruthy();
+  expect(view.getByRole("link", { name: /Agrandir la photo annotée/ })).toBeTruthy();
+  continueControl(view);
+  expect(view.queryByRole("button", { name: "Je ne peux pas le déterminer" })).toBeNull();
+  choose(view, "La tige est déboîtée mais peut être remise en place");
+  expect(view.getByText(/Appareil arrêté et débranché, remettez la tige/)).toBeTruthy();
+  expect(view.getByRole("button", { name: "Continuer" })).toHaveProperty("disabled", true);
+  continueControl(view); choose(view, "Oui");
+  expect(view.getByRole("status").textContent).toBe("Problème résolu.");
+  expect(view.queryByRole("button", { name: "Oui, le problème est résolu" })).toBeNull();
+});
+
+it("Swing : une liaison cassée va au SAV avec le constat exact et sans autre manipulation", () => {
+  const view = page(); select(view); choose(view, "L’oscillation ne fonctionne pas");
+  continueControl(view); choose(view, "La liaison est cassée ou endommagée");
+  expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+  expect(view.queryByRole("link", { name: /Agrandir la photo annotée/ })).toBeNull();
+  choose(view, "Contacter le SAV");
+  expect((view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value)
+    .toContain("Liaison mécanique du swing cassée ou endommagée.");
+});
+
+it("Swing : les deux observations moteur vont au SAV, après contrôle ou remise en place infructueuse", () => {
+  for (const reseated of [false, true]) for (const turns of [false, true]) {
+    const view = page(); select(view); choose(view, "L’oscillation ne fonctionne pas");
+    continueControl(view);
+    choose(view, reseated ? "La tige est déboîtée mais peut être remise en place" : "La tige est correctement emboîtée");
+    if (reseated) { continueControl(view); choose(view, "Non"); }
+    expect(view.getByRole("heading", { name: "Contrôle visuel du moteur swing sous tension" })).toBeTruthy();
+    expect(view.getByRole("link", { name: /Agrandir la photo annotée/ })).toBeTruthy();
+    expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Continuer" }));
+    choose(view, turns ? "Le moteur swing tourne" : "Le moteur swing ne tourne pas");
+    choose(view, "Contacter le SAV");
+    const trace = (view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value;
+    expect(trace).toContain(turns
+      ? "Liaison mécanique correctement emboîtée. Le moteur swing tourne visuellement mais le swing ne fonctionne pas correctement."
+      : "Liaison mécanique correctement emboîtée. Aucun mouvement visible du moteur swing.");
+    expect(trace).not.toMatch(/moteur swing HS/i);
+    view.unmount();
+  }
+});
+
+it("bruit : transmet chacune des cinq catégories sans contrôle ni photo technique", () => {
+  for (const noise of IC22_NOISE_TYPES) {
+    const view = page(); select(view); choose(view, "L’appareil fait un bruit anormal");
+    expect(view.getByRole("heading", { name: "Quel type de bruit constatez-vous ?" })).toBeTruthy();
+    choose(view, noise);
+    expect(view.queryByLabelText("Je confirme avoir effectué le contrôle proposé.")).toBeNull();
+    expect(view.queryByRole("link", { name: /Agrandir la photo annotée/ })).toBeNull();
+    choose(view, "Contacter le SAV");
+    const trace = (view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value;
+    expect(trace).toContain(`Quel type de bruit constatez-vous ? — Réponse : ${noise}`);
+    view.unmount();
+  }
+});
+
+it("autre problème : conserve la description dans la demande et l’écarte après changement de branche", () => {
+  const view = page(); select(view); choose(view, "Autre problème");
+  const prompt = "Décrivez le problème rencontré avec votre appareil.";
+  const description = "Symptôme fictif intermittent\nLe voyant change après quelques minutes.";
+  const input = view.getByLabelText(prompt);
+  input.focus();
+  fireEvent.change(input, { target: { value: description } });
+  expect(document.activeElement).toBe(input);
+  expect(view.getByLabelText(prompt).getAttribute("maxlength")).toBe("2000");
+  choose(view, "Contacter le SAV");
+  expect((view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value)
+    .toContain(`Description du problème : ${description}`);
+  choose(view, "Revenir au diagnostic");
+  expect(view.getByLabelText(prompt)).toHaveProperty("value", description);
+  choose(view, "Étape précédente");
+  choose(view, "L’appareil fait un bruit anormal"); choose(view, "Frottement"); choose(view, "Contacter le SAV");
+  expect((view.getByLabelText("Contexte diagnostic prérempli") as HTMLTextAreaElement).value)
+    .not.toContain(description);
 });

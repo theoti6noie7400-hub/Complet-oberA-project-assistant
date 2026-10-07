@@ -19,7 +19,8 @@ import SavDashboard from "../dashboard/SavDashboard";
 import { savData } from "../data/savData";
 import { createManualSavRecipeClient, type SavedManualSav } from "../lib/manualSavRecipe";
 import { RECIPE_API_ENABLED } from "../lib/recipeConfig";
-import { IC22_BASIN_ANNOTATED_IMAGE_URL, IC22_BASIN_IMAGE_NODE_IDS,
+import IC22DiagnosticImage from "../components/IC22DiagnosticImage";
+import {
   IC22_CHASSIS_IDS, IC22_OPENING_NODES, IC22_OPENING_VIDEO_URL, IC22_PANEL_INFO,
   IC22_PANEL_INFO_NODES } from "../lib/ic22Diagnostic";
 
@@ -142,6 +143,7 @@ function InternalSavPage({
 
   const [diagStack, setDiagStack] = useState<string[]>([]);
   const [diagSelections, setDiagSelections] = useState<(number | null)[]>([]);
+  const [diagDescriptions, setDiagDescriptions] = useState<Record<string, string>>({});
   const [actionConfirmed, setActionConfirmed] = useState(false);
   const [diagOutcome, setDiagOutcome] = useState<DiagnosticOutcome | null>(null);
   const [feedbackState, setFeedbackState] = useState<"idle" | "yes" | "no">("idle");
@@ -253,6 +255,7 @@ function InternalSavPage({
     setSerialError("");
     setDiagStack([]);
     setDiagSelections([]);
+    setDiagDescriptions({});
     setDiagOutcome(null);
     setFeedbackState("idle");
     setSelectedOptionIdx(null);
@@ -289,6 +292,7 @@ function InternalSavPage({
     const startNode = getDiagnosticStartNode(selectedProduct.id);
     setDiagStack([startNode]);
     setDiagSelections([null]);
+    setDiagDescriptions({});
     setFallbackWarning(
       startNode === "start" && selectedProduct.category !== "rafraichisseurs"
     );
@@ -329,7 +333,8 @@ function InternalSavPage({
       const answer = step.type === "question" && diagSelections[index] !== null
         ? step.options[diagSelections[index]!]?.label : undefined;
       if (step.type === "text" && step.traceSummary) return step.traceSummary;
-      return `${step.title}${answer ? ` — Réponse : ${answer}` : ""}${step.type === "text" ? ` — ${step.body}` : ""}`;
+      const description = step.type === "text" && step.freeTextPrompt ? diagDescriptions[id]?.trim() : "";
+      return `${step.title}${answer ? ` — Réponse : ${answer}` : ""}${step.type === "text" ? ` — ${step.body}` : ""}${description ? `\nDescription du problème : ${description}` : ""}`;
     }).filter(Boolean).join("\n");
     return `${base}\n\nAppareil: ${selectedProduct?.name ?? "-"}\nNuméro de série: ${serialNumber || "-"}\nParcours diagnostic :\n${trace || "Aucun contrôle enregistré."}`;
   };
@@ -739,9 +744,14 @@ function InternalSavPage({
                     !diagStack.slice(0, -1).some(id => IC22_OPENING_NODES.has(id)) &&
                     <a className="underline" href={IC22_OPENING_VIDEO_URL} target="_blank" rel="noreferrer">
                       Voir la vidéo d’ouverture IC22 / KM22 / VL220</a>}
-                  {IC22_BASIN_ANNOTATED_IMAGE_URL && IC22_BASIN_IMAGE_NODE_IDS.has(currentDiagNode.id) &&
-                    <img src={IC22_BASIN_ANNOTATED_IMAGE_URL} alt="Éléments du bac identifiés par OberA"
-                      className="max-w-full object-contain" />}
+                  <IC22DiagnosticImage nodeId={currentDiagNode.id} />
+                  {currentDiagNode.freeTextPrompt && <label className="block text-sm">
+                    {currentDiagNode.freeTextPrompt}
+                    <textarea className="block w-full p-2 border rounded min-h-24" maxLength={2000}
+                      value={diagDescriptions[currentDiagNode.id] ?? ""}
+                      onChange={event => setDiagDescriptions(value => ({ ...value,
+                        [currentDiagNode.id]: event.target.value }))} />
+                  </label>}
                   {IC22_PANEL_INFO_NODES.has(currentDiagNode.id) &&
                     <details className="text-sm border rounded p-2"><summary aria-label="Pourquoi remplacer le panneau ?">
                       ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}

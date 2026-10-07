@@ -91,6 +91,7 @@ export type DiagnosticTextNode = {
   next?: string;
   requiresActionConfirmation?: boolean;
   traceSummary?: string;
+  freeTextPrompt?: string;
 };
 
 export type DiagnosticNode = DiagnosticQuestionNode | DiagnosticTextNode;

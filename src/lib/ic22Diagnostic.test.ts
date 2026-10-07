@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DIAGNOSTIC_NODES, getDiagnosticStartNode, PRODUCTS } from "./assistantData";
 import { resolveDiagnosticPath, type DiagnosticPath } from "./diagnosticContext";
 import { IC22_DIAGNOSTIC_NODES, IC22_ERROR_MEANINGS, IC22_START,
-  IC22_OPENING_NODES, IC22_PANEL_INFO, IC22_PANEL_INFO_NODES } from "./ic22Diagnostic";
+  IC22_OPENING_NODES, IC22_PANEL_INFO, IC22_PANEL_INFO_NODES,
+  IC22_NOISE_TYPES } from "./ic22Diagnostic";
 
 const nodes = IC22_DIAGNOSTIC_NODES;
 function path(...choices: number[]) {
@@ -118,7 +119,7 @@ describe("IC22 / KM22 / VL220 shared L1 graph", () => {
     expect(JSON.stringify(nodes["ic22-leak-origin"])).not.toMatch(/filtre saturé/i);
   });
 
-  it("handles unknown supply, dangerous wiring, leak panel and direct SAV symptoms", () => {
+  it("handles unknown supply, dangerous wiring and leak panel", () => {
     expect(path(2, 0, 0)).toContain("ic22-no-air-sav");
     expect(path(2, 0, 1)).toContain("ic22-power-check");
     expect(path(2, 0, 2)).toContain("ic22-power-check");
@@ -128,9 +129,73 @@ describe("IC22 / KM22 / VL220 shared L1 graph", () => {
     expect(path(3, 0, 1)).toContain("ic22-leak-panel-sav");
     expect(JSON.stringify(nodes["ic22-leak-panel-positive"])).toMatch(/pas une réparation définitive/i);
     expect(IC22_OPENING_NODES.has("ic22-leak-panel-access")).toBe(true);
-    expect(path(4)).toContain("ic22-oscillation-sav");
-    expect(path(5)).toContain("ic22-noise-sav");
     expect(path(8)).toContain("ic22-other-sav");
+  });
+
+  it("checks the swing linkage, reseats only off power and retests before resolving", () => {
+    expect(path(4, 0)).toContain("ic22-swing-visual-safety");
+    expect(path(4, 1, 0)).toEqual(["ic22-start", "ic22-swing-access", "ic22-swing-link",
+      "ic22-swing-reseat", "ic22-swing-retest", "ic22-swing-restored"]);
+    expect(path(4, 1, 1)).toContain("ic22-swing-visual-safety");
+    expect(path(4, 2)).toEqual(["ic22-start", "ic22-swing-access", "ic22-swing-link", "ic22-swing-broken-sav"]);
+    expect(nodes["ic22-swing-reseat"]).toMatchObject({ requiresActionConfirmation: true });
+    expect(JSON.stringify(nodes["ic22-swing-reseat"]))
+      .toMatch(/arrêté et débranché.*Ne démontez pas le moteur.*Refermez ensuite/);
+    const linkage = nodes["ic22-swing-link"];
+    if (linkage.type !== "question") throw new Error("Expected swing linkage choices");
+    expect(linkage.options.map(option => option.label)).toEqual([
+      "La tige est correctement emboîtée", "La tige est déboîtée mais peut être remise en place",
+      "La liaison est cassée ou endommagée"
+    ]);
+  });
+
+  it("forwards both visual swing results with the exact observations, never a certain motor failure", () => {
+    const traces = [
+      "Liaison mécanique correctement emboîtée. Le moteur swing tourne visuellement mais le swing ne fonctionne pas correctement.",
+      "Liaison mécanique correctement emboîtée. Aucun mouvement visible du moteur swing."
+    ];
+    for (const observation of [0, 1]) {
+      const route = path(4, 0, observation);
+      expect(nodes[route[route.length - 1]]).toMatchObject({ target: "sav", traceSummary: traces[observation] });
+      const snapshot: DiagnosticPath = { version: 1, productId: "ic22", result: "unresolved", steps: [
+        { nodeId: "ic22-start", optionIndex: 4 },
+        { nodeId: "ic22-swing-access", continued: true, confirmed: true },
+        { nodeId: "ic22-swing-link", optionIndex: 0 },
+        { nodeId: "ic22-swing-visual-safety", continued: true },
+        { nodeId: "ic22-swing-observation", optionIndex: observation },
+        { nodeId: route[route.length - 1] }
+      ] };
+      expect(resolveDiagnosticPath(snapshot, "IC 22")?.steps[5].actionProposed).toContain(traces[observation]);
+    }
+    const visual = nodes["ic22-swing-visual-safety"];
+    expect(visual).toMatchObject({ requiresActionConfirmation: false });
+    if (visual.type === "text") expect(visual.body)
+      .toMatch(/uniquement visuel[\s\S]*mains[\s\S]*câbles[\s\S]*outil[\s\S]*cheveux[\s\S]*arrêté et débranché/);
+    const swing = Object.values(nodes).filter(node => node.id.startsWith("ic22-swing-"));
+    expect(JSON.stringify(swing)).not.toMatch(/Je ne peux pas le déterminer|moteur swing HS|multimètre/i);
+  });
+
+  it("categorizes every noise before SAV and retains the selected category", () => {
+    const question = nodes["ic22-noise-type"];
+    if (question.type !== "question") throw new Error("Expected noise question");
+    expect(question.options.map(option => option.label)).toEqual([
+      "Frottement", "Claquement / vibration", "Bruit provenant du ventilateur",
+      "Bruit provenant de la pompe", "Autre bruit"
+    ]);
+    for (const [index, label] of IC22_NOISE_TYPES.entries()) {
+      expect(path(5, index)).toEqual(["ic22-start", "ic22-noise-type", "ic22-noise-sav"]);
+      const snapshot: DiagnosticPath = { version: 1, productId: "ic22", result: "unresolved", steps: [
+        { nodeId: "ic22-start", optionIndex: 5 }, { nodeId: "ic22-noise-type", optionIndex: index },
+        { nodeId: "ic22-noise-sav" }
+      ] };
+      expect(resolveDiagnosticPath(snapshot, "IC 22")?.steps[1].answer).toBe(label);
+    }
+  });
+
+  it("provides free text for other problems without an automatic subtree", () => {
+    expect(nodes["ic22-other-sav"]).toMatchObject({ target: "sav", requiresActionConfirmation: false,
+      freeTextPrompt: "Décrivez le problème rencontré avec votre appareil." });
+    expect(path(8)).toEqual(["ic22-start", "ic22-other-sav"]);
   });
 
   it("maps every validated error code to its meaning and SAV without invented repair", () => {

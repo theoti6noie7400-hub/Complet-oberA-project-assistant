@@ -1,4 +1,4 @@
-import type { DiagnosticNode } from "./assistantData.ts";
+import type { DiagnosticNode, DiagnosticTextNode } from "./assistantData.ts";
 
 // One validated L1 graph for the IC 22 / KM 22 / VL 220 chassis.
 // Keep model aliases in the catalogue layer; they must not fork this graph.
@@ -8,14 +8,14 @@ const q = (id: string, title: string, options: [string, string][]): DiagnosticNo
 });
 const t = (id: string, title: string, body: string, next?: string,
   target?: "sav" | "sav-pump" | "resolved", requiresActionConfirmation = false,
-  traceSummary?: string): DiagnosticNode => ({
+  traceSummary?: string): DiagnosticTextNode => ({
   id, type: "text", title, body, maxSteps: 30, requiresActionConfirmation,
   ...(traceSummary ? { traceSummary } : {}),
   ...(next ? { next } : { target: target ?? "sav" })
 });
 const action = (id: string, title: string, body: string, next: string): DiagnosticNode =>
   t(id, title, body, next, undefined, true);
-const sav = (id: string, title: string, body: string): DiagnosticNode => t(id, title, body);
+const sav = (id: string, title: string, body: string): DiagnosticTextNode => t(id, title, body);
 const yesNo = (yes: string, no: string): [string, string][] => [["Oui", yes], ["Non", no]];
 
 export const IC22_START = "ic22-start";
@@ -23,14 +23,20 @@ export const IC22_CHASSIS_IDS = new Set(["ic22", "vl220"]);
 export const IC22_OPENING_VIDEO_URL =
   "https://drive.google.com/file/d/1KxEqO7RjJyehCXrjPndr9MVHgGGw_fA2/view?usp=drive_link";
 export const IC22_OPENING_NODES = new Set([
-  "ic22-float-access", "ic22-circuit-access", "ic22-leak-panel-access", "ic22-leak-circuit-access"
+  "ic22-float-access", "ic22-circuit-access", "ic22-leak-panel-access", "ic22-leak-circuit-access",
+  "ic22-swing-access"
 ]);
-// OberA will supply an annotated basin photo. No asset is associated until it
-// has been reviewed; this one hook covers the float, pump, hoses and fittings.
+// Reuse the manually uploaded OberA image unchanged in both interfaces.
 export const IC22_BASIN_IMAGE_NODE_IDS = new Set([
-  "ic22-float-access", "ic22-circuit-access", "ic22-pump-visual-safety", "ic22-leak-circuit-access"
+  "ic22-float-access", "ic22-circuit-access", "ic22-pump-visual-safety", "ic22-leak-circuit-access",
+  "ic22-swing-access", "ic22-swing-reseat", "ic22-swing-visual-safety"
 ]);
-export const IC22_BASIN_ANNOTATED_IMAGE_URL: string | null = null;
+export const IC22_BASIN_ANNOTATED_IMAGE_URL = "/assets/ic22-interieur-annote.png";
+
+export const IC22_NOISE_TYPES = [
+  "Frottement", "Claquement / vibration", "Bruit provenant du ventilateur",
+  "Bruit provenant de la pompe", "Autre bruit"
+];
 
 export const IC22_ERROR_MEANINGS: Record<string, string> = {
   E01: "Protection contre une sous-tension", E02: "Protection contre une surtension",
@@ -48,8 +54,8 @@ export const IC22_DIAGNOSTIC_NODES: Record<string, DiagnosticNode> = {
     ["L’appareil ne s’allume pas", "ic22-power-check"],
     ["L’appareil ne souffle pas ou souffle faiblement", "ic22-airflow"],
     ["L’appareil fuit", "ic22-leak-origin"],
-    ["L’oscillation ne fonctionne pas", "ic22-oscillation-sav"],
-    ["L’appareil fait un bruit anormal", "ic22-noise-sav"],
+    ["L’oscillation ne fonctionne pas", "ic22-swing-access"],
+    ["L’appareil fait un bruit anormal", "ic22-noise-type"],
     ["Un code d’erreur s’affiche", "ic22-error-code"],
     ["L’appareil dégage une mauvaise odeur", "ic22-odor-new"],
     ["Autre problème", "ic22-other-sav"]
@@ -82,7 +88,7 @@ export const IC22_DIAGNOSTIC_NODES: Record<string, DiagnosticNode> = {
   "ic22-cooling-restored": t("ic22-cooling-restored", "Refroidissement rétabli",
     "Le froid est revenu après le contrôle effectué.", undefined, "resolved"),
   "ic22-float-access": action("ic22-float-access", "Contrôler visuellement le flotteur de niveau",
-    "Arrêtez et débranchez l’appareil. Ouvrez-le avec la vidéo validée. Contrôlez visuellement si le flotteur/capteur de niveau est bloqué, mal positionné ou manifestement inversé. Ne touchez à aucun élément électrique. La photo annotée du bac sera ajoutée ultérieurement : si l’élément n’est pas identifiable avec certitude, contactez le SAV.",
+    "Arrêtez et débranchez l’appareil. Ouvrez-le avec la vidéo validée. Contrôlez visuellement si le flotteur/capteur de niveau est bloqué, mal positionné ou manifestement inversé. Ne touchez à aucun élément électrique. Si l’élément n’est pas identifiable avec certitude, contactez le SAV.",
     "ic22-float-state"),
   "ic22-float-state": q("ic22-float-state", "Une anomalie simple et évidente du flotteur est-elle visible ?", [
     ["Oui : bloqué, mal positionné ou inversé", "ic22-float-correct"],
@@ -229,10 +235,43 @@ export const IC22_DIAGNOSTIC_NODES: Record<string, DiagnosticNode> = {
   "ic22-leak-other-sav": sav("ic22-leak-other-sav", "Contacter le SAV",
     "La provenance ou la réparation de la fuite nécessite une vérification SAV. Aucune cause précise n’est affirmée."),
 
-  "ic22-oscillation-sav": sav("ic22-oscillation-sav", "Contacter le SAV",
-    "La commande d’oscillation ne produit pas le mouvement attendu. Ne démontez pas le mécanisme."),
+  "ic22-swing-access": action("ic22-swing-access", "Vérifier la liaison du swing",
+    "Arrêtez et débranchez l’appareil avant de l’ouvrir.\n\nRepérez la barre horizontale qui relie les pales du swing et la tige du moteur swing.\n\nLa tige du moteur doit être correctement emboîtée dans la barre.",
+    "ic22-swing-link"),
+  "ic22-swing-link": q("ic22-swing-link", "Que constatez-vous ?", [
+    ["La tige est correctement emboîtée", "ic22-swing-visual-safety"],
+    ["La tige est déboîtée mais peut être remise en place", "ic22-swing-reseat"],
+    ["La liaison est cassée ou endommagée", "ic22-swing-broken-sav"]
+  ]),
+  "ic22-swing-reseat": action("ic22-swing-reseat", "Remettre la liaison en place",
+    "Appareil arrêté et débranché, remettez la tige du moteur swing dans son logement sur la barre horizontale.\n\nNe démontez pas le moteur et ne forcez pas sur le mécanisme.\n\nRefermez ensuite l’appareil et remettez-le en service.",
+    "ic22-swing-retest"),
+  "ic22-swing-retest": q("ic22-swing-retest", "Le swing fonctionne-t-il à nouveau ?",
+    yesNo("ic22-swing-restored", "ic22-swing-visual-safety")),
+  "ic22-swing-restored": t("ic22-swing-restored", "Swing rétabli",
+    "Le swing fonctionne à nouveau après la remise en place de la liaison mécanique.", undefined, "resolved"),
+  "ic22-swing-broken-sav": t("ic22-swing-broken-sav", "Contacter le SAV",
+    "Liaison mécanique du swing cassée ou endommagée.", undefined, "sav", false,
+    "Liaison mécanique du swing cassée ou endommagée."),
+  "ic22-swing-visual-safety": t("ic22-swing-visual-safety", "Contrôle visuel du moteur swing sous tension",
+    "Pour vérifier le fonctionnement du moteur swing, l’appareil doit être en fonctionnement.\n\nCe contrôle est uniquement visuel.\n\nNe mettez pas les mains dans l’appareil.\nNe touchez ni au moteur swing, ni à la barre, ni aux pales, ni aux câbles.\nN’utilisez aucun outil ou objet à l’intérieur.\nGardez cheveux, vêtements amples et accessoires éloignés des pièces en mouvement.\n\nObservez uniquement si le moteur swing tourne.\n\nToute manipulation doit être réalisée appareil arrêté et débranché.",
+    "ic22-swing-observation"),
+  "ic22-swing-observation": q("ic22-swing-observation", "Que constatez-vous ?", [
+    ["Le moteur swing tourne", "ic22-swing-turning-sav"],
+    ["Le moteur swing ne tourne pas", "ic22-swing-stopped-sav"]
+  ]),
+  "ic22-swing-turning-sav": t("ic22-swing-turning-sav", "Contacter le SAV",
+    "Liaison mécanique correctement emboîtée. Le moteur swing tourne visuellement mais le swing ne fonctionne pas correctement.",
+    undefined, "sav", false,
+    "Liaison mécanique correctement emboîtée. Le moteur swing tourne visuellement mais le swing ne fonctionne pas correctement."),
+  "ic22-swing-stopped-sav": t("ic22-swing-stopped-sav", "Contacter le SAV",
+    "Liaison mécanique correctement emboîtée. Aucun mouvement visible du moteur swing.",
+    undefined, "sav", false,
+    "Liaison mécanique correctement emboîtée. Aucun mouvement visible du moteur swing."),
+  "ic22-noise-type": q("ic22-noise-type", "Quel type de bruit constatez-vous ?",
+    IC22_NOISE_TYPES.map(label => [label, "ic22-noise-sav"])),
   "ic22-noise-sav": sav("ic22-noise-sav", "Contacter le SAV",
-    "Décrivez le bruit anormal dans le formulaire. Aucune cause mécanique n’est déduite automatiquement."),
+    "Le type de bruit sélectionné sera repris dans le formulaire SAV. Aucune cause mécanique n’est déduite automatiquement."),
   "ic22-error-code": q("ic22-error-code", "Quel code d’erreur s’affiche ?", [
     ...Object.keys(IC22_ERROR_MEANINGS).map(code => [code, `ic22-code-${code.toLowerCase()}`] as [string, string]),
     ["Autre code / illisible", "ic22-code-other"]
@@ -280,15 +319,18 @@ export const IC22_DIAGNOSTIC_NODES: Record<string, DiagnosticNode> = {
   "ic22-odor-ambient-result": q("ic22-odor-ambient-result", "L’odeur reste-t-elle anormale ou gênante ?",
     yesNo("ic22-odor-general-sav", "ic22-odor-restored")),
   "ic22-odor-general-sav": sav("ic22-odor-general-sav", "Contacter le SAV", "L’odeur persiste après les contrôles de premier niveau."),
-  "ic22-other-sav": sav("ic22-other-sav", "Décrire le problème au SAV",
-    "Décrivez librement le symptôme dans le formulaire. Aucun diagnostic technique n’est déduit d’un cas particulier.")
+  "ic22-other-sav": {
+    ...sav("ic22-other-sav", "Autre problème",
+      "Aucun diagnostic technique n’est déduit d’un cas particulier. Transmettez votre description au SAV."),
+    freeTextPrompt: "Décrivez le problème rencontré avec votre appareil."
+  }
 };
 
 // The positive panel-flip test closes the initial diagnostic but schedules a
 // replacement; it is not a permanent repair. Other positive nodes follow a check.
 export const IC22_CONFIRMED_TERMINALS = new Set([
   "ic22-cooling-restored", "ic22-filter-restored", "ic22-power-restored",
-  "ic22-leak-panel-positive", "ic22-leak-restored", "ic22-odor-restored"
+  "ic22-leak-panel-positive", "ic22-leak-restored", "ic22-odor-restored", "ic22-swing-restored"
 ]);
 
 export const IC22_PANEL_INFO =

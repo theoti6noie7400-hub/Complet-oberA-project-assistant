@@ -19,10 +19,10 @@ import {
   commercialProductMatchesQuery,
   resolveCommercialNext
 } from "../lib/commercialDiagnosticOverrides";
-import { IC22_BASIN_ANNOTATED_IMAGE_URL, IC22_BASIN_IMAGE_NODE_IDS,
-  IC22_PANEL_INFO, IC22_PANEL_INFO_NODES } from "../lib/ic22Diagnostic";
+import IC22DiagnosticImage from "../components/IC22DiagnosticImage";
+import { IC22_PANEL_INFO, IC22_PANEL_INFO_NODES } from "../lib/ic22Diagnostic";
 
-type Step = { nodeId: string; optionIndex?: number; confirmed?: boolean; continued?: boolean };
+type Step = { nodeId: string; optionIndex?: number; confirmed?: boolean; continued?: boolean; description?: string };
 
 type ContactFormProps = {
   product?: ProductCatalogItem;
@@ -51,7 +51,8 @@ function ContactSavForm({ product, history = [], fallbackName, onClose, pumpRequ
         return answer ? `${node.title} — Réponse : ${answer}` : node.title;
       }
       if (node.traceSummary) return node.traceSummary;
-      return `${node.title} — ${node.body}${step.confirmed ? " — contrôle effectué" : ""}`;
+      const description = node.freeTextPrompt ? step.description?.trim() : "";
+      return `${node.title} — ${node.body}${step.confirmed ? " — contrôle effectué" : ""}${description ? `\nDescription du problème : ${description}` : ""}`;
     }).filter(Boolean).join("\n");
   }, [history, product]);
 
@@ -187,8 +188,14 @@ function CatalogDiagnostic({ product, onBack }: { product: ProductCatalogItem; o
         <p className="whitespace-pre-line">{node.body}</p>
         {showVideo && <a className="obera-btn-outline inline-flex" href={IC22_KM22_DISMANTLING_VIDEO_URL}
           target="_blank" rel="noreferrer">Voir la vidéo d’ouverture IC22 / KM22 / VL220</a>}
-        {IC22_BASIN_ANNOTATED_IMAGE_URL && IC22_BASIN_IMAGE_NODE_IDS.has(node.id) &&
-          <img src={IC22_BASIN_ANNOTATED_IMAGE_URL} alt="Éléments du bac identifiés par OberA" className="max-w-full object-contain" />}
+        <IC22DiagnosticImage nodeId={node.id} />
+        {node.freeTextPrompt && <label className="block">
+          {node.freeTextPrompt}
+          <textarea className="block w-full p-2 border rounded min-h-24" maxLength={2000}
+            value={current.description ?? ""}
+            onChange={event => setHistory(value => [...value.slice(0, -1),
+              { ...value[value.length - 1], description: event.target.value }])} />
+        </label>}
         {product.id === "ic22" && IC22_PANEL_INFO_NODES.has(node.id) &&
           <details className="text-sm rounded border p-2"><summary className="cursor-pointer" aria-label="Pourquoi remplacer le panneau ?">
             ⓘ Pourquoi remplacer le panneau ?</summary><p>{IC22_PANEL_INFO}</p></details>}
